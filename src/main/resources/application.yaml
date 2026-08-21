@@ -1,3 +1,22 @@
 spring:
   application:
     name: dozy-wms-api
+
+  r2dbc:
+    url: r2dbc:mysql://localhost:3306/dozy_wms?useSSL=false&serverTimezone=Asia/Seoul
+    username: root
+    password: password
+    pool:
+      initial-size: 5
+      max-size: 20
+      max-idle-time: 30m
+
+  datasource:
+    url: jdbc:mysql://localhost:3306/dozy_wms?useSSL=false&serverTimezone=Asia/Seoul
+    username: root
+    password: password
+    driver-class-name: com.mysql.cj.jdbc.Driver
+
+  jackson:
+    serialization:
+      write-dates-as-timestamps: false
