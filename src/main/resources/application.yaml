@@ -3,25 +3,23 @@ spring:
     name: dozy-wms-api
 
   r2dbc:
-    url: r2dbc:mysql://localhost:3306/dozy_wms?useSSL=false&serverTimezone=Asia/Seoul
-    username: root
-    password: password
+    url: r2dbc:mysql://${DB_HOST:localhost}:${DB_PORT:3306}/${DB_NAME:dozy_wms}?useSSL=false&serverTimezone=Asia/Seoul
+    username: ${DB_USERNAME:root}
+    password: ${DB_PASSWORD}
     pool:
       initial-size: 5
       max-size: 20
       max-idle-time: 30m
 
-  datasource:
-    url: jdbc:mysql://localhost:3306/dozy_wms?useSSL=false&serverTimezone=Asia/Seoul
-    username: root
-    password: password
-    driver-class-name: com.mysql.cj.jdbc.Driver
-
   flyway:
     enabled: true
+    url: jdbc:mysql://${DB_HOST:localhost}:${DB_PORT:3306}/${DB_NAME:dozy_wms}?useSSL=false&serverTimezone=Asia/Seoul
+    user: ${DB_USERNAME:root}
+    password: ${DB_PASSWORD}
     locations: classpath:db/migration
     baseline-on-migrate: true
 
   jackson:
-    serialization:
-      write-dates-as-timestamps: false
+    datatype:
+      datetime:
+        write-dates-as-timestamps: false
