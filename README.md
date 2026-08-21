@@ -54,7 +54,7 @@
 ```
 src
 ├── main
-│   ├── java/com/dozycoffee/inventory
+│   ├── java/com/dozycoffee/wms
 │   │   ├── global                            // 전역 설정 및 공통 모듈
 │   │   │   ├── common                        // BaseEntity
 │   │   │   ├── config                        // SecurityConfig
@@ -97,7 +97,7 @@ src
 │       └── static/docs                       // 생성된 OpenAPI 스펙 (Swagger UI 서빙)
 │
 └── test
-    └── java/com/dozycoffee/inventory
+    └── java/com/dozycoffee/wms
         ├── global
         │    └── restdocs                     // RestDocsSupport (Controller 테스트 베이스 클래스)
         ├── warehouse
@@ -131,7 +131,7 @@ src
 `src/main/resources/application.properties` 또는 `application.yml`에 DB 연결 정보를 설정합니다.
 
 ```properties
-spring.r2dbc.url=r2dbc:postgresql://localhost:5432/dozy_inventory
+spring.r2dbc.url=r2dbc:postgresql://localhost:5432/dozy_wms
 spring.r2dbc.username=your_username
 spring.r2dbc.password=your_password
 ```
