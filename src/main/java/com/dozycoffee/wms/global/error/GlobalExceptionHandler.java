@@ -1,6 +1,7 @@
 package com.dozycoffee.wms.global.error;
 
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
@@ -17,7 +18,8 @@ public class GlobalExceptionHandler {
     public ResponseEntity<ErrorResponseDto> handleBusinessException(BusinessException e) {
         log.warn("Business exception: code={}, message={}", e.getErrorCode().getCode(), e.getMessage());
         ErrorCode errorCode = e.getErrorCode();
-        return ResponseEntity.status(errorCode.getHttpStatus()).body(ErrorResponseDto.of(errorCode));
+        HttpStatus status = ErrorTypeHttpStatusMapper.resolve(errorCode.getErrorType());
+        return ResponseEntity.status(status).body(ErrorResponseDto.of(errorCode));
     }
 
     @ExceptionHandler(WebExchangeBindException.class)
