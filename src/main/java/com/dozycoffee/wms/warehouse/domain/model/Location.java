@@ -1,7 +1,6 @@
 package com.dozycoffee.wms.warehouse.domain.model;
 
 import com.dozycoffee.wms.global.common.BaseEntity;
-import com.dozycoffee.wms.global.error.InvalidDomainValueException;
 import com.dozycoffee.wms.warehouse.domain.enumeration.AvailabilityStatus;
 import com.dozycoffee.wms.warehouse.domain.exception.InactiveLocationException;
 import com.dozycoffee.wms.warehouse.domain.exception.InsufficientLocationCapacityException;
@@ -13,6 +12,8 @@ import com.dozycoffee.wms.warehouse.domain.valueobject.LocationCode;
 import lombok.AccessLevel;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
+
+import static com.dozycoffee.wms.global.error.DomainValidator.requireNonNull;
 
 @Getter
 @AllArgsConstructor(access = AccessLevel.PRIVATE)
@@ -33,8 +34,8 @@ public class Location extends BaseEntity {
             int maxCapacity,
             AvailabilityStatus locationStatus
     ) {
-        validateZoneId(zoneId);
-        validateLocationStatus(locationStatus);
+        requireNonNull(zoneId, LocationErrorCode.INVALID_ZONE_ID);
+        requireNonNull(locationStatus, LocationErrorCode.INVALID_LOCATION_STATUS);
         return new Location(
                 null,
                 zoneId,
@@ -93,18 +94,6 @@ public class Location extends BaseEntity {
     private void validateSufficientUsedCapacity(int amount) {
         if (usedCapacity - amount < 0) {
             throw new InsufficientLocationCapacityException();
-        }
-    }
-
-    private static void validateZoneId(Long zoneId) {
-        if (zoneId == null) {
-            throw new InvalidDomainValueException(LocationErrorCode.INVALID_ZONE_ID);
-        }
-    }
-
-    private static void validateLocationStatus(AvailabilityStatus locationStatus) {
-        if (locationStatus == null) {
-            throw new InvalidDomainValueException(LocationErrorCode.INVALID_LOCATION_STATUS);
         }
     }
 }

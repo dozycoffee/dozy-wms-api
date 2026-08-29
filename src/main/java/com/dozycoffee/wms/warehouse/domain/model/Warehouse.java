@@ -12,6 +12,8 @@ import lombok.Getter;
 
 import java.math.BigDecimal;
 
+import static com.dozycoffee.wms.global.error.DomainValidator.requireNonNull;
+
 @Getter
 @AllArgsConstructor(access = AccessLevel.PRIVATE)
 public class Warehouse extends SoftDeletableEntity {
@@ -33,7 +35,7 @@ public class Warehouse extends SoftDeletableEntity {
             AvailabilityStatus warehouseStatus
     ) {
         validateWarehouseName(warehouseName);
-        validateWarehouseStatus(warehouseStatus);
+        requireNonNull(warehouseStatus, WarehouseErrorCode.INVALID_WAREHOUSE_STATUS);
         return new Warehouse(
                 null,
                 warehouseName,
@@ -62,12 +64,6 @@ public class Warehouse extends SoftDeletableEntity {
     private static void validateWarehouseName(String warehouseName) {
         if (warehouseName == null || warehouseName.isBlank()) {
             throw new InvalidDomainValueException(WarehouseErrorCode.INVALID_WAREHOUSE_NAME);
-        }
-    }
-
-    private static void validateWarehouseStatus(AvailabilityStatus warehouseStatus) {
-        if (warehouseStatus == null) {
-            throw new InvalidDomainValueException(WarehouseErrorCode.INVALID_WAREHOUSE_STATUS);
         }
     }
 

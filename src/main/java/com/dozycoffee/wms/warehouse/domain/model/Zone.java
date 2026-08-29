@@ -1,7 +1,6 @@
 package com.dozycoffee.wms.warehouse.domain.model;
 
 import com.dozycoffee.wms.global.common.BaseEntity;
-import com.dozycoffee.wms.global.error.InvalidDomainValueException;
 import com.dozycoffee.wms.warehouse.domain.enumeration.AvailabilityStatus;
 import com.dozycoffee.wms.warehouse.domain.enumeration.TemperatureType;
 import com.dozycoffee.wms.warehouse.domain.enumeration.ZoneCode;
@@ -10,6 +9,8 @@ import com.dozycoffee.wms.warehouse.domain.valueobject.Capacity;
 import lombok.AccessLevel;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
+
+import static com.dozycoffee.wms.global.error.DomainValidator.requireNonNull;
 
 @Getter
 @AllArgsConstructor(access = AccessLevel.PRIVATE)
@@ -25,9 +26,9 @@ public class Zone extends BaseEntity {
             ZoneCode zoneCode,
             AvailabilityStatus zoneStatus
     ) {
-        validateWarehouseId(warehouseId);
-        validateZoneCode(zoneCode);
-        validateZoneStatus(zoneStatus);
+        requireNonNull(warehouseId, ZoneErrorCode.INVALID_WAREHOUSE_ID);
+        requireNonNull(zoneCode, ZoneErrorCode.INVALID_ZONE_CODE);
+        requireNonNull(zoneStatus, ZoneErrorCode.INVALID_ZONE_STATUS);
         return new Zone(null, warehouseId, zoneCode, zoneStatus);
     }
 
@@ -50,23 +51,5 @@ public class Zone extends BaseEntity {
 
     public Capacity getCapacity() {
         return zoneCode.getCapacity();
-    }
-
-    private static void validateWarehouseId(Long warehouseId) {
-        if (warehouseId == null) {
-            throw new InvalidDomainValueException(ZoneErrorCode.INVALID_WAREHOUSE_ID);
-        }
-    }
-
-    private static void validateZoneCode(ZoneCode zoneCode) {
-        if (zoneCode == null) {
-            throw new InvalidDomainValueException(ZoneErrorCode.INVALID_ZONE_CODE);
-        }
-    }
-
-    private static void validateZoneStatus(AvailabilityStatus zoneStatus) {
-        if (zoneStatus == null) {
-            throw new InvalidDomainValueException(ZoneErrorCode.INVALID_ZONE_STATUS);
-        }
     }
 }

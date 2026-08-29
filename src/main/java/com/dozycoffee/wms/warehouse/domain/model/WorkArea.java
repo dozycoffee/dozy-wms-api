@@ -1,7 +1,6 @@
 package com.dozycoffee.wms.warehouse.domain.model;
 
 import com.dozycoffee.wms.global.common.BaseEntity;
-import com.dozycoffee.wms.global.error.InvalidDomainValueException;
 import com.dozycoffee.wms.warehouse.domain.enumeration.AreaCode;
 import com.dozycoffee.wms.warehouse.domain.enumeration.AvailabilityStatus;
 import com.dozycoffee.wms.warehouse.domain.exception.InactiveWorkAreaException;
@@ -13,6 +12,8 @@ import com.dozycoffee.wms.warehouse.domain.valueobject.Capacity;
 import lombok.AccessLevel;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
+
+import static com.dozycoffee.wms.global.error.DomainValidator.requireNonNull;
 
 @Getter
 @AllArgsConstructor(access = AccessLevel.PRIVATE)
@@ -31,9 +32,9 @@ public class WorkArea extends BaseEntity {
             AreaCode areaCode,
             AvailabilityStatus workAreaStatus
     ) {
-        validateWarehouseId(warehouseId);
-        validateAreaCode(areaCode);
-        validateWorkAreaStatus(workAreaStatus);
+        requireNonNull(warehouseId, WorkAreaErrorCode.INVALID_WAREHOUSE_ID);
+        requireNonNull(areaCode, WorkAreaErrorCode.INVALID_AREA_CODE);
+        requireNonNull(workAreaStatus, WorkAreaErrorCode.INVALID_WORK_AREA_STATUS);
         return new WorkArea(null, warehouseId, areaCode, INITIAL_USED_CAPACITY, workAreaStatus);
     }
 
@@ -92,24 +93,6 @@ public class WorkArea extends BaseEntity {
     private void validateSufficientUsedCapacity(int amount) {
         if (usedCapacity - amount < 0) {
             throw new InsufficientWorkAreaCapacityException();
-        }
-    }
-
-    private static void validateWarehouseId(Long warehouseId) {
-        if (warehouseId == null) {
-            throw new InvalidDomainValueException(WorkAreaErrorCode.INVALID_WAREHOUSE_ID);
-        }
-    }
-
-    private static void validateAreaCode(AreaCode areaCode) {
-        if (areaCode == null) {
-            throw new InvalidDomainValueException(WorkAreaErrorCode.INVALID_AREA_CODE);
-        }
-    }
-
-    private static void validateWorkAreaStatus(AvailabilityStatus workAreaStatus) {
-        if (workAreaStatus == null) {
-            throw new InvalidDomainValueException(WorkAreaErrorCode.INVALID_WORK_AREA_STATUS);
         }
     }
 }
