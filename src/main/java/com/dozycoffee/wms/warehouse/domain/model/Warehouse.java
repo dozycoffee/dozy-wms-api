@@ -18,9 +18,6 @@ import static com.dozycoffee.wms.global.error.DomainValidator.requireNonNull;
 @AllArgsConstructor(access = AccessLevel.PRIVATE)
 public class Warehouse extends SoftDeletableEntity {
 
-    // 창고의 최대 수용 가능 용량
-    private static final int MAX_CAPACITY = 1000;
-
     private final Long warehouseId;
     private final String warehouseName;
     private final Address address;
