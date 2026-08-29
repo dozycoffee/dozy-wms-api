@@ -2,7 +2,7 @@ package com.dozycoffee.wms.warehouse.domain;
 
 import com.dozycoffee.wms.global.error.InvalidDomainValueException;
 import com.dozycoffee.wms.warehouse.domain.enumeration.AreaCode;
-import com.dozycoffee.wms.warehouse.domain.enumeration.WorkAreaStatus;
+import com.dozycoffee.wms.warehouse.domain.enumeration.AvailabilityStatus;
 import com.dozycoffee.wms.warehouse.domain.exception.InactiveWorkAreaException;
 import com.dozycoffee.wms.warehouse.domain.exception.InsufficientWorkAreaCapacityException;
 import com.dozycoffee.wms.warehouse.domain.exception.InvalidWorkAreaAmountException;
@@ -31,7 +31,7 @@ public class WorkAreaTest {
 
             assertThat(workArea.getWarehouseId()).isEqualTo(1L);
             assertThat(workArea.getAreaCode()).isEqualTo(AreaCode.INBOUND);
-            assertThat(workArea.getWorkAreaStatus()).isEqualTo(WorkAreaStatus.ACTIVE);
+            assertThat(workArea.getWorkAreaStatus()).isEqualTo(AvailabilityStatus.AVAILABLE);
         }
 
         @Test
@@ -126,7 +126,7 @@ public class WorkAreaTest {
 
         @Test
         void 비활성화된_작업_구역은_점유할_수_없다() {
-            WorkArea workArea = workArea().workAreaStatus(WorkAreaStatus.INACTIVE).build();
+            WorkArea workArea = workArea().workAreaStatus(AvailabilityStatus.UNAVAILABLE).build();
 
             assertThatThrownBy(() -> workArea.occupy(10))
                     .isInstanceOf(InactiveWorkAreaException.class)
@@ -170,7 +170,7 @@ public class WorkAreaTest {
             WorkArea workArea = workArea()
                     .usedCapacity(10)
                     .workAreaId(1L)
-                    .workAreaStatus(WorkAreaStatus.INACTIVE)
+                    .workAreaStatus(AvailabilityStatus.UNAVAILABLE)
                     .build();
 
             assertThatThrownBy(() -> workArea.release(5))

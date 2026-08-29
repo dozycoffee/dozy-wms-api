@@ -2,7 +2,7 @@ package com.dozycoffee.wms.warehouse.domain.model;
 
 import com.dozycoffee.wms.global.common.BaseEntity;
 import com.dozycoffee.wms.global.error.InvalidDomainValueException;
-import com.dozycoffee.wms.warehouse.domain.enumeration.LocationStatus;
+import com.dozycoffee.wms.warehouse.domain.enumeration.AvailabilityStatus;
 import com.dozycoffee.wms.warehouse.domain.exception.InactiveLocationException;
 import com.dozycoffee.wms.warehouse.domain.exception.InsufficientLocationCapacityException;
 import com.dozycoffee.wms.warehouse.domain.exception.InvalidLocationAmountException;
@@ -25,13 +25,13 @@ public class Location extends BaseEntity {
     private final LocationCode locationCode;
     private final Capacity maxCapacity;
     private int usedCapacity;
-    private LocationStatus locationStatus;
+    private AvailabilityStatus locationStatus;
 
     public static Location create(
             Long zoneId,
             String locationCode,
             int maxCapacity,
-            LocationStatus locationStatus
+            AvailabilityStatus locationStatus
     ) {
         validateZoneId(zoneId);
         validateLocationStatus(locationStatus);
@@ -51,7 +51,7 @@ public class Location extends BaseEntity {
             LocationCode locationCode,
             Capacity maxCapacity,
             int usedCapacity,
-            LocationStatus locationStatus
+            AvailabilityStatus locationStatus
     ) {
         return new Location(locationId, zoneId, locationCode, maxCapacity, usedCapacity, locationStatus);
     }
@@ -79,7 +79,7 @@ public class Location extends BaseEntity {
     }
 
     private void validateActive() {
-        if (locationStatus != LocationStatus.ACTIVE) {
+        if (locationStatus != AvailabilityStatus.AVAILABLE) {
             throw new InactiveLocationException();
         }
     }
@@ -102,7 +102,7 @@ public class Location extends BaseEntity {
         }
     }
 
-    private static void validateLocationStatus(LocationStatus locationStatus) {
+    private static void validateLocationStatus(AvailabilityStatus locationStatus) {
         if (locationStatus == null) {
             throw new InvalidDomainValueException(LocationErrorCode.INVALID_LOCATION_STATUS);
         }

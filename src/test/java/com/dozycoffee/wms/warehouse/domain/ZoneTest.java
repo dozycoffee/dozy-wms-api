@@ -3,7 +3,7 @@ package com.dozycoffee.wms.warehouse.domain;
 import com.dozycoffee.wms.global.error.InvalidDomainValueException;
 import com.dozycoffee.wms.warehouse.domain.enumeration.TemperatureType;
 import com.dozycoffee.wms.warehouse.domain.enumeration.ZoneCode;
-import com.dozycoffee.wms.warehouse.domain.enumeration.ZoneStatus;
+import com.dozycoffee.wms.warehouse.domain.enumeration.AvailabilityStatus;
 import com.dozycoffee.wms.warehouse.domain.exception.ZoneErrorCode;
 import com.dozycoffee.wms.warehouse.domain.model.Zone;
 import com.dozycoffee.wms.warehouse.domain.valueobject.Capacity;
@@ -28,7 +28,7 @@ public class ZoneTest {
 
             assertThat(zone.getWarehouseId()).isEqualTo(1L);
             assertThat(zone.getZoneCode()).isEqualTo(ZoneCode.A);
-            assertThat(zone.getZoneStatus()).isEqualTo(ZoneStatus.ACTIVE);
+            assertThat(zone.getZoneStatus()).isEqualTo(AvailabilityStatus.AVAILABLE);
         }
 
         @Test

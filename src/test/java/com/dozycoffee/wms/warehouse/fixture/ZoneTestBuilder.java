@@ -1,7 +1,7 @@
 package com.dozycoffee.wms.warehouse.fixture;
 
+import com.dozycoffee.wms.warehouse.domain.enumeration.AvailabilityStatus;
 import com.dozycoffee.wms.warehouse.domain.enumeration.ZoneCode;
-import com.dozycoffee.wms.warehouse.domain.enumeration.ZoneStatus;
 import com.dozycoffee.wms.warehouse.domain.model.Zone;
 
 public class ZoneTestBuilder {
@@ -9,7 +9,7 @@ public class ZoneTestBuilder {
     private Long zoneId = null;
     private Long warehouseId = 1L;
     private ZoneCode zoneCode = ZoneCode.A;
-    private ZoneStatus zoneStatus = ZoneStatus.ACTIVE;
+    private AvailabilityStatus zoneStatus = AvailabilityStatus.AVAILABLE;
 
     public static ZoneTestBuilder zone() {
         return new ZoneTestBuilder();
@@ -30,7 +30,7 @@ public class ZoneTestBuilder {
         return this;
     }
 
-    public ZoneTestBuilder zoneStatus(ZoneStatus zoneStatus) {
+    public ZoneTestBuilder zoneStatus(AvailabilityStatus zoneStatus) {
         this.zoneStatus = zoneStatus;
         return this;
     }

@@ -1,7 +1,7 @@
 package com.dozycoffee.wms.warehouse.domain;
 
 import com.dozycoffee.wms.global.error.InvalidDomainValueException;
-import com.dozycoffee.wms.warehouse.domain.enumeration.LocationStatus;
+import com.dozycoffee.wms.warehouse.domain.enumeration.AvailabilityStatus;
 import com.dozycoffee.wms.warehouse.domain.exception.InactiveLocationException;
 import com.dozycoffee.wms.warehouse.domain.exception.InsufficientLocationCapacityException;
 import com.dozycoffee.wms.warehouse.domain.exception.InvalidLocationAmountException;
@@ -35,7 +35,7 @@ public class LocationTest {
             assertThat(location.getZoneId()).isEqualTo(1L);
             assertThat(location.getLocationCode()).isEqualTo(new LocationCode("A-01"));
             assertThat(location.getMaxCapacity()).isEqualTo(new Capacity(70));
-            assertThat(location.getLocationStatus()).isEqualTo(LocationStatus.ACTIVE);
+            assertThat(location.getLocationStatus()).isEqualTo(AvailabilityStatus.AVAILABLE);
         }
 
         @Test
@@ -129,7 +129,7 @@ public class LocationTest {
 
         @Test
         void 비활성화된_위치는_적재할_수_없다() {
-            Location location = location().locationStatus(LocationStatus.INACTIVE).build();
+            Location location = location().locationStatus(AvailabilityStatus.UNAVAILABLE).build();
 
             assertThatThrownBy(() -> location.occupy(10))
                     .isInstanceOf(InactiveLocationException.class)
@@ -173,7 +173,7 @@ public class LocationTest {
             Location location = location()
                     .usedCapacity(10)
                     .locationId(1L)
-                    .locationStatus(LocationStatus.INACTIVE)
+                    .locationStatus(AvailabilityStatus.UNAVAILABLE)
                     .build();
 
             assertThatThrownBy(() -> location.release(5))

@@ -1,6 +1,6 @@
 package com.dozycoffee.wms.warehouse.fixture;
 
-import com.dozycoffee.wms.warehouse.domain.enumeration.LocationStatus;
+import com.dozycoffee.wms.warehouse.domain.enumeration.AvailabilityStatus;
 import com.dozycoffee.wms.warehouse.domain.model.Location;
 import com.dozycoffee.wms.warehouse.domain.valueobject.Capacity;
 import com.dozycoffee.wms.warehouse.domain.valueobject.LocationCode;
@@ -12,7 +12,7 @@ public class LocationTestBuilder {
     private String locationCode = "A-01";
     private int maxCapacity = 70;
     private int usedCapacity = 0;
-    private LocationStatus locationStatus = LocationStatus.ACTIVE;
+    private AvailabilityStatus locationStatus = AvailabilityStatus.AVAILABLE;
 
     public static LocationTestBuilder location() {
         return new LocationTestBuilder();
@@ -43,7 +43,7 @@ public class LocationTestBuilder {
         return this;
     }
 
-    public LocationTestBuilder locationStatus(LocationStatus locationStatus) {
+    public LocationTestBuilder locationStatus(AvailabilityStatus locationStatus) {
         this.locationStatus = locationStatus;
         return this;
     }

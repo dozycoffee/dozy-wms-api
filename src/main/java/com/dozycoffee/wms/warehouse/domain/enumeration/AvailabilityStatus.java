@@ -1,6 +1,6 @@
 package com.dozycoffee.wms.warehouse.domain.enumeration;
 
-public enum WarehouseStatus {
+public enum AvailabilityStatus {
     AVAILABLE,
     UNAVAILABLE
 }

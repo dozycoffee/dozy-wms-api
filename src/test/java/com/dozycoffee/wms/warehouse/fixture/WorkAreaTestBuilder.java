@@ -1,7 +1,7 @@
 package com.dozycoffee.wms.warehouse.fixture;
 
 import com.dozycoffee.wms.warehouse.domain.enumeration.AreaCode;
-import com.dozycoffee.wms.warehouse.domain.enumeration.WorkAreaStatus;
+import com.dozycoffee.wms.warehouse.domain.enumeration.AvailabilityStatus;
 import com.dozycoffee.wms.warehouse.domain.model.WorkArea;
 
 public class WorkAreaTestBuilder {
@@ -10,7 +10,7 @@ public class WorkAreaTestBuilder {
     private Long warehouseId = 1L;
     private AreaCode areaCode = AreaCode.INBOUND;
     private int usedCapacity = 0;
-    private WorkAreaStatus workAreaStatus = WorkAreaStatus.ACTIVE;
+    private AvailabilityStatus workAreaStatus = AvailabilityStatus.AVAILABLE;
 
     public static WorkAreaTestBuilder workArea() {
         return new WorkAreaTestBuilder();
@@ -36,7 +36,7 @@ public class WorkAreaTestBuilder {
         return this;
     }
 
-    public WorkAreaTestBuilder workAreaStatus(WorkAreaStatus workAreaStatus) {
+    public WorkAreaTestBuilder workAreaStatus(AvailabilityStatus workAreaStatus) {
         this.workAreaStatus = workAreaStatus;
         return this;
     }

@@ -2,7 +2,7 @@ package com.dozycoffee.wms.warehouse.domain.model;
 
 import com.dozycoffee.wms.global.common.SoftDeletableEntity;
 import com.dozycoffee.wms.global.error.InvalidDomainValueException;
-import com.dozycoffee.wms.warehouse.domain.enumeration.WarehouseStatus;
+import com.dozycoffee.wms.warehouse.domain.enumeration.AvailabilityStatus;
 import com.dozycoffee.wms.warehouse.domain.exception.WarehouseErrorCode;
 import com.dozycoffee.wms.warehouse.domain.valueobject.Address;
 import com.dozycoffee.wms.warehouse.domain.valueobject.Coordinate;
@@ -23,14 +23,14 @@ public class Warehouse extends SoftDeletableEntity {
     private final String warehouseName;
     private final Address address;
     private final Coordinate coordinate;
-    private WarehouseStatus warehouseStatus;
+    private AvailabilityStatus warehouseStatus;
 
     public static Warehouse create(
             String warehouseName,
             String address,
             BigDecimal latitude,
             BigDecimal longitude,
-            WarehouseStatus warehouseStatus
+            AvailabilityStatus warehouseStatus
     ) {
         validateWarehouseName(warehouseName);
         validateWarehouseStatus(warehouseStatus);
@@ -48,7 +48,7 @@ public class Warehouse extends SoftDeletableEntity {
             String warehouseName,
             Address address,
             Coordinate coordinate,
-            WarehouseStatus warehouseStatus
+            AvailabilityStatus warehouseStatus
     ) {
         return new Warehouse(
                 warehouseId,
@@ -65,17 +65,17 @@ public class Warehouse extends SoftDeletableEntity {
         }
     }
 
-    private static void validateWarehouseStatus(WarehouseStatus warehouseStatus) {
+    private static void validateWarehouseStatus(AvailabilityStatus warehouseStatus) {
         if (warehouseStatus == null) {
             throw new InvalidDomainValueException(WarehouseErrorCode.INVALID_WAREHOUSE_STATUS);
         }
     }
 
     public void activate() {
-        this.warehouseStatus = WarehouseStatus.AVAILABLE;
+        this.warehouseStatus = AvailabilityStatus.AVAILABLE;
     }
 
     public void deactivate() {
-        this.warehouseStatus = WarehouseStatus.UNAVAILABLE;
+        this.warehouseStatus = AvailabilityStatus.UNAVAILABLE;
     }
 }

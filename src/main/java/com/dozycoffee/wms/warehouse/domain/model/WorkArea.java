@@ -3,7 +3,7 @@ package com.dozycoffee.wms.warehouse.domain.model;
 import com.dozycoffee.wms.global.common.BaseEntity;
 import com.dozycoffee.wms.global.error.InvalidDomainValueException;
 import com.dozycoffee.wms.warehouse.domain.enumeration.AreaCode;
-import com.dozycoffee.wms.warehouse.domain.enumeration.WorkAreaStatus;
+import com.dozycoffee.wms.warehouse.domain.enumeration.AvailabilityStatus;
 import com.dozycoffee.wms.warehouse.domain.exception.InactiveWorkAreaException;
 import com.dozycoffee.wms.warehouse.domain.exception.InsufficientWorkAreaCapacityException;
 import com.dozycoffee.wms.warehouse.domain.exception.InvalidWorkAreaAmountException;
@@ -24,12 +24,12 @@ public class WorkArea extends BaseEntity {
     private final Long warehouseId;
     private final AreaCode areaCode;
     private int usedCapacity;
-    private WorkAreaStatus workAreaStatus;
+    private AvailabilityStatus workAreaStatus;
 
     public static WorkArea create(
             Long warehouseId,
             AreaCode areaCode,
-            WorkAreaStatus workAreaStatus
+            AvailabilityStatus workAreaStatus
     ) {
         validateWarehouseId(warehouseId);
         validateAreaCode(areaCode);
@@ -42,7 +42,7 @@ public class WorkArea extends BaseEntity {
             Long warehouseId,
             AreaCode areaCode,
             int usedCapacity,
-            WorkAreaStatus workAreaStatus
+            AvailabilityStatus workAreaStatus
     ) {
         return new WorkArea(workAreaId, warehouseId, areaCode, usedCapacity, workAreaStatus);
     }
@@ -78,7 +78,7 @@ public class WorkArea extends BaseEntity {
     }
 
     private void validateActive() {
-        if (workAreaStatus != WorkAreaStatus.ACTIVE) {
+        if (workAreaStatus != AvailabilityStatus.AVAILABLE) {
             throw new InactiveWorkAreaException();
         }
     }
@@ -107,7 +107,7 @@ public class WorkArea extends BaseEntity {
         }
     }
 
-    private static void validateWorkAreaStatus(WorkAreaStatus workAreaStatus) {
+    private static void validateWorkAreaStatus(AvailabilityStatus workAreaStatus) {
         if (workAreaStatus == null) {
             throw new InvalidDomainValueException(WorkAreaErrorCode.INVALID_WORK_AREA_STATUS);
         }
