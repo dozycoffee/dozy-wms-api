@@ -1,6 +1,6 @@
 package com.dozycoffee.wms.warehouse.fixture;
 
-import com.dozycoffee.wms.warehouse.domain.enumeration.WarehouseStatus;
+import com.dozycoffee.wms.warehouse.domain.enumeration.AvailabilityStatus;
 import com.dozycoffee.wms.warehouse.domain.model.Warehouse;
 import com.dozycoffee.wms.warehouse.domain.valueobject.Address;
 import com.dozycoffee.wms.warehouse.domain.valueobject.Coordinate;
@@ -11,7 +11,7 @@ public class WarehouseTestBuilder {
     private String warehouseName = "도지하우스 제주 센터";
     private Address address = new Address("제주특별자치도 제주시");
     private Coordinate coordinate = Coordinate.of(33.4996, 126.5312);
-    private WarehouseStatus warehouseStatus = WarehouseStatus.AVAILABLE;
+    private AvailabilityStatus warehouseStatus = AvailabilityStatus.AVAILABLE;
 
     public static WarehouseTestBuilder warehouse() {
         return new WarehouseTestBuilder();
@@ -37,7 +37,7 @@ public class WarehouseTestBuilder {
         return this;
     }
 
-    public WarehouseTestBuilder warehouseStatus(WarehouseStatus warehouseStatus) {
+    public WarehouseTestBuilder warehouseStatus(AvailabilityStatus warehouseStatus) {
         this.warehouseStatus = warehouseStatus;
         return this;
     }

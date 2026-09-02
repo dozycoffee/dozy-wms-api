@@ -1,7 +1,7 @@
 package com.dozycoffee.wms.warehouse.domain;
 
 import com.dozycoffee.wms.global.error.InvalidDomainValueException;
-import com.dozycoffee.wms.warehouse.domain.enumeration.WarehouseStatus;
+import com.dozycoffee.wms.warehouse.domain.enumeration.AvailabilityStatus;
 import com.dozycoffee.wms.warehouse.domain.exception.WarehouseErrorCode;
 import com.dozycoffee.wms.warehouse.domain.model.Warehouse;
 import com.dozycoffee.wms.warehouse.fixture.WarehouseTestBuilder;
@@ -24,7 +24,7 @@ public class WarehouseTest {
         void 정상적인_정보를_입력했을때_창고_객체가_활성_상태로_올바르게_생성된다() {
             Warehouse warehouse = new WarehouseTestBuilder().build();
 
-            assertThat(warehouse.getWarehouseStatus()).isEqualTo(WarehouseStatus.AVAILABLE);
+            assertThat(warehouse.getWarehouseStatus()).isEqualTo(AvailabilityStatus.AVAILABLE);
         }
 
         @ParameterizedTest
@@ -64,20 +64,20 @@ public class WarehouseTest {
 
         @Test
         void 창고를_활성화하면_상태가_AVAILABLE로_변경된다() {
-            Warehouse warehouse = warehouse().warehouseStatus(WarehouseStatus.UNAVAILABLE).build();
+            Warehouse warehouse = warehouse().warehouseStatus(AvailabilityStatus.UNAVAILABLE).build();
 
             warehouse.activate();
 
-            assertThat(warehouse.getWarehouseStatus()).isEqualTo(WarehouseStatus.AVAILABLE);
+            assertThat(warehouse.getWarehouseStatus()).isEqualTo(AvailabilityStatus.AVAILABLE);
         }
 
         @Test
         void 창고를_비활성화하면_상태가_UNAVAILABLE로_변경된다() {
-            Warehouse warehouse = warehouse().warehouseStatus(WarehouseStatus.AVAILABLE).build();
+            Warehouse warehouse = warehouse().warehouseStatus(AvailabilityStatus.AVAILABLE).build();
 
             warehouse.deactivate();
 
-            assertThat(warehouse.getWarehouseStatus()).isEqualTo(WarehouseStatus.UNAVAILABLE);
+            assertThat(warehouse.getWarehouseStatus()).isEqualTo(AvailabilityStatus.UNAVAILABLE);
         }
     }
 }
