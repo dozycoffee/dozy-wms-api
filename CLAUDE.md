@@ -195,10 +195,20 @@ and `XxxDtoBuilder` for DTO builders.
 
 **Controller tests**: `@WebFluxTest`로 슬라이스 컨텍스트를 로드하고 `WebTestClient`로 검증한다.
 
-## Git / PR Workflow
+## Documentation
 
-커밋을 만들거나 브랜치를 생성하거나 PR을 작성하기 전에 반드시 [docs/git-workflow.md](docs/git-workflow.md)를
-읽고 그 규칙(Commit Format, Branch Strategy 등)을 따른다.
+`docs/`에는 CLAUDE.md가 다루지 않는 검증용 문서(비즈니스 규칙·아키텍처 체크리스트, ADR, Git 워크플로우)가
+있다. 읽는 시점은 문서 성격에 따라 다르다:
+
+- **작업 착수 시 1회**: 새 도메인 구현·리팩토링 등 작업을 시작할 때
+  [docs/architecture-checklist.md](docs/architecture-checklist.md),
+  [docs/business-rules-checklist.md](docs/business-rules-checklist.md)를 확인한다. 결정 배경이
+  필요하면 [docs/adr/](docs/adr/README.md)를 본다. 작업 내내 폭넓게 적용되는 규칙이라 세션 초반에
+  한 번 확인해두면 충분하다.
+- **행위 직전 매번**: git 커밋 생성·브랜치 생성·PR 작성 직전에는, 세션 초반에 이미 읽었더라도 매번
+  [docs/git-workflow.md](docs/git-workflow.md)를 다시 읽고 따른다. 세션이 길어지면 컨텍스트가
+  요약되며 예전에 읽은 내용이 사라질 수 있는데, 이런 행위는 빈도가 낮고 되돌리기 번거로우므로 "세션당
+  1회"가 아니라 행위 시점마다 확인해 유실 위험을 없앤다.
 
 # Personal Preferences
 
