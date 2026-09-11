@@ -144,3 +144,4 @@ spring.r2dbc.password=your_password
 - [ADR (Architecture Decision Record)](docs/adr/README.md) — 아키텍처·정책 결정과 그 근거
 - [아키텍처 체크리스트](docs/architecture-checklist.md) — 도메인 무관 구조/패턴 규칙 검증용
 - [비즈니스 규칙 체크리스트](docs/business-rules-checklist.md) — 도메인별 비즈니스 규칙 구현 현황 추적
+- [Git / PR 워크플로우](docs/git-workflow.md) — 커밋·브랜치·PR 규칙 (AI가 작업 전 준수)
