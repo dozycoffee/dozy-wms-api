@@ -6,12 +6,13 @@
 4. [ERD](#4-erd)
 5. [프로젝트 폴더 구조](#5-프로젝트-폴더-구조)
 6. [실행 방법](#6-실행-방법)
+7. [문서](#7-문서)
 
 <br>
 
 ## 1. 프로젝트 소개
 
-![DOZY COFFEE Banner](docs/images/dozycoffee_banner.png)
+![DOZY COFFEE Banner](.github/assets/dozycoffee_banner.png)
 
 본 프로젝트는 커피 프랜차이즈 **DOZY COFFEE**를 위한 카페 원부자재 창고 관리 시스템(WMS) 백엔드 API 서버입니다.
 
@@ -135,3 +136,12 @@ spring.r2dbc.url=r2dbc:postgresql://localhost:5432/dozy_wms
 spring.r2dbc.username=your_username
 spring.r2dbc.password=your_password
 ```
+
+<br>
+
+## 7. 문서
+
+- [ADR (Architecture Decision Record)](docs/adr/README.md) — 아키텍처·정책 결정과 그 근거
+- [아키텍처 체크리스트](docs/architecture-checklist.md) — 도메인 무관 구조/패턴 규칙 검증용
+- [비즈니스 규칙 체크리스트](docs/business-rules-checklist.md) — 도메인별 비즈니스 규칙 구현 현황 추적
+- [Git / PR 워크플로우](docs/git-workflow.md) — 커밋·브랜치·PR 규칙 (AI가 작업 전 준수)

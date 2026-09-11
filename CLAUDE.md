@@ -195,49 +195,20 @@ and `XxxDtoBuilder` for DTO builders.
 
 **Controller tests**: `@WebFluxTest`로 슬라이스 컨텍스트를 로드하고 `WebTestClient`로 검증한다.
 
-## Git Commit Rules
+## Documentation
 
-모든 커밋 메시지는 [Conventional Commits](https://www.conventionalcommits.org/) 형식을 따른다.
+`docs/`에는 CLAUDE.md가 다루지 않는 검증용 문서(비즈니스 규칙·아키텍처 체크리스트, ADR, Git 워크플로우)가
+있다. 읽는 시점은 문서 성격에 따라 다르다:
 
-### Commit Format
-
-```text
-<type>(<scope>): <description>
-```
-
-### Commit Types
-
-| Type | 용도 |
-| --- | --- |
-| `feat` | 새로운 기능 추가 |
-| `fix` | 버그 수정 |
-| `refactor` | 기능 변경 없는 코드 개선 |
-| `test` | 테스트 추가 또는 수정 |
-| `docs` | 문서 변경 |
-| `chore` | 빌드, 설정 등 기타 변경 |
-| `perf` | 성능 개선 |
-
-### Commit Rules
-
-- 하나의 커밋에는 하나의 논리적 변경만 포함한다.
-- 서로 관련 없는 변경사항을 하나의 커밋으로 묶지 않는다.
-- 커밋 메시지만 보고 변경 목적을 명확히 알 수 있도록 작성한다.
-- 커밋 제목은 명사형으로 작성한다.
-  - 좋은 예: `사용자 인증 기능 추가`
-  - 나쁜 예: `사용자 인증 기능을 추가한다`
-- 커밋 제목 끝에는 마침표나 기타 구두점을 사용하지 않는다.
-- 커밋 본문이 필요한 경우 각 변경사항을 `-` 단위로 작성한다.
-- 테스트가 실패한 상태에서는 커밋하지 않는다.
-- 커밋, 이슈, PR 등 어디에도 `Claude-Session` 트레일러 또는 링크를 포함하지 않는다.
-
-커밋 메시지, 이슈, PR 본문에 `Claude-Session: ...` 트레일러를 추가하지 않는다.
-
-## Branch Strategy
-
-- `main` → production; 모든 feature/fix 브랜치는 여기로 직접 PR
-- `feat/[domain]-[feature]` → feature branches (e.g., `feat/inventory-fefo-allocation-logic`)
-- `fix/[description]` → bug fix branches
-- `chore/[description]` → 인프라, 빌드, 설정 변경
+- **작업 착수 시 1회**: 새 도메인 구현·리팩토링 등 작업을 시작할 때
+  [docs/architecture-checklist.md](docs/architecture-checklist.md),
+  [docs/business-rules-checklist.md](docs/business-rules-checklist.md)를 확인한다. 결정 배경이
+  필요하면 [docs/adr/](docs/adr/README.md)를 본다. 작업 내내 폭넓게 적용되는 규칙이라 세션 초반에
+  한 번 확인해두면 충분하다.
+- **행위 직전 매번**: git 커밋 생성·브랜치 생성·PR 작성 직전에는, 세션 초반에 이미 읽었더라도 매번
+  [docs/git-workflow.md](docs/git-workflow.md)를 다시 읽고 따른다. 세션이 길어지면 컨텍스트가
+  요약되며 예전에 읽은 내용이 사라질 수 있는데, 이런 행위는 빈도가 낮고 되돌리기 번거로우므로 "세션당
+  1회"가 아니라 행위 시점마다 확인해 유실 위험을 없앤다.
 
 # Personal Preferences
 
