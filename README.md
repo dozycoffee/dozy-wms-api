@@ -12,7 +12,7 @@
 
 ## 1. 프로젝트 소개
 
-![DOZY COFFEE Banner](docs/images/dozycoffee_banner.png)
+![DOZY COFFEE Banner](.github/assets/dozycoffee_banner.png)
 
 본 프로젝트는 커피 프랜차이즈 **DOZY COFFEE**를 위한 카페 원부자재 창고 관리 시스템(WMS) 백엔드 API 서버입니다.
 
