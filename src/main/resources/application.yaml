@@ -13,7 +13,7 @@ spring:
 
   flyway:
     enabled: true
-    url: jdbc:mysql://${DB_HOST:localhost}:${DB_PORT:3306}/${DB_NAME:dozy_wms}?useSSL=false&serverTimezone=Asia/Seoul
+    url: jdbc:mysql://${DB_HOST:localhost}:${DB_PORT:3306}/${DB_NAME:dozy_wms}?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=Asia/Seoul
     user: ${DB_USERNAME:root}
     password: ${DB_PASSWORD}
     locations: classpath:db/migration
