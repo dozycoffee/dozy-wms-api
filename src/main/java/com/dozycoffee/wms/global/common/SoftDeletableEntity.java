@@ -18,4 +18,13 @@ public abstract class SoftDeletableEntity extends BaseEntity {
         this.deletedAt = LocalDateTime.now();
         this.deletedBy = actor;
     }
+
+    @Override
+    public void copyAuditFieldsFrom(BaseEntity existing) {
+        super.copyAuditFieldsFrom(existing);
+        if (existing instanceof SoftDeletableEntity softDeletableEntity) {
+            this.deletedAt = softDeletableEntity.deletedAt;
+            this.deletedBy = softDeletableEntity.deletedBy;
+        }
+    }
 }

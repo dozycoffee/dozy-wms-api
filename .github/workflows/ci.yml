@@ -16,6 +16,7 @@ jobs:
         env:
           MYSQL_ROOT_PASSWORD: 1234
           MYSQL_DATABASE: dozy_wms
+          MYSQL_ROOT_HOST: '%'
         ports:
           - 3306:3306
         options: >-
@@ -50,9 +51,4 @@ jobs:
       - name: Build and test
         run: ./gradlew build
         env:
-          SPRING_R2DBC_URL: r2dbc:mysql://localhost:3306/dozy_wms?useSSL=false&serverTimezone=Asia/Seoul
-          SPRING_R2DBC_USERNAME: root
-          SPRING_R2DBC_PASSWORD: 1234
-          SPRING_DATASOURCE_URL: jdbc:mysql://localhost:3306/dozy_wms?useSSL=false&serverTimezone=Asia/Seoul
-          SPRING_DATASOURCE_USERNAME: root
-          SPRING_DATASOURCE_PASSWORD: 1234
+          DB_PASSWORD: 1234
