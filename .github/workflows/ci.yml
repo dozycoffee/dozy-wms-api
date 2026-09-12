@@ -16,6 +16,7 @@ jobs:
         env:
           MYSQL_ROOT_PASSWORD: 1234
           MYSQL_DATABASE: dozy_wms
+          MYSQL_ROOT_HOST: '%'
         ports:
           - 3306:3306
         options: >-
