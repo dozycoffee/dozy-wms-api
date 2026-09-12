@@ -1,23 +1,23 @@
 package com.dozycoffee.wms.warehouse.application.service;
 
-import com.dozycoffee.wms.warehouse.application.port.in.RegisterWarehouseCommand;
-import com.dozycoffee.wms.warehouse.application.port.in.WarehouseResult;
+
+
+import com.dozycoffee.wms.warehouse.application.port.in.command.RegisterWarehouseCommand;
+import com.dozycoffee.wms.warehouse.application.port.in.result.WarehouseResult;
 import com.dozycoffee.wms.warehouse.application.port.out.WarehouseRepository;
 import com.dozycoffee.wms.warehouse.domain.enumeration.AvailabilityStatus;
 import com.dozycoffee.wms.warehouse.domain.exception.WarehouseNotFoundException;
 import com.dozycoffee.wms.warehouse.domain.model.Warehouse;
+import java.math.BigDecimal;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
-import org.mockito.Mock;
 import org.mockito.InjectMocks;
+import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import reactor.core.publisher.Mono;
 import reactor.test.StepVerifier;
-
-import java.math.BigDecimal;
-
 import static com.dozycoffee.wms.warehouse.fixture.WarehouseTestBuilder.warehouse;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;

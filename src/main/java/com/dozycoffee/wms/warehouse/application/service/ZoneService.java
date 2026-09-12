@@ -1,9 +1,9 @@
 package com.dozycoffee.wms.warehouse.application.service;
 
 import com.dozycoffee.wms.warehouse.application.port.in.GetZoneUseCase;
-import com.dozycoffee.wms.warehouse.application.port.in.RegisterZoneCommand;
 import com.dozycoffee.wms.warehouse.application.port.in.RegisterZoneUseCase;
-import com.dozycoffee.wms.warehouse.application.port.in.ZoneResult;
+import com.dozycoffee.wms.warehouse.application.port.in.command.RegisterZoneCommand;
+import com.dozycoffee.wms.warehouse.application.port.in.result.ZoneResult;
 import com.dozycoffee.wms.warehouse.application.port.out.ZoneRepository;
 import com.dozycoffee.wms.warehouse.domain.enumeration.AvailabilityStatus;
 import com.dozycoffee.wms.warehouse.domain.exception.ZoneNotFoundException;

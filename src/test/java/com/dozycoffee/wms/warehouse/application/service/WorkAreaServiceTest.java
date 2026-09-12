@@ -1,8 +1,9 @@
 package com.dozycoffee.wms.warehouse.application.service;
 
-import com.dozycoffee.wms.warehouse.application.port.in.OccupyWorkAreaCommand;
-import com.dozycoffee.wms.warehouse.application.port.in.RegisterWorkAreaCommand;
-import com.dozycoffee.wms.warehouse.application.port.in.ReleaseWorkAreaCommand;
+
+import com.dozycoffee.wms.warehouse.application.port.in.command.OccupyWorkAreaCommand;
+import com.dozycoffee.wms.warehouse.application.port.in.command.RegisterWorkAreaCommand;
+import com.dozycoffee.wms.warehouse.application.port.in.command.ReleaseWorkAreaCommand;
 import com.dozycoffee.wms.warehouse.application.port.out.WorkAreaRepository;
 import com.dozycoffee.wms.warehouse.domain.enumeration.AreaCode;
 import com.dozycoffee.wms.warehouse.domain.enumeration.AvailabilityStatus;
@@ -17,7 +18,6 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import reactor.core.publisher.Mono;
 import reactor.test.StepVerifier;
-
 import static com.dozycoffee.wms.warehouse.fixture.WorkAreaTestBuilder.workArea;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;

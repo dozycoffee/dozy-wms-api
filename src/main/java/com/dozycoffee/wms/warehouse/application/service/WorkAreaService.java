@@ -1,13 +1,13 @@
 package com.dozycoffee.wms.warehouse.application.service;
 
 import com.dozycoffee.wms.warehouse.application.port.in.GetWorkAreaUseCase;
-import com.dozycoffee.wms.warehouse.application.port.in.OccupyWorkAreaCommand;
 import com.dozycoffee.wms.warehouse.application.port.in.OccupyWorkAreaUseCase;
-import com.dozycoffee.wms.warehouse.application.port.in.RegisterWorkAreaCommand;
 import com.dozycoffee.wms.warehouse.application.port.in.RegisterWorkAreaUseCase;
-import com.dozycoffee.wms.warehouse.application.port.in.ReleaseWorkAreaCommand;
 import com.dozycoffee.wms.warehouse.application.port.in.ReleaseWorkAreaUseCase;
-import com.dozycoffee.wms.warehouse.application.port.in.WorkAreaResult;
+import com.dozycoffee.wms.warehouse.application.port.in.command.OccupyWorkAreaCommand;
+import com.dozycoffee.wms.warehouse.application.port.in.command.RegisterWorkAreaCommand;
+import com.dozycoffee.wms.warehouse.application.port.in.command.ReleaseWorkAreaCommand;
+import com.dozycoffee.wms.warehouse.application.port.in.result.WorkAreaResult;
 import com.dozycoffee.wms.warehouse.application.port.out.WorkAreaRepository;
 import com.dozycoffee.wms.warehouse.domain.enumeration.AvailabilityStatus;
 import com.dozycoffee.wms.warehouse.domain.exception.WorkAreaNotFoundException;

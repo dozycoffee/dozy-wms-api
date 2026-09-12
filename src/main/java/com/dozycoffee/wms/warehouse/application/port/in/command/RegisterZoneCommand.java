@@ -1,4 +1,4 @@
-package com.dozycoffee.wms.warehouse.application.port.in;
+package com.dozycoffee.wms.warehouse.application.port.in.command;
 
 import com.dozycoffee.wms.warehouse.domain.enumeration.ZoneCode;
 

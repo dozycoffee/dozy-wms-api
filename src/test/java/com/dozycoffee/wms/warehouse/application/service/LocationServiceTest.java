@@ -1,8 +1,9 @@
 package com.dozycoffee.wms.warehouse.application.service;
 
-import com.dozycoffee.wms.warehouse.application.port.in.OccupyLocationCommand;
-import com.dozycoffee.wms.warehouse.application.port.in.RegisterLocationCommand;
-import com.dozycoffee.wms.warehouse.application.port.in.ReleaseLocationCommand;
+
+import com.dozycoffee.wms.warehouse.application.port.in.command.OccupyLocationCommand;
+import com.dozycoffee.wms.warehouse.application.port.in.command.RegisterLocationCommand;
+import com.dozycoffee.wms.warehouse.application.port.in.command.ReleaseLocationCommand;
 import com.dozycoffee.wms.warehouse.application.port.out.LocationRepository;
 import com.dozycoffee.wms.warehouse.domain.exception.InsufficientLocationCapacityException;
 import com.dozycoffee.wms.warehouse.domain.exception.LocationNotFoundException;
@@ -15,7 +16,6 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import reactor.core.publisher.Mono;
 import reactor.test.StepVerifier;
-
 import static com.dozycoffee.wms.warehouse.fixture.LocationTestBuilder.location;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;

@@ -1,6 +1,7 @@
 package com.dozycoffee.wms.warehouse.application.service;
 
-import com.dozycoffee.wms.warehouse.application.port.in.RegisterZoneCommand;
+
+import com.dozycoffee.wms.warehouse.application.port.in.command.RegisterZoneCommand;
 import com.dozycoffee.wms.warehouse.application.port.out.ZoneRepository;
 import com.dozycoffee.wms.warehouse.domain.enumeration.AvailabilityStatus;
 import com.dozycoffee.wms.warehouse.domain.enumeration.ZoneCode;
@@ -14,7 +15,6 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import reactor.core.publisher.Mono;
 import reactor.test.StepVerifier;
-
 import static com.dozycoffee.wms.warehouse.fixture.ZoneTestBuilder.zone;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;

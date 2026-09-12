@@ -1,13 +1,13 @@
 package com.dozycoffee.wms.warehouse.application.service;
 
 import com.dozycoffee.wms.warehouse.application.port.in.GetLocationUseCase;
-import com.dozycoffee.wms.warehouse.application.port.in.LocationResult;
-import com.dozycoffee.wms.warehouse.application.port.in.OccupyLocationCommand;
 import com.dozycoffee.wms.warehouse.application.port.in.OccupyLocationUseCase;
-import com.dozycoffee.wms.warehouse.application.port.in.RegisterLocationCommand;
 import com.dozycoffee.wms.warehouse.application.port.in.RegisterLocationUseCase;
-import com.dozycoffee.wms.warehouse.application.port.in.ReleaseLocationCommand;
 import com.dozycoffee.wms.warehouse.application.port.in.ReleaseLocationUseCase;
+import com.dozycoffee.wms.warehouse.application.port.in.command.OccupyLocationCommand;
+import com.dozycoffee.wms.warehouse.application.port.in.command.RegisterLocationCommand;
+import com.dozycoffee.wms.warehouse.application.port.in.command.ReleaseLocationCommand;
+import com.dozycoffee.wms.warehouse.application.port.in.result.LocationResult;
 import com.dozycoffee.wms.warehouse.application.port.out.LocationRepository;
 import com.dozycoffee.wms.warehouse.domain.enumeration.AvailabilityStatus;
 import com.dozycoffee.wms.warehouse.domain.exception.LocationNotFoundException;
