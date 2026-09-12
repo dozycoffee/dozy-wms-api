@@ -72,6 +72,21 @@
 - [ ] 위 레이어 간 책임이 겹치지 않는다 (예: ServiceTest에서 실제 DB를 쓰지 않는다)
 - [ ] 테스트 픽스처는 `fixture/` 패키지의 `XxxTestBuilder`(Entity), `XxxDtoBuilder`(DTO)를 사용한다
 
+## Kotlin 스타일 (ADR-0005, ADR-0006)
+
+- [ ] 클래스 프로퍼티, 함수 파라미터, 함수 반환 타입은 명시한다 — 메서드 본문 내부 지역 변수는 타입
+      추론을 허용한다
+- [ ] Entity는 `data class`로 선언하지 않는다 — `copy()`가 `create()` 팩토리의 invariant 검증을
+      우회하기 때문. 일반 `class` + `companion object.create()` + 식별자 기반 `equals`/`hashCode`
+      오버라이드를 사용한다
+- [ ] DTO(Java record 대응)는 `data class`로 선언한다
+- [ ] `!!` 연산자를 사용하지 않는다
+- [ ] `domain/model`의 내부 구현 세부사항은 `internal`/`private`로 가시성을 명시적으로 좁힌다
+- [ ] 확장 함수는 어댑터 계층의 매핑 용도로만 사용하고, 비즈니스 로직을 확장 함수로 domain 밖에
+      두지 않는다
+- [ ] 신규 Kotlin 도메인은 `Mono`/`Flux` 대신 `suspend fun`/`Flow`를 사용한다 — 기존 Java 코드 호출
+      경계에서만 `kotlinx-coroutines-reactor`로 변환한다
+
 ## 아키텍처 스타일 (ADR-0001)
 
 - [ ] 도메인 패키지가 `adapter(in/out)` / `application(port, service)` / `domain(model, enums,

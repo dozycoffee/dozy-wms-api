@@ -10,10 +10,11 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 | 분류 | 기술 |
 |------|------|
-| Language | Java 21 |
+| Language | Java 21 (기존 코드) / Kotlin (신규 구현, [ADR-0005](docs/adr/0005-kotlin-adoption-for-new-domains.md)) |
 | Framework | Spring Boot 4.1.1 |
 | Web | Spring WebFlux |
 | DB Access | Spring Data R2DBC |
+| Reactive Style | Reactor `Mono`/`Flux` (Java) / Kotlin Coroutines `suspend`/`Flow` (Kotlin, [ADR-0006](docs/adr/0006-kotlin-coroutines-for-new-domains.md)) |
 | Validation | Spring Validation |
 | Build | Gradle |
 
@@ -194,6 +195,58 @@ Tests are split by layer with no overlap:
 and `XxxDtoBuilder` for DTO builders.
 
 **Controller tests**: `@WebFluxTest`로 슬라이스 컨텍스트를 로드하고 `WebTestClient`로 검증한다.
+
+## Kotlin Coding Conventions
+
+Product부터 시작하는 신규 도메인은 Kotlin으로 구현한다. 기존 Warehouse/common_code/global 패키지는
+Java로 유지하며 마이그레이션하지 않는다 — 근거는
+[ADR-0005](docs/adr/0005-kotlin-adoption-for-new-domains.md) 참고.
+
+**타입 명시**
+
+- 클래스 프로퍼티, 함수 파라미터, 함수 반환 타입은 타입 추론에 맡기지 않고 항상 명시한다.
+- 함수/메서드 **본문 내부**의 지역 변수(`val`/`var`)는 타입 추론을 허용한다.
+
+**Entity는 `data class`로 선언하지 않는다**
+
+- `data class`는 모든 생성자 프로퍼티를 기준으로 `equals`/`hashCode`/`copy()`를 자동 생성하는데,
+  `copy()`는 `create()` 팩토리의 invariant 검증을 그대로 우회한다 — 기존 "static create() 팩토리 +
+  setter 미노출" 원칙(architecture-checklist.md)이 깨지는 지점이다.
+- Entity는 일반 `class` + `companion object`의 `fun create(...)` 팩토리로 만들고, `equals`/`hashCode`는
+  식별자(`id`) 기준으로 직접 오버라이드한다.
+- DTO(Java `record`에 대응)는 계속 `data class`를 사용한다 — 불변, 식별자 없음, invariant 검증 불필요.
+
+**Null 안전성**
+
+- `!!` 연산자를 사용하지 않는다. nullable은 `?.`/`?:`/스마트 캐스트로 처리하고, 부득이하게 `!!`가
+  필요하면 이유를 주석으로 남긴다.
+- 기존 Java 코드(Warehouse 등)를 호출하는 경계에서 넘어오는 플랫폼 타입을 그대로 전파하지 않고, 경계에서
+  즉시 nullable 여부를 명시적으로 처리한다.
+
+**가시성**
+
+- Kotlin 기본 접근제어자는 `public`이다 — Hexagonal 레이어 경계(ADR-0001)를 지키려면 `domain/model`의
+  내부 구현 세부사항은 `internal`/`private`로 명시적으로 좁힌다.
+
+**확장 함수**
+
+- Entity ↔ 영속성 모델, 도메인 모델 ↔ DTO 매핑 등 어댑터 계층의 변환 용도로만 제한적으로 사용한다.
+- 비즈니스 로직/불변식 검증을 확장 함수로 domain 밖에 두지 않는다 — "비즈니스 로직은 Entity 안에 둔다"
+  원칙은 확장 함수에도 동일하게 적용된다.
+
+**비동기 처리 스타일**
+
+- 신규 Kotlin 도메인은 Reactor(`Mono`/`Flux`) 대신 Coroutines(`suspend fun`, `Flow`)를 사용한다 — 근거는
+  [ADR-0006](docs/adr/0006-kotlin-coroutines-for-new-domains.md) 참고.
+- 기존 Java 코드를 호출할 때는 `kotlinx-coroutines-reactor`의 `awaitSingle()` / `awaitSingleOrNull()` /
+  `asFlow()`로 Reactor 타입을 coroutine 경계로 변환한다.
+- Java 쪽에서 Kotlin `suspend fun`을 직접 호출해야 하는 지점은 Kotlin 쪽에 `Mono`/`Flux`를 반환하는
+  어댑터 메서드를 별도로 노출한다.
+
+**테스트**
+
+- Kotlin 테스트 메서드명은 백틱(`` `상품 등록 성공`() ``)으로 한글 문장형 이름을 사용한다 — 기존 Java의
+  스네이크케이스(`상품_등록_성공`) 대신 Kotlin 관례를 따른다.
 
 ## Documentation
 
