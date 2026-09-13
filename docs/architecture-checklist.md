@@ -66,13 +66,16 @@
 ## 테스트 레이어 분리
 
 - [ ] `*EntityTest` — Spring Context 없이 순수 도메인 로직/불변식만 검증
-- [ ] `*ServiceTest` — `@ExtendWith(MockitoExtension.class)`로 Repository를 mock
+- [ ] `*ServiceTest` — `@ExtendWith(MockitoExtension::class)`로 Repository를 mock
 - [ ] `*ControllerTest` — `@WebFluxTest` 슬라이스 + `WebTestClient`
 - [ ] `*RepositoryTest` — `@DataR2dbcTest` 슬라이스, 실제 쿼리 검증
 - [ ] 위 레이어 간 책임이 겹치지 않는다 (예: ServiceTest에서 실제 DB를 쓰지 않는다)
 - [ ] 테스트 픽스처는 `fixture/` 패키지의 `XxxTestBuilder`(Entity), `XxxDtoBuilder`(DTO)를 사용한다
 
-## Kotlin 스타일 (ADR-0005, ADR-0006)
+## Kotlin 스타일 (ADR-0007, ADR-0006)
+
+이 섹션은 저장소 전체(신규 도메인뿐 아니라 ADR-0007로 포팅된 Warehouse/common_code/global 포함)에
+적용된다.
 
 - [ ] 클래스 프로퍼티, 함수 파라미터, 함수 반환 타입은 명시한다 — 메서드 본문 내부 지역 변수는 타입
       추론을 허용한다

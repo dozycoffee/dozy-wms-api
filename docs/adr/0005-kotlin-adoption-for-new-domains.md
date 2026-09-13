@@ -1,7 +1,7 @@
 # ADR-0005: 신규 도메인부터 Kotlin 도입
 
 ## 상태
-Accepted
+Superseded by [ADR-0007](0007-full-kotlin-migration.md)
 
 ## 배경 (Context)
 Warehouse 도메인까지는 Java 21로 구현했다. Product부터 시작하는 나머지 도메인(Inventory, Inbound,
