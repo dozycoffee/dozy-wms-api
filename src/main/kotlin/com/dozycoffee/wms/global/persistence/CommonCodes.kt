@@ -1,6 +1,6 @@
-package com.dozycoffee.wms.warehouse.adapter.out.persistence
+package com.dozycoffee.wms.global.persistence
 
-internal object CommonCodes {
+object CommonCodes {
 
     fun <E : Enum<E>> toCode(groupCode: String, value: E): String = "${groupCode}_${value.name}"
 

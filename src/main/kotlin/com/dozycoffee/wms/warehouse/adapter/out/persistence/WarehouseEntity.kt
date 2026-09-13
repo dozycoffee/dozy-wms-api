@@ -1,6 +1,7 @@
 package com.dozycoffee.wms.warehouse.adapter.out.persistence
 
 import com.dozycoffee.wms.global.common.SoftDeletableEntity
+import com.dozycoffee.wms.global.persistence.CommonCodes
 import com.dozycoffee.wms.warehouse.domain.enumeration.AvailabilityStatus
 import com.dozycoffee.wms.warehouse.domain.model.Warehouse
 import com.dozycoffee.wms.warehouse.domain.valueobject.Address
