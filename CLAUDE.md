@@ -10,11 +10,11 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 | 분류 | 기술 |
 |------|------|
-| Language | Java 21 (기존 코드) / Kotlin (신규 구현, [ADR-0005](docs/adr/0005-kotlin-adoption-for-new-domains.md)) |
+| Language | Kotlin ([ADR-0007](docs/adr/0007-full-kotlin-migration.md) — 전체 코드베이스 Kotlin 마이그레이션 완료, ADR-0005 대체) |
 | Framework | Spring Boot 4.1.1 |
 | Web | Spring WebFlux |
 | DB Access | Spring Data R2DBC |
-| Reactive Style | Reactor `Mono`/`Flux` (Java) / Kotlin Coroutines `suspend`/`Flow` (Kotlin, [ADR-0006](docs/adr/0006-kotlin-coroutines-for-new-domains.md)) |
+| Reactive Style | Warehouse/common_code/global: Reactor `Mono`/`Flux` (ADR-0007 범위 밖, 유지) / Product 이후 신규 도메인: Kotlin Coroutines `suspend`/`Flow` ([ADR-0006](docs/adr/0006-kotlin-coroutines-for-new-domains.md)) |
 | Validation | Spring Validation |
 | Build | Gradle |
 
@@ -41,7 +41,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ```
 src
 ├── main
-│   ├── java/com/dozycoffee/wms
+│   ├── kotlin/com/dozycoffee/wms
 │   │   ├── global                            // 전역 설정 및 공통 모듈
 │   │   │   ├── common                        // BaseEntity
 │   │   │   ├── config                        // R2dbcConfig 등
@@ -71,7 +71,7 @@ src
 │   │       │   └── service                   // 애플리케이션 서비스 (UseCase 구현체)
 │   │       │
 │   │       └── domain
-│   │           ├── model                     // 도메인 모델 (순수 POJO)
+│   │           ├── model                     // 도메인 모델 (순수 Kotlin 클래스)
 │   │           ├── enums                     // 도메인 열거형
 │   │           ├── exception                 // 도메인 예외 및 에러 코드
 │   │           ├── valueobject               // 값 객체
@@ -81,7 +81,7 @@ src
 │       └── application.yaml                  // 환경 설정
 │
 └── test
-    └── java/com/dozycoffee/wms
+    └── kotlin/com/dozycoffee/wms
         ├── warehouse
         ├── product
         ├── inventory
@@ -110,11 +110,11 @@ src
 
 - `common_code` 테이블이 상태·분류 코드를 중앙 관리 — `zone_status`, `temperature_type`, `product_status`, `inbound_status` 등 `VARCHAR(50)` FK 컬럼들이 `common_code.code`를 참조
 - 코드 형식: `{GROUP}_{VALUE}` (예: `TEMPERATURE_TYPE_AMBIENT`, `LOT_STATUS_NORMAL`)
-- 애플리케이션 레벨에서는 Java enum으로 정의하고 DB에는 코드 문자열로 저장
+- 애플리케이션 레벨에서는 Kotlin enum으로 정의하고 DB에는 코드 문자열로 저장
 
 **DTOs**
 
-- Use Java `record` types for all request/response DTOs
+- Use Kotlin `data class` types for all request/response DTOs
 
 **Inventory Status**
 
@@ -184,12 +184,12 @@ E Zone   : 컵/소모품/포장재(상온) — E-01(100), E-02(100), E-03(90), E
 
 Tests are split by layer with no overlap:
 
-| Test class suffix | Annotation                            | Spring Context | Purpose                               |
-|-------------------|---------------------------------------|----------------|---------------------------------------|
-| `*EntityTest`     | none                                  | none           | Pure domain logic / entity invariants |
-| `*ServiceTest`    | `@ExtendWith(MockitoExtension.class)` | none           | Service logic with mocked repository  |
-| `*ControllerTest` | `@WebFluxTest`                        | Slice          | API contract (WebTestClient)          |
-| `*RepositoryTest` | `@DataR2dbcTest`                      | Slice          | R2DBC queries against test DB         |
+| Test class suffix | Annotation                          | Spring Context | Purpose                               |
+|-------------------|-------------------------------------|----------------|---------------------------------------|
+| `*EntityTest`     | none                                | none           | Pure domain logic / entity invariants |
+| `*ServiceTest`    | `@ExtendWith(MockitoExtension::class)` | none        | Service logic with mocked repository  |
+| `*ControllerTest` | `@WebFluxTest`                      | Slice          | API contract (WebTestClient)          |
+| `*RepositoryTest` | `@DataR2dbcTest`                    | Slice          | R2DBC queries against test DB         |
 
 **Test fixtures** live in `fixture/` packages under each domain's test folder — use `XxxTestBuilder` for entity builders
 and `XxxDtoBuilder` for DTO builders.
@@ -198,9 +198,10 @@ and `XxxDtoBuilder` for DTO builders.
 
 ## Kotlin Coding Conventions
 
-Product부터 시작하는 신규 도메인은 Kotlin으로 구현한다. 기존 Warehouse/common_code/global 패키지는
-Java로 유지하며 마이그레이션하지 않는다 — 근거는
-[ADR-0005](docs/adr/0005-kotlin-adoption-for-new-domains.md) 참고.
+전체 코드베이스가 Kotlin이다 — 근거는
+[ADR-0007](docs/adr/0007-full-kotlin-migration.md) 참고 (이전에는 Product부터의 신규 도메인만
+Kotlin이고 Warehouse/common_code/global은 Java로 유지하는 혼용 방식이었으나, ADR-0005를 대체하고 전체
+마이그레이션했다). 아래 컨벤션은 도메인 구분 없이 저장소 전체에 적용된다.
 
 **타입 명시**
 
@@ -214,14 +215,14 @@ Java로 유지하며 마이그레이션하지 않는다 — 근거는
   setter 미노출" 원칙(architecture-checklist.md)이 깨지는 지점이다.
 - Entity는 일반 `class` + `companion object`의 `fun create(...)` 팩토리로 만들고, `equals`/`hashCode`는
   식별자(`id`) 기준으로 직접 오버라이드한다.
-- DTO(Java `record`에 대응)는 계속 `data class`를 사용한다 — 불변, 식별자 없음, invariant 검증 불필요.
+- DTO는 계속 `data class`를 사용한다 — 불변, 식별자 없음, invariant 검증 불필요.
 
 **Null 안전성**
 
 - `!!` 연산자를 사용하지 않는다. nullable은 `?.`/`?:`/스마트 캐스트로 처리하고, 부득이하게 `!!`가
   필요하면 이유를 주석으로 남긴다.
-- 기존 Java 코드(Warehouse 등)를 호출하는 경계에서 넘어오는 플랫폼 타입을 그대로 전파하지 않고, 경계에서
-  즉시 nullable 여부를 명시적으로 처리한다.
+- Spring/R2DBC 등 Java로 작성된 라이브러리를 호출하는 경계에서 넘어오는 플랫폼 타입을 그대로 전파하지
+  않고, 경계에서 즉시 nullable 여부를 명시적으로 처리한다.
 
 **가시성**
 
@@ -236,12 +237,15 @@ Java로 유지하며 마이그레이션하지 않는다 — 근거는
 
 **비동기 처리 스타일**
 
-- 신규 Kotlin 도메인은 Reactor(`Mono`/`Flux`) 대신 Coroutines(`suspend fun`, `Flow`)를 사용한다 — 근거는
-  [ADR-0006](docs/adr/0006-kotlin-coroutines-for-new-domains.md) 참고.
-- 기존 Java 코드를 호출할 때는 `kotlinx-coroutines-reactor`의 `awaitSingle()` / `awaitSingleOrNull()` /
-  `asFlow()`로 Reactor 타입을 coroutine 경계로 변환한다.
-- Java 쪽에서 Kotlin `suspend fun`을 직접 호출해야 하는 지점은 Kotlin 쪽에 `Mono`/`Flux`를 반환하는
-  어댑터 메서드를 별도로 노출한다.
+- Product부터 시작하는 신규 도메인은 Reactor(`Mono`/`Flux`) 대신 Coroutines(`suspend fun`, `Flow`)를
+  사용한다 — 근거는 [ADR-0006](docs/adr/0006-kotlin-coroutines-for-new-domains.md) 참고.
+- `warehouse`/`common_code`/`global`은 [ADR-0007](docs/adr/0007-full-kotlin-migration.md)로 Kotlin으로
+  포팅됐지만, 언어만 전환하고 비동기 스타일은 그대로 Reactor `Mono`/`Flux`를 유지한다 — Coroutines 전환은
+  ADR-0007의 범위 밖이다. 이 패키지들의 기존 코드를 참고할 때 Coroutines 스타일로 오해하지 않는다.
+- Reactor 코드에서 coroutine 경계로 넘어갈 때는 `kotlinx-coroutines-reactor`의 `awaitSingle()` /
+  `awaitSingleOrNull()` / `asFlow()`로 변환한다.
+- Reactor 스타일 코드(Warehouse 등)가 Kotlin `suspend fun`을 직접 호출해야 하는 지점은 그 함수 쪽에
+  `Mono`/`Flux`를 반환하는 어댑터 메서드를 별도로 노출한다.
 
 **테스트**
 
