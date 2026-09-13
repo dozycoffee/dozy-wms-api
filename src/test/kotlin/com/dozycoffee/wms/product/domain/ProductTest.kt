@@ -79,13 +79,6 @@ class ProductTest {
 
             assertThat(product.shelfLifeDays).isNull()
         }
-
-        @Test
-        fun `기본 적재 구역은 null을 허용한다`() {
-            val product: Product = product().defaultZoneId(null).build()
-
-            assertThat(product.defaultZoneId).isNull()
-        }
     }
 
     @Nested

@@ -10,7 +10,6 @@ class ProductTestBuilder {
     private var productCode: String? = "PRD-0001"
     private var productName: String? = "콜롬비아 원두"
     private var category: ProductCategory? = ProductCategory.BEAN
-    private var defaultZoneId: Long? = 1L
     private var unit: String? = "KG"
     private var shelfLifeDays: Int? = 365
     private var productStatus: ProductStatus = ProductStatus.ACTIVE
@@ -39,11 +38,6 @@ class ProductTestBuilder {
         return this
     }
 
-    fun defaultZoneId(defaultZoneId: Long?): ProductTestBuilder {
-        this.defaultZoneId = defaultZoneId
-        return this
-    }
-
     fun unit(unit: String?): ProductTestBuilder {
         this.unit = unit
         return this
@@ -67,7 +61,6 @@ class ProductTestBuilder {
                 productCode = requireNotNull(productCode) { "productCode는 재구성 시 필수입니다." },
                 productName = requireNotNull(productName) { "productName은 재구성 시 필수입니다." },
                 category = requireNotNull(category) { "category는 재구성 시 필수입니다." },
-                defaultZoneId = defaultZoneId,
                 unit = requireNotNull(unit) { "unit은 재구성 시 필수입니다." },
                 shelfLifeDays = shelfLifeDays,
                 productStatus = productStatus
@@ -77,7 +70,6 @@ class ProductTestBuilder {
             productCode = productCode,
             productName = productName,
             category = category,
-            defaultZoneId = defaultZoneId,
             unit = unit,
             shelfLifeDays = shelfLifeDays
         )
