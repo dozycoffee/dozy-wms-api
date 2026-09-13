@@ -17,5 +17,6 @@ enum class ProductErrorCode(
         ErrorType.VALIDATION,
         "PRODUCT_INVALID_SHELF_LIFE_DAYS",
         "유통기한 일수는 0 이상이어야 합니다."
-    )
+    ),
+    PRODUCT_NOT_FOUND(ErrorType.NOT_FOUND, "PRODUCT_NOT_FOUND", "존재하지 않는 상품입니다.")
 }
