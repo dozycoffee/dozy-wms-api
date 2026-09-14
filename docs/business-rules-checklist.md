@@ -20,7 +20,7 @@
 
 | 규칙 | 구현 위치 | 테스트 | 상태 |
 |---|---|---|---|
-| 상품은 반드시 지정된 Zone에만 적재 — `product.category`가 Zone을 1:1로 결정(`default_zone_id` 컬럼 없음), 실제 배치 시점의 FK는 `inbound_item.zone_id` | 미구현 (inbound 도메인 없음, category→Zone 매핑 로직 없음) | 없음 | ❌ 미구현 |
+| 상품은 반드시 지정된 Zone에만 적재 — `product.category`가 Zone을 1:1로 결정(`default_zone_id` 컬럼 없음), 실제 배치 시점의 FK는 `inbound_item.zone_id` | [ProductCategory.kt](../src/main/kotlin/com/dozycoffee/wms/product/domain/enumeration/ProductCategory.kt) (category→zoneCode 매핑만 정의됨. inbound 도메인이 없어 실제 적재/용량 검증은 아직 미구현) | [ProductCategoryTest.kt](../src/test/kotlin/com/dozycoffee/wms/product/domain/ProductCategoryTest.kt) | ⚠️ 부분 구현 |
 | Location `usedCapacity`는 적재 즉시 갱신, `maxCapacity` 초과 불가 | [Location.kt:61-92](../src/main/kotlin/com/dozycoffee/wms/warehouse/domain/model/Location.kt#L61-L92) (`occupy`/`release` + `validateCapacityNotExceeded`) | [LocationTest.kt](../src/test/kotlin/com/dozycoffee/wms/warehouse/domain/LocationTest.kt) | ✅ 검증됨 |
 | WorkArea 점유량은 건별로 점유/반환하며, 전체 reset으로 다른 건의 점유량을 지우면 안 됨 | [WorkArea.kt:54-68](../src/main/kotlin/com/dozycoffee/wms/warehouse/domain/model/WorkArea.kt#L54-L68) (`occupy`/`release`가 amount만큼만 증감, 전체 초기화 메서드 없음) | [WorkAreaTest.kt](../src/test/kotlin/com/dozycoffee/wms/warehouse/domain/WorkAreaTest.kt) | ✅ 검증됨 |
 | 비활성(INACTIVE) Zone/WorkArea/Location은 점유 시도 시 거부 | [WorkArea.kt:76-80](../src/main/kotlin/com/dozycoffee/wms/warehouse/domain/model/WorkArea.kt#L76-L80), [Location.kt:82-86](../src/main/kotlin/com/dozycoffee/wms/warehouse/domain/model/Location.kt#L82-L86) | [WorkAreaTest.kt](../src/test/kotlin/com/dozycoffee/wms/warehouse/domain/WorkAreaTest.kt), [LocationTest.kt](../src/test/kotlin/com/dozycoffee/wms/warehouse/domain/LocationTest.kt) | ✅ 검증됨 |
