@@ -33,6 +33,9 @@
 | 단일 Location에 모두 적재 불가 시 여러 Location으로 분산 배치 | 미구현 | 없음 | ❌ 미구현 |
 | 입고 완료 후 해당 건이 점유했던 만큼만 WorkArea `usedCapacity`를 release (전체 reset 금지) | 미구현 — 단, WorkArea 쪽 `release(amount)` 기반은 준비됨 ([WorkArea.kt:67](../src/main/kotlin/com/dozycoffee/wms/warehouse/domain/model/WorkArea.kt#L67)) | 없음 | ❌ 미구현 |
 | 상태 흐름 `EXPECTED → WAITING → PROCESSING → COMPLETED` 준수 | 미구현 | 없음 | ❌ 미구현 |
+| 입고 검수: 실제 입고 수량과 예정 수량을 비교하고 차이를 기록 | 미구현 | 없음 | ❌ 미구현 |
+| 입고 검수: 파손 여부·유통기한·품질 상태를 확인해 정상/불량 상품을 구분 | 미구현 | 없음 | ❌ 미구현 |
+| 불량 상품은 정상 재고로 등록하지 않고 반품 처리장 또는 폐기 처리장으로 이동 | 미구현 | 없음 | ❌ 미구현 |
 
 ## 출고 (Outbound)
 
@@ -52,6 +55,9 @@
 | 규칙 | 구현 위치 | 테스트 | 상태 |
 |---|---|---|---|
 | 상태 흐름 `REQUESTED → APPROVED → COMPLETED` 준수 | 미구현 | 없음 | ❌ 미구현 |
+| 품질 상태가 `DISPOSAL_SCHEDULED`인 재고를 폐기 처리장으로 물리 이동시키고, 폐기 처리장 `usedCapacity`를 갱신 | 미구현 | 없음 | ❌ 미구현 |
+| 폐기 승인 시 사유(유통기한 경과/검수 불량/반품 불량 등)와 수량을 기록 | 미구현 | 없음 | ❌ 미구현 |
+| 폐기 확정 시 대상 Inventory를 가용/총 수량에서 완전히 제외(soft delete)하고, 폐기 처리장 `usedCapacity`를 감소 | 미구현 | 없음 | ❌ 미구현 |
 
 ## 유통기한 모니터링 (배치 스캔)
 
@@ -59,13 +65,28 @@
 |---|---|---|---|
 | 유통기한 30일 이내 → Lot 상태 `EXPIRING_SOON` 자동 전환 | [Lot.kt](../src/main/kotlin/com/dozycoffee/wms/inventory/domain/model/Lot.kt) `markExpiringSoon()`은 준비됨 — 30일 기준 판정 후 호출하는 배치 스캔 자체는 미구현 | [LotTest.kt](../src/test/kotlin/com/dozycoffee/wms/inventory/domain/LotTest.kt) | ⚠️ 부분 구현 |
 | 유통기한 당일 경과 → Inventory `qualityStatus = DISPOSAL_SCHEDULED` 자동 전환, 출고 할당 즉시 제외 | [Lot.kt](../src/main/kotlin/com/dozycoffee/wms/inventory/domain/model/Lot.kt) `markExpired()`, [Inventory.kt](../src/main/kotlin/com/dozycoffee/wms/inventory/domain/model/Inventory.kt) `markDisposalScheduled()`는 준비됨 — 배치 스캔에서 두 엔티티를 연계 호출하는 흐름은 미구현 | [LotTest.kt](../src/test/kotlin/com/dozycoffee/wms/inventory/domain/LotTest.kt), [InventoryTest.kt](../src/test/kotlin/com/dozycoffee/wms/inventory/domain/InventoryTest.kt) | ⚠️ 부분 구현 |
+| 임박 재고는 FIFO 피킹 순서와 별개로 우선 출고를 권고하는 알림을 남긴다 (피킹 순서 자체를 강제로 바꾸지는 않음 — `lot.expiration_date` 오름차순 FIFO로 이미 우선순위가 반영되므로 알림은 보조 수단) | 미구현 | 없음 | ❌ 미구현 |
 
-## 재고 실사 (별도 구현 예정, ERD 미포함)
+## 재고 조회
+
+| 규칙 | 구현 위치 | 테스트 | 상태 |
+|---|---|---|---|
+| Zone/Location 단위로 실시간 재고 현황(수량, Capacity 대비 사용률)을 조회 | 미구현 | 없음 | ❌ 미구현 |
+| 재고 수량/유통기한/입고일 기준 정렬 조회 | 미구현 | 없음 | ❌ 미구현 |
+| 재고 상세 조회 시 연결된 Lot 정보(제조일자/유통기한)와 최근 재고 이력을 함께 제공 | 미구현 | 없음 | ❌ 미구현 |
+| Lot 단위 조회 시 Zone/Location별 재고 분포와 유통기한 임박 여부를 함께 제공 | 미구현 | 없음 | ❌ 미구현 |
+| 재고 이력 조회 시 변동 유형(입고/출고/반품/폐기/조정)·기간으로 필터링, 시간순 정렬 | 미구현 | 없음 | ❌ 미구현 |
+
+## 재고 실사 (별도 구현 예정, ERD 미포함 — Notion 시나리오는 상세화되었으나 ERD에 실사 테이블은 여전히 없음)
 
 | 규칙 | 구현 위치 | 테스트 | 상태 |
 |---|---|---|---|
 | 상태 흐름 `SCHEDULED → IN_PROGRESS → COMPLETED → CLOSED` 준수 | 미구현 | 없음 | ❌ 미구현 |
 | 조정 결과는 `inventory_history.history_type = ADJUSTMENT`로 기록 | 미구현 | 없음 | ❌ 미구현 |
+| 실사 계획 등록 시 대상 Zone/Location의 Inventory 수량을 스냅샷으로 저장 — 이후 실사 결과는 실시간 재고가 아닌 이 스냅샷과 비교 | 미구현 | 없음 | ❌ 미구현 |
+| 실사 담당자 배정 시점에 상태가 `SCHEDULED`→`IN_PROGRESS`로 전환 | 미구현 | 없음 | ❌ 미구현 |
+| 실사 차이 확인 시 실사 기준 시점 이후 미반영된 입출고 이력이 있는지 구분 (단순 오차 vs 실제 재고 이상) | 미구현 | 없음 | ❌ 미구현 |
+| 조정 수량이 임계치를 초과하면 상위 관리자 승인을 요구 | 미구현 | 없음 | ❌ 미구현 |
 
 ## 재고 점유 (Allocation, ADR-0008)
 

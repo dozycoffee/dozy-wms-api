@@ -167,21 +167,37 @@ E Zone   : 컵/소모품/포장재(상온) — E-01(100), E-02(100), E-03(90), E
 - 입고 예정 등록 시 Zone의 잔여 Capacity를 사전 점검 — 공간 부족 시 입고 반려 (경고가 아닌 반려)
 - 단일 Location에 모두 적재 불가 시 여러 Location으로 분산 배치
 - 입고 완료 후 해당 건이 점유했던 만큼 WorkArea의 `usedCapacity`를 release — WorkArea는 여러 입고 건이 동시에 점유할 수 있는 공유 자원이므로, 전체를 0으로 초기화(reset)하면 동시 처리 중인 다른 건의 점유량까지 지워지는 버그가 됨
+- 입고 검수 시 예정 수량과 실제 입고 수량을 비교하고, 파손·유통기한·품질 상태를 확인해 정상/불량 상품을 구분
+- 불량 상품은 정상 재고로 등록하지 않고 반품 처리장 또는 폐기 처리장으로 이동
 
 **출고**
 - 피킹은 **FIFO** (선입선출) 방식 — `lot.expiration_date` 기준 오름차순 선택
 
 **재고 적재**
-- 상품은 반드시 지정된 Zone(`product.default_zone_id` 또는 `inbound_item.zone_id`)에만 적재
+- 상품은 반드시 지정된 Zone(`product.category` → Zone 1:1 매핑, 실제 배치 시점은 `inbound_item.zone_id`)에만 적재 — `product`에 별도 `default_zone_id` 컬럼은 두지 않는다
 - Location `usedCapacity`는 적재 즉시 갱신, `maxCapacity` 초과 불가
+
+**재고 조회**
+- Zone/Location 단위로 실시간 재고 현황을 조회하며, 수량/유통기한/입고일 기준 정렬을 지원
+- 재고 상세 조회 시 연결된 Lot(제조일자/유통기한)과 최근 재고 이력을 함께 제공
+- 재고 이력 조회는 변동 유형(입고/출고/반품/폐기/조정)·기간으로 필터링 가능
 
 **유통기한 모니터링** (배치 스캔)
 - 임박 기준: 유통기한 **30일 이내** → Lot 상태 `EXPIRING_SOON` 자동 전환
 - 경과 재고: 유통기한 당일 경과 → Inventory `qualityStatus` = `DISPOSAL_SCHEDULED` 자동 전환, 출고 할당 즉시 제외
+- 임박 재고는 FIFO 순서와 별개로 우선 출고 권고 알림을 남김 (피킹 순서 자체를 강제로 바꾸지는 않음)
 
 **재고 실사** (시나리오 존재, ERD 미포함 — 별도 구현 예정)
-- 실사 상태: `SCHEDULED` → `IN_PROGRESS` → `COMPLETED` → `CLOSED`
+- 실사 상태: `SCHEDULED` → `IN_PROGRESS` → `COMPLETED` → `CLOSED` — 담당자 배정 시점에 `SCHEDULED` → `IN_PROGRESS`로 전환
+- 실사 계획 등록 시 대상 Zone/Location의 Inventory 수량을 스냅샷으로 저장하고, 실사 결과는 이 스냅샷과 비교
+- 차이 확인 시 실사 기준 시점 이후 미반영된 입출고 이력이 있는지 구분 (단순 오차 vs 실제 재고 이상)
+- 조정 수량이 임계치를 초과하면 상위 관리자 승인이 필요
 - 조정 결과는 `inventory_history.history_type = ADJUSTMENT`로 기록
+
+**폐기**
+- 품질 상태가 `DISPOSAL_SCHEDULED`인 재고를 폐기 처리장으로 물리 이동시키고, 폐기 처리장 `usedCapacity`를 갱신
+- 폐기 승인 시 사유(유통기한 경과/검수 불량/반품 불량 등)와 수량을 기록
+- 폐기 확정 시 대상 Inventory를 가용/총 수량에서 완전히 제외(soft delete)하고, 폐기 처리장 `usedCapacity`를 감소
 
 ### Testing Strategy
 
