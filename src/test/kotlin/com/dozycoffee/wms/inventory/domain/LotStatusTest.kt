@@ -9,6 +9,16 @@ class LotStatusTest {
 
     @ParameterizedTest
     @CsvSource(
+        "NORMAL, 정상",
+        "EXPIRING_SOON, 유통기한 임박",
+        "EXPIRED, 유통기한 경과"
+    )
+    fun `Lot 상태는 설명을 갖는다`(lotStatus: LotStatus, expectedDescription: String) {
+        assertThat(lotStatus.description).isEqualTo(expectedDescription)
+    }
+
+    @ParameterizedTest
+    @CsvSource(
         "NORMAL, EXPIRING_SOON, true",
         "NORMAL, EXPIRED, true",
         "NORMAL, NORMAL, false",
