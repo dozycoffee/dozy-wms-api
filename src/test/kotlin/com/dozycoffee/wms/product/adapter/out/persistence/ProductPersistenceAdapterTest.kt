@@ -63,4 +63,12 @@ class ProductPersistenceAdapterTest {
         assertThat(afterUpdate.createdAt).isEqualTo(beforeUpdate.createdAt)
         assertThat(afterUpdate.createdBy).isEqualTo(beforeUpdate.createdBy)
     }
+
+    @Test
+    fun `등록된 상품 코드는 존재하는 것으로 판단한다`() = runTest {
+        productPersistenceAdapter.save(product().productCode("PRD-EXISTS").build())
+
+        assertThat(productPersistenceAdapter.existsByProductCode("PRD-EXISTS")).isTrue()
+        assertThat(productPersistenceAdapter.existsByProductCode("PRD-NOT-EXISTS")).isFalse()
+    }
 }

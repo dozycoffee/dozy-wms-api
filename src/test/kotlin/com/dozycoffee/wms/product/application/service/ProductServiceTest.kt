@@ -4,6 +4,7 @@ import com.dozycoffee.wms.product.application.port.`in`.command.RegisterProductC
 import com.dozycoffee.wms.product.application.port.out.ProductRepository
 import com.dozycoffee.wms.product.domain.enumeration.ProductCategory
 import com.dozycoffee.wms.product.domain.enumeration.ProductStatus
+import com.dozycoffee.wms.product.domain.exception.DuplicateProductCodeException
 import com.dozycoffee.wms.product.domain.exception.ProductNotFoundException
 import com.dozycoffee.wms.product.domain.model.Product
 import com.dozycoffee.wms.product.fixture.ProductTestBuilder.Companion.product
@@ -40,6 +41,7 @@ class ProductServiceTest {
                 "PRD-0001", "콜롬비아 원두", ProductCategory.BEAN, "KG", 365
             )
             val saved: Product = product().productId(1L).build()
+            whenever(productRepository.existsByProductCode("PRD-0001")).thenReturn(false)
             whenever(productRepository.save(any())).thenReturn(saved)
 
             val result = productService.register(command)
@@ -50,6 +52,17 @@ class ProductServiceTest {
             val captor = argumentCaptor<Product>()
             verify(productRepository).save(captor.capture())
             assertThat(captor.firstValue.productStatus).isEqualTo(ProductStatus.ACTIVE)
+        }
+
+        @Test
+        fun `이미 등록된 상품 코드면 예외를 던진다`() = runTest {
+            val command = RegisterProductCommand(
+                "PRD-0001", "콜롬비아 원두", ProductCategory.BEAN, "KG", 365
+            )
+            whenever(productRepository.existsByProductCode("PRD-0001")).thenReturn(true)
+
+            assertThatThrownBy { runBlocking { productService.register(command) } }
+                .isInstanceOf(DuplicateProductCodeException::class.java)
         }
     }
 

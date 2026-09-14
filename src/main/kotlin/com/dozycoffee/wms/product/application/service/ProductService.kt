@@ -7,6 +7,7 @@ import com.dozycoffee.wms.product.application.port.`in`.RegisterProductUseCase
 import com.dozycoffee.wms.product.application.port.`in`.command.RegisterProductCommand
 import com.dozycoffee.wms.product.application.port.`in`.result.ProductResult
 import com.dozycoffee.wms.product.application.port.out.ProductRepository
+import com.dozycoffee.wms.product.domain.exception.DuplicateProductCodeException
 import com.dozycoffee.wms.product.domain.exception.ProductNotFoundException
 import com.dozycoffee.wms.product.domain.model.Product
 import org.springframework.stereotype.Service
@@ -19,6 +20,9 @@ class ProductService(
 
     @Transactional
     override suspend fun register(command: RegisterProductCommand): ProductResult {
+        if (productRepository.existsByProductCode(command.productCode)) {
+            throw DuplicateProductCodeException()
+        }
         val product = Product.create(
             command.productCode,
             command.productName,

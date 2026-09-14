@@ -5,4 +5,5 @@ import com.dozycoffee.wms.product.domain.model.Product
 interface ProductRepository {
     suspend fun save(product: Product): Product
     suspend fun findById(productId: Long): Product?
+    suspend fun existsByProductCode(productCode: String): Boolean
 }
