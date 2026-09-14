@@ -119,7 +119,9 @@ src
 **Inventory Status**
 
 - `Inventory` 엔티티는 두 축의 상태를 가짐: `qualityStatus` (NORMAL / DEFECTIVE / DISPOSAL_SCHEDULED) × `allocationStatus` (AVAILABLE / ALLOCATED)
-- 유효하지 않은 상태 조합은 생성 시점에 `IllegalArgumentException`으로 차단
+- 유효하지 않은 상태 조합(정상 품질이 아닌데 할당된 경우)은 생성/상태 변경 시점에 `InventoryErrorCode` 기반
+  `DomainException`(`InvalidInventoryStatusCombinationException`)으로 차단 — Warehouse의
+  `LocationCapacityExceededException` 등과 동일하게 `ErrorCode`/`BusinessException` 체계를 따른다
 
 **Warehouse Domain Structure**
 
