@@ -11,7 +11,6 @@ class Product private constructor(
     val productCode: String,
     val productName: String,
     val category: ProductCategory,
-    val defaultZoneId: Long?,
     val unit: String,
     val shelfLifeDays: Int?,
     productStatus: ProductStatus
@@ -26,7 +25,6 @@ class Product private constructor(
             productCode: String?,
             productName: String?,
             category: ProductCategory?,
-            defaultZoneId: Long?,
             unit: String?,
             shelfLifeDays: Int?
         ): Product {
@@ -40,7 +38,6 @@ class Product private constructor(
                 productCode = validProductCode,
                 productName = validProductName,
                 category = validCategory,
-                defaultZoneId = defaultZoneId,
                 unit = validUnit,
                 shelfLifeDays = shelfLifeDays,
                 productStatus = ProductStatus.ACTIVE
@@ -52,7 +49,6 @@ class Product private constructor(
             productCode: String,
             productName: String,
             category: ProductCategory,
-            defaultZoneId: Long?,
             unit: String,
             shelfLifeDays: Int?,
             productStatus: ProductStatus
@@ -62,7 +58,6 @@ class Product private constructor(
                 productCode = productCode,
                 productName = productName,
                 category = category,
-                defaultZoneId = defaultZoneId,
                 unit = unit,
                 shelfLifeDays = shelfLifeDays,
                 productStatus = productStatus
@@ -110,6 +105,10 @@ class Product private constructor(
 
     fun deactivate() {
         productStatus = ProductStatus.INACTIVE
+    }
+
+    fun delete(actor: String) {
+        softDelete(actor)
     }
 
     override fun equals(other: Any?): Boolean {

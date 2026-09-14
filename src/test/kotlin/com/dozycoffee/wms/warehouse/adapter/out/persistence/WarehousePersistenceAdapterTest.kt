@@ -1,6 +1,7 @@
 package com.dozycoffee.wms.warehouse.adapter.out.persistence
 
 import com.dozycoffee.wms.global.config.R2dbcConfig
+import com.dozycoffee.wms.global.persistence.CommonCodes
 import com.dozycoffee.wms.warehouse.domain.enumeration.AvailabilityStatus
 import com.dozycoffee.wms.warehouse.domain.model.Warehouse
 import com.dozycoffee.wms.warehouse.fixture.WarehouseTestBuilder.Companion.warehouse

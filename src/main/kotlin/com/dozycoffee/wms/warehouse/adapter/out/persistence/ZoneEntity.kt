@@ -1,6 +1,7 @@
 package com.dozycoffee.wms.warehouse.adapter.out.persistence
 
 import com.dozycoffee.wms.global.common.BaseEntity
+import com.dozycoffee.wms.global.persistence.CommonCodes
 import com.dozycoffee.wms.warehouse.domain.enumeration.AvailabilityStatus
 import com.dozycoffee.wms.warehouse.domain.enumeration.ZoneCode
 import com.dozycoffee.wms.warehouse.domain.model.Zone
