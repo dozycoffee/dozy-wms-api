@@ -57,8 +57,8 @@
 
 | 규칙 | 구현 위치 | 테스트 | 상태 |
 |---|---|---|---|
-| 유통기한 30일 이내 → Lot 상태 `EXPIRING_SOON` 자동 전환 | 미구현 (inventory/lot 도메인 없음) | 없음 | ❌ 미구현 |
-| 유통기한 당일 경과 → Inventory `qualityStatus = DISPOSAL_SCHEDULED` 자동 전환, 출고 할당 즉시 제외 | 미구현 | 없음 | ❌ 미구현 |
+| 유통기한 30일 이내 → Lot 상태 `EXPIRING_SOON` 자동 전환 | [Lot.kt](../src/main/kotlin/com/dozycoffee/wms/inventory/domain/model/Lot.kt) `markExpiringSoon()`은 준비됨 — 30일 기준 판정 후 호출하는 배치 스캔 자체는 미구현 | [LotTest.kt](../src/test/kotlin/com/dozycoffee/wms/inventory/domain/LotTest.kt) | ⚠️ 부분 구현 |
+| 유통기한 당일 경과 → Inventory `qualityStatus = DISPOSAL_SCHEDULED` 자동 전환, 출고 할당 즉시 제외 | [Lot.kt](../src/main/kotlin/com/dozycoffee/wms/inventory/domain/model/Lot.kt) `markExpired()`, [Inventory.kt](../src/main/kotlin/com/dozycoffee/wms/inventory/domain/model/Inventory.kt) `markDisposalScheduled()`는 준비됨 — 배치 스캔에서 두 엔티티를 연계 호출하는 흐름은 미구현 | [LotTest.kt](../src/test/kotlin/com/dozycoffee/wms/inventory/domain/LotTest.kt), [InventoryTest.kt](../src/test/kotlin/com/dozycoffee/wms/inventory/domain/InventoryTest.kt) | ⚠️ 부분 구현 |
 
 ## 재고 실사 (별도 구현 예정, ERD 미포함)
 
@@ -71,4 +71,4 @@
 
 | 규칙 | 구현 위치 | 테스트 | 상태 |
 |---|---|---|---|
-| `qualityStatus`(NORMAL/DEFECTIVE/DISPOSAL_SCHEDULED) × `allocationStatus`(AVAILABLE/ALLOCATED) 중 유효하지 않은 조합은 생성 시점에 `IllegalArgumentException` | 미구현 (inventory 도메인 없음) | 없음 | ❌ 미구현 |
+| `qualityStatus`(NORMAL/DEFECTIVE/DISPOSAL_SCHEDULED) × `allocationStatus`(AVAILABLE/ALLOCATED) 중 유효하지 않은 조합은 생성/상태 변경 시점에 `InventoryErrorCode` 기반 `DomainException`으로 차단 | [Inventory.kt](../src/main/kotlin/com/dozycoffee/wms/inventory/domain/model/Inventory.kt) (`validateStatusCombination` → `InvalidInventoryStatusCombinationException` — `reconstitute`/`allocate`/`markDefective`/`markDisposalScheduled`에서 호출) | [InventoryTest.kt](../src/test/kotlin/com/dozycoffee/wms/inventory/domain/InventoryTest.kt) | ✅ 검증됨 |
