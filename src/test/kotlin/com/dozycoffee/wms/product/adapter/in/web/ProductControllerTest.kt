@@ -10,6 +10,7 @@ import com.dozycoffee.wms.product.application.port.`in`.result.ProductResult
 import com.dozycoffee.wms.product.domain.enumeration.ProductCategory
 import com.dozycoffee.wms.product.domain.enumeration.ProductStatus
 import com.dozycoffee.wms.product.domain.exception.ProductNotFoundException
+import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.runBlocking
 import org.junit.jupiter.api.Nested
 import org.junit.jupiter.api.Test
@@ -140,6 +141,32 @@ class ProductControllerTest {
             webTestClient.delete().uri("/api/products/{productId}", 999L)
                 .exchange()
                 .expectStatus().isNotFound
+        }
+    }
+
+    @Nested
+    inner class 상품_목록_조회 {
+
+        @Test
+        fun `필터 없이 조회하면 200과 상품 목록을 반환한다`() {
+            whenever(getProductUseCase.getAll(null, null)).thenReturn(flowOf(sampleResult()))
+
+            webTestClient.get().uri("/api/products")
+                .exchange()
+                .expectStatus().isOk
+                .expectBody()
+                .jsonPath("$[0].productId").isEqualTo(1)
+        }
+
+        @Test
+        fun `카테고리로 필터링하면 200과 필터링된 상품 목록을 반환한다`() {
+            whenever(getProductUseCase.getAll(ProductCategory.BEAN, null)).thenReturn(flowOf(sampleResult()))
+
+            webTestClient.get().uri { it.path("/api/products").queryParam("category", "BEAN").build() }
+                .exchange()
+                .expectStatus().isOk
+                .expectBody()
+                .jsonPath("$[0].category").isEqualTo("BEAN")
         }
     }
 }

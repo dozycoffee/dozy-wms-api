@@ -2,8 +2,10 @@ package com.dozycoffee.wms.product.adapter.out.persistence
 
 import com.dozycoffee.wms.global.config.R2dbcConfig
 import com.dozycoffee.wms.global.persistence.CommonCodes
+import com.dozycoffee.wms.product.domain.enumeration.ProductCategory
 import com.dozycoffee.wms.product.domain.enumeration.ProductStatus
 import com.dozycoffee.wms.product.fixture.ProductTestBuilder.Companion.product
+import kotlinx.coroutines.flow.toList
 import kotlinx.coroutines.test.runTest
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.AfterEach
@@ -86,5 +88,23 @@ class ProductPersistenceAdapterTest {
         assertThat(found).isNull()
         assertThat(persisted.isDeleted()).isTrue()
         assertThat(persisted.deletedBy).isEqualTo("system")
+    }
+
+    @Test
+    fun `카테고리와 상태로 목록을 필터링하고 삭제된 상품은 제외한다`() = runTest {
+        val bean = productPersistenceAdapter.save(
+            product().productCode("PRD-BEAN").category(ProductCategory.BEAN).build()
+        )
+        productPersistenceAdapter.save(
+            product().productCode("PRD-SYRUP").category(ProductCategory.SYRUP).build()
+        )
+        val deletedBean = product().productCode("PRD-BEAN-DELETED").category(ProductCategory.BEAN).build()
+        deletedBean.delete("system")
+        productPersistenceAdapter.save(deletedBean)
+
+        val result = productPersistenceAdapter.findAll(ProductCategory.BEAN, null).toList()
+
+        assertThat(result).hasSize(1)
+        assertThat(result.first().productId).isEqualTo(bean.productId)
     }
 }

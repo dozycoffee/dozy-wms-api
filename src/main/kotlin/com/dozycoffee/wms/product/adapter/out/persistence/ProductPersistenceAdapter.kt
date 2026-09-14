@@ -1,7 +1,12 @@
 package com.dozycoffee.wms.product.adapter.out.persistence
 
+import com.dozycoffee.wms.global.persistence.CommonCodes
 import com.dozycoffee.wms.product.application.port.out.ProductRepository
+import com.dozycoffee.wms.product.domain.enumeration.ProductCategory
+import com.dozycoffee.wms.product.domain.enumeration.ProductStatus
 import com.dozycoffee.wms.product.domain.model.Product
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.map
 import org.springframework.stereotype.Component
 
 @Component
@@ -24,5 +29,16 @@ class ProductPersistenceAdapter(
 
     override suspend fun existsByProductCode(productCode: String): Boolean {
         return productR2dbcRepository.existsByProductCode(productCode)
+    }
+
+    override fun findAll(category: ProductCategory?, productStatus: ProductStatus?): Flow<Product> {
+        val categoryCode = category?.let { CommonCodes.toCode(CATEGORY_GROUP, it) }
+        val statusCode = productStatus?.let { CommonCodes.toCode(STATUS_GROUP, it) }
+        return productR2dbcRepository.findAllActive(categoryCode, statusCode).map { it.toDomain() }
+    }
+
+    companion object {
+        private const val CATEGORY_GROUP = "PRODUCT_CATEGORY"
+        private const val STATUS_GROUP = "PRODUCT_STATUS"
     }
 }

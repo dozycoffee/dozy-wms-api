@@ -8,6 +8,8 @@ import com.dozycoffee.wms.product.domain.exception.DuplicateProductCodeException
 import com.dozycoffee.wms.product.domain.exception.ProductNotFoundException
 import com.dozycoffee.wms.product.domain.model.Product
 import com.dozycoffee.wms.product.fixture.ProductTestBuilder.Companion.product
+import kotlinx.coroutines.flow.flowOf
+import kotlinx.coroutines.flow.toList
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.test.runTest
 import org.assertj.core.api.Assertions.assertThat
@@ -131,6 +133,31 @@ class ProductServiceTest {
 
             assertThatThrownBy { runBlocking { productService.getById(1L) } }
                 .isInstanceOf(ProductNotFoundException::class.java)
+        }
+    }
+
+    @Nested
+    inner class 상품_목록_조회 {
+
+        @Test
+        fun `필터 없이 조회하면 전체 상품 목록을 반환한다`() = runTest {
+            val found: List<Product> = listOf(product().productId(1L).build(), product().productId(2L).build())
+            whenever(productRepository.findAll(null, null)).thenReturn(flowOf(*found.toTypedArray()))
+
+            val result = productService.getAll(null, null).toList()
+
+            assertThat(result).hasSize(2)
+        }
+
+        @Test
+        fun `카테고리로 필터링하면 해당 카테고리만 반환한다`() = runTest {
+            val found: List<Product> = listOf(product().productId(1L).category(ProductCategory.BEAN).build())
+            whenever(productRepository.findAll(ProductCategory.BEAN, null)).thenReturn(flowOf(*found.toTypedArray()))
+
+            val result = productService.getAll(ProductCategory.BEAN, null).toList()
+
+            assertThat(result).hasSize(1)
+            assertThat(result.first().category).isEqualTo(ProductCategory.BEAN)
         }
     }
 
