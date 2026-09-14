@@ -17,5 +17,6 @@ enum class LotErrorCode(
         "유통기한은 제조일자보다 빠를 수 없습니다."
     ),
     INVALID_STATUS_TRANSITION(ErrorType.CONFLICT, "LOT_INVALID_STATUS_TRANSITION", "Lot 상태를 역행하거나 건너뛸 수 없습니다."),
-    LOT_NOT_FOUND(ErrorType.NOT_FOUND, "LOT_NOT_FOUND", "존재하지 않는 Lot입니다.")
+    LOT_NOT_FOUND(ErrorType.NOT_FOUND, "LOT_NOT_FOUND", "존재하지 않는 Lot입니다."),
+    DUPLICATE_LOT_NUMBER(ErrorType.CONFLICT, "LOT_DUPLICATE_LOT_NUMBER", "이미 등록된 Lot 번호입니다.")
 }
