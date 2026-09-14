@@ -67,8 +67,14 @@
 | 상태 흐름 `SCHEDULED → IN_PROGRESS → COMPLETED → CLOSED` 준수 | 미구현 | 없음 | ❌ 미구현 |
 | 조정 결과는 `inventory_history.history_type = ADJUSTMENT`로 기록 | 미구현 | 없음 | ❌ 미구현 |
 
-## 재고 상태 조합 (Inventory)
+## 재고 점유 (Allocation, ADR-0008)
 
 | 규칙 | 구현 위치 | 테스트 | 상태 |
 |---|---|---|---|
-| `qualityStatus`(NORMAL/DEFECTIVE/DISPOSAL_SCHEDULED) × `allocationStatus`(AVAILABLE/ALLOCATED) 중 유효하지 않은 조합은 생성/상태 변경 시점에 `InventoryErrorCode` 기반 `DomainException`으로 차단 | [Inventory.kt](../src/main/kotlin/com/dozycoffee/wms/inventory/domain/model/Inventory.kt) (`validateStatusCombination` → `InvalidInventoryStatusCombinationException` — `reconstitute`/`allocate`/`markDefective`/`markDisposalScheduled`에서 호출) | [InventoryTest.kt](../src/test/kotlin/com/dozycoffee/wms/inventory/domain/InventoryTest.kt) | ✅ 검증됨 |
+| 정상(NORMAL) 품질이 아닌 재고는 점유(`hold`)할 수 없다 | [Inventory.kt](../src/main/kotlin/com/dozycoffee/wms/inventory/domain/model/Inventory.kt) `hold()` → `InventoryNotAllocatableException` | [InventoryTest.kt](../src/test/kotlin/com/dozycoffee/wms/inventory/domain/InventoryTest.kt) | ✅ 검증됨 |
+| 가용 수량(`availableQuantity`)을 초과해 점유할 수 없다 | [Inventory.kt](../src/main/kotlin/com/dozycoffee/wms/inventory/domain/model/Inventory.kt) `hold()` → `InsufficientAvailableQuantityException` | [InventoryTest.kt](../src/test/kotlin/com/dozycoffee/wms/inventory/domain/InventoryTest.kt) | ✅ 검증됨 |
+| 점유가 남아있는(`allocatedQuantity > 0`) 재고는 품질 상태(`markDefective`/`markDisposalScheduled`)를 변경할 수 없다 | [Inventory.kt](../src/main/kotlin/com/dozycoffee/wms/inventory/domain/model/Inventory.kt) → `InventoryHasActiveAllocationException` | [InventoryTest.kt](../src/test/kotlin/com/dozycoffee/wms/inventory/domain/InventoryTest.kt) | ✅ 검증됨 |
+| `Allocation` 상태 전이는 `HELD → RELEASED`, `HELD → FULFILLED`만 허용(완전 종단) | [Allocation.kt](../src/main/kotlin/com/dozycoffee/wms/inventory/domain/model/Allocation.kt), [AllocationStatus.kt](../src/main/kotlin/com/dozycoffee/wms/inventory/domain/enumeration/AllocationStatus.kt) `canTransitionTo` | [AllocationTest.kt](../src/test/kotlin/com/dozycoffee/wms/inventory/domain/AllocationTest.kt), [AllocationStatusTest.kt](../src/test/kotlin/com/dozycoffee/wms/inventory/domain/AllocationStatusTest.kt) | ✅ 검증됨 |
+| `Allocation.quantity`는 생성 후 불변 | [Allocation.kt](../src/main/kotlin/com/dozycoffee/wms/inventory/domain/model/Allocation.kt) (변경 메서드 없음, `val`) | [AllocationTest.kt](../src/test/kotlin/com/dozycoffee/wms/inventory/domain/AllocationTest.kt) | ✅ 검증됨 |
+| `FULFILLED` 전환 시 `Inventory.quantity`와 `allocatedQuantity`를 함께 차감 | [Inventory.kt](../src/main/kotlin/com/dozycoffee/wms/inventory/domain/model/Inventory.kt) `fulfillHold()` | [InventoryTest.kt](../src/test/kotlin/com/dozycoffee/wms/inventory/domain/InventoryTest.kt) | ✅ 검증됨 |
+| `(inventoryId, referenceType, referenceId)`는 `HELD` 상태에만 조건부 유니크(이벤트 재수신 멱등성) | 미구현 — 도메인 모델 규칙만 확정, R2DBC 마이그레이션/조건부 유니크 인덱스는 미구현 | 없음 | ❌ 미구현 |
