@@ -116,10 +116,13 @@ src
 
 - Use Kotlin `data class` types for all request/response DTOs
 
-**Inventory Status**
+**Inventory Status & Allocation** (ADR-0008)
 
-- `Inventory` 엔티티는 두 축의 상태를 가짐: `qualityStatus` (NORMAL / DEFECTIVE / DISPOSAL_SCHEDULED) × `allocationStatus` (AVAILABLE / ALLOCATED)
-- 유효하지 않은 상태 조합은 생성 시점에 `IllegalArgumentException`으로 차단
+- `Inventory` 엔티티는 `qualityStatus` (NORMAL / DEFECTIVE / DISPOSAL_SCHEDULED) × `quantity`/`allocatedQuantity`(파생 `availableQuantity`)로 재고량을 관리한다 — 이진 `allocationStatus` 필드는 두지 않는다(재고 로우 하나에 대한 부분 점유를 표현할 수 없어 ADR-0008로 제거)
+- 재고 점유는 별도의 `Allocation` 엔티티(`inventory` 도메인 소속)가 `Inventory` : `Allocation` = 1 : N으로 표현한다 — `referenceType`/`referenceId`로 점유 요청 주체를 범용적으로 참조하며 출고에 한정되지 않는다
+- `Allocation` 상태는 `HELD → RELEASED`, `HELD → FULFILLED`만 허용하는 완전 종단 전이이며, `quantity`는 생성 후 불변이다
+- `Inventory.hold()`/`releaseHold()`/`fulfillHold()`가 `Allocation`의 상태 전이에 대응해 `allocatedQuantity`(및 `fulfillHold`의 경우 `quantity`)를 갱신한다 — `qualityStatus != NORMAL`이면 `hold()` 불가, `allocatedQuantity > 0`이면 `markDefective()`/`markDisposalScheduled()` 불가
+- `(inventoryId, referenceType, referenceId)`는 `status = HELD`인 레코드에만 조건부 유니크 — 이벤트 기반(비동기) 처리에서의 멱등성 보장 목적, 자세한 배경은 ADR-0008 참고
 
 **Warehouse Domain Structure**
 
