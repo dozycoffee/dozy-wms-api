@@ -3,6 +3,7 @@ package com.dozycoffee.wms.product.adapter.`in`.web
 import com.dozycoffee.wms.product.adapter.`in`.web.request.RegisterProductRequest
 import com.dozycoffee.wms.product.application.port.`in`.ActivateProductUseCase
 import com.dozycoffee.wms.product.application.port.`in`.DeactivateProductUseCase
+import com.dozycoffee.wms.product.application.port.`in`.DeleteProductUseCase
 import com.dozycoffee.wms.product.application.port.`in`.GetProductUseCase
 import com.dozycoffee.wms.product.application.port.`in`.RegisterProductUseCase
 import com.dozycoffee.wms.product.application.port.`in`.result.ProductResult
@@ -34,6 +35,9 @@ class ProductControllerTest {
 
     @MockitoBean
     private lateinit var deactivateProductUseCase: DeactivateProductUseCase
+
+    @MockitoBean
+    private lateinit var deleteProductUseCase: DeleteProductUseCase
 
     @MockitoBean
     private lateinit var getProductUseCase: GetProductUseCase
@@ -114,6 +118,28 @@ class ProductControllerTest {
                 .expectStatus().isOk
                 .expectBody()
                 .jsonPath("$.productStatus").isEqualTo("INACTIVE")
+        }
+    }
+
+    @Nested
+    inner class 상품_삭제 {
+
+        @Test
+        fun `삭제 요청 시 204를 반환한다`() {
+            runBlocking { whenever(deleteProductUseCase.delete(1L)).thenReturn(Unit) }
+
+            webTestClient.delete().uri("/api/products/{productId}", 1L)
+                .exchange()
+                .expectStatus().isNoContent
+        }
+
+        @Test
+        fun `존재하지 않는 상품을 삭제하면 404를 반환한다`() {
+            runBlocking { whenever(deleteProductUseCase.delete(eq(999L))).thenThrow(ProductNotFoundException()) }
+
+            webTestClient.delete().uri("/api/products/{productId}", 999L)
+                .exchange()
+                .expectStatus().isNotFound
         }
     }
 }

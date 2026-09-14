@@ -133,4 +133,29 @@ class ProductServiceTest {
                 .isInstanceOf(ProductNotFoundException::class.java)
         }
     }
+
+    @Nested
+    inner class 상품_삭제 {
+
+        @Test
+        fun `존재하는 상품을 삭제하면 저장소에 삭제 상태로 저장한다`() = runTest {
+            val existing: Product = product().productId(1L).build()
+            whenever(productRepository.findById(1L)).thenReturn(existing)
+            whenever(productRepository.save(any())).thenAnswer { invocation -> invocation.getArgument(0) }
+
+            productService.delete(1L)
+
+            val captor = argumentCaptor<Product>()
+            verify(productRepository).save(captor.capture())
+            assertThat(captor.firstValue.isDeleted()).isTrue()
+        }
+
+        @Test
+        fun `존재하지 않는 상품을 삭제하면 예외를 던진다`() = runTest {
+            whenever(productRepository.findById(1L)).thenReturn(null)
+
+            assertThatThrownBy { runBlocking { productService.delete(1L) } }
+                .isInstanceOf(ProductNotFoundException::class.java)
+        }
+    }
 }

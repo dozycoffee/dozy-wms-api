@@ -71,4 +71,20 @@ class ProductPersistenceAdapterTest {
         assertThat(productPersistenceAdapter.existsByProductCode("PRD-EXISTS")).isTrue()
         assertThat(productPersistenceAdapter.existsByProductCode("PRD-NOT-EXISTS")).isFalse()
     }
+
+    @Test
+    fun `상품을 삭제하면 삭제 상태가 영속화되고 findById로 조회되지 않는다`() = runTest {
+        val saved = productPersistenceAdapter.save(product().build())
+        val productId = requireNotNull(saved.productId)
+
+        saved.delete("system")
+        productPersistenceAdapter.save(saved)
+
+        val found = productPersistenceAdapter.findById(productId)
+        val persisted = requireNotNull(productR2dbcRepository.findById(productId))
+
+        assertThat(found).isNull()
+        assertThat(persisted.isDeleted()).isTrue()
+        assertThat(persisted.deletedBy).isEqualTo("system")
+    }
 }

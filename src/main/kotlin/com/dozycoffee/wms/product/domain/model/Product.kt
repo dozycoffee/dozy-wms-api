@@ -107,6 +107,10 @@ class Product private constructor(
         productStatus = ProductStatus.INACTIVE
     }
 
+    fun delete(actor: String) {
+        softDelete(actor)
+    }
+
     override fun equals(other: Any?): Boolean {
         if (this === other) return true
         if (other !is Product) return false

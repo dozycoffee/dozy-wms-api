@@ -117,4 +117,18 @@ class ProductTest {
             assertThat(product.productStatus).isEqualTo(ProductStatus.INACTIVE)
         }
     }
+
+    @Nested
+    inner class 상품_삭제 {
+
+        @Test
+        fun `상품을 삭제하면 isDeleted가 true가 된다`() {
+            val product: Product = product().productId(1L).build()
+
+            product.delete("system")
+
+            assertThat(product.isDeleted()).isTrue()
+            assertThat(product.deletedBy).isEqualTo("system")
+        }
+    }
 }

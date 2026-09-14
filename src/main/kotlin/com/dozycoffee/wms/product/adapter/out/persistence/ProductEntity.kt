@@ -58,6 +58,9 @@ class ProductEntity private constructor() : SoftDeletableEntity() {
             entity.unit = domain.unit
             entity.shelfLifeDays = domain.shelfLifeDays
             entity.productStatus = CommonCodes.toCode(STATUS_GROUP, domain.productStatus)
+            if (domain.isDeleted()) {
+                entity.softDelete(requireNotNull(domain.deletedBy))
+            }
             return entity
         }
     }

@@ -16,12 +16,4 @@ abstract class SoftDeletableEntity : BaseEntity() {
         this.deletedAt = LocalDateTime.now()
         this.deletedBy = actor
     }
-
-    override fun copyAuditFieldsFrom(existing: BaseEntity) {
-        super.copyAuditFieldsFrom(existing)
-        if (existing is SoftDeletableEntity) {
-            this.deletedAt = existing.deletedAt
-            this.deletedBy = existing.deletedBy
-        }
-    }
 }

@@ -4,10 +4,12 @@ import com.dozycoffee.wms.product.adapter.`in`.web.request.RegisterProductReques
 import com.dozycoffee.wms.product.adapter.`in`.web.response.ProductResponse
 import com.dozycoffee.wms.product.application.port.`in`.ActivateProductUseCase
 import com.dozycoffee.wms.product.application.port.`in`.DeactivateProductUseCase
+import com.dozycoffee.wms.product.application.port.`in`.DeleteProductUseCase
 import com.dozycoffee.wms.product.application.port.`in`.GetProductUseCase
 import com.dozycoffee.wms.product.application.port.`in`.RegisterProductUseCase
 import jakarta.validation.Valid
 import org.springframework.http.HttpStatus
+import org.springframework.web.bind.annotation.DeleteMapping
 import org.springframework.web.bind.annotation.GetMapping
 import org.springframework.web.bind.annotation.PatchMapping
 import org.springframework.web.bind.annotation.PathVariable
@@ -23,6 +25,7 @@ class ProductController(
     private val registerProductUseCase: RegisterProductUseCase,
     private val activateProductUseCase: ActivateProductUseCase,
     private val deactivateProductUseCase: DeactivateProductUseCase,
+    private val deleteProductUseCase: DeleteProductUseCase,
     private val getProductUseCase: GetProductUseCase
 ) {
 
@@ -45,5 +48,11 @@ class ProductController(
     @PatchMapping("/{productId}/deactivate")
     suspend fun deactivate(@PathVariable productId: Long): ProductResponse {
         return ProductResponse.from(deactivateProductUseCase.deactivate(productId))
+    }
+
+    @DeleteMapping("/{productId}")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    suspend fun delete(@PathVariable productId: Long) {
+        deleteProductUseCase.delete(productId)
     }
 }

@@ -19,7 +19,7 @@ class ProductPersistenceAdapter(
     }
 
     override suspend fun findById(productId: Long): Product? {
-        return productR2dbcRepository.findById(productId)?.toDomain()
+        return productR2dbcRepository.findActiveById(productId)?.toDomain()
     }
 
     override suspend fun existsByProductCode(productCode: String): Boolean {
