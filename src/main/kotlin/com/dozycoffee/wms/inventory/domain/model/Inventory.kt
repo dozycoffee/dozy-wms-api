@@ -3,10 +3,13 @@ package com.dozycoffee.wms.inventory.domain.model
 import com.dozycoffee.wms.global.common.SoftDeletableEntity
 import com.dozycoffee.wms.global.error.DomainValidator.requireNonNull
 import com.dozycoffee.wms.global.error.InvalidDomainValueException
-import com.dozycoffee.wms.inventory.domain.enumeration.AllocationStatus
 import com.dozycoffee.wms.inventory.domain.enumeration.QualityStatus
-import com.dozycoffee.wms.inventory.domain.exception.InvalidInventoryStatusCombinationException
+import com.dozycoffee.wms.inventory.domain.exception.InsufficientAvailableQuantityException
+import com.dozycoffee.wms.inventory.domain.exception.InsufficientHeldQuantityException
 import com.dozycoffee.wms.inventory.domain.exception.InventoryErrorCode
+import com.dozycoffee.wms.inventory.domain.exception.InventoryHasActiveAllocationException
+import com.dozycoffee.wms.inventory.domain.exception.InventoryNotAllocatableException
+import com.dozycoffee.wms.inventory.domain.exception.InvalidInventoryAmountException
 
 class Inventory private constructor(
     val inventoryId: Long?,
@@ -14,20 +17,24 @@ class Inventory private constructor(
     val lotId: Long,
     val locationId: Long,
     quantity: Int,
-    qualityStatus: QualityStatus,
-    allocationStatus: AllocationStatus
+    allocatedQuantity: Int,
+    qualityStatus: QualityStatus
 ) : SoftDeletableEntity() {
 
     var quantity: Int = quantity
         private set
 
+    var allocatedQuantity: Int = allocatedQuantity
+        private set
+
     var qualityStatus: QualityStatus = qualityStatus
         private set
 
-    var allocationStatus: AllocationStatus = allocationStatus
-        private set
+    val availableQuantity: Int
+        get() = quantity - allocatedQuantity
 
     companion object {
+        private const val INITIAL_ALLOCATED_QUANTITY = 0
 
         fun create(
             productId: Long?,
@@ -45,8 +52,8 @@ class Inventory private constructor(
                 lotId = validLotId,
                 locationId = validLocationId,
                 quantity = quantity,
-                qualityStatus = QualityStatus.NORMAL,
-                allocationStatus = AllocationStatus.AVAILABLE
+                allocatedQuantity = INITIAL_ALLOCATED_QUANTITY,
+                qualityStatus = QualityStatus.NORMAL
             )
         }
 
@@ -56,18 +63,17 @@ class Inventory private constructor(
             lotId: Long,
             locationId: Long,
             quantity: Int,
-            qualityStatus: QualityStatus,
-            allocationStatus: AllocationStatus
+            allocatedQuantity: Int,
+            qualityStatus: QualityStatus
         ): Inventory {
-            validateStatusCombination(qualityStatus, allocationStatus)
             return Inventory(
                 inventoryId,
                 productId,
                 lotId,
                 locationId,
                 quantity,
-                qualityStatus,
-                allocationStatus
+                allocatedQuantity,
+                qualityStatus
             )
         }
 
@@ -76,39 +82,75 @@ class Inventory private constructor(
                 throw InvalidDomainValueException(InventoryErrorCode.INVALID_QUANTITY)
             }
         }
-
-        private fun validateStatusCombination(qualityStatus: QualityStatus, allocationStatus: AllocationStatus) {
-            if (qualityStatus != QualityStatus.NORMAL && allocationStatus == AllocationStatus.ALLOCATED) {
-                throw InvalidInventoryStatusCombinationException()
-            }
-        }
     }
 
-    /** 출고 등에서 재고를 할당한다 */
-    fun allocate() {
-        validateStatusCombination(qualityStatus, AllocationStatus.ALLOCATED)
-        allocationStatus = AllocationStatus.ALLOCATED
+    /** Allocation이 HELD로 생성될 때 그만큼 가용 수량에서 점유 처리한다 */
+    fun hold(amount: Int) {
+        validateAmount(amount)
+        validateAllocatable()
+        validateSufficientAvailable(amount)
+        allocatedQuantity += amount
     }
 
-    /** 할당을 해제하고 가용 재고로 되돌린다 */
-    fun release() {
-        allocationStatus = AllocationStatus.AVAILABLE
+    /** Allocation이 RELEASED로 전환될 때 점유를 해제하고 가용 수량으로 되돌린다 */
+    fun releaseHold(amount: Int) {
+        validateAmount(amount)
+        validateSufficientHeld(amount)
+        allocatedQuantity -= amount
+    }
+
+    /** Allocation이 FULFILLED로 전환될 때 점유 수량만큼 실제 재고에서 차감한다 */
+    fun fulfillHold(amount: Int) {
+        validateAmount(amount)
+        validateSufficientHeld(amount)
+        quantity -= amount
+        allocatedQuantity -= amount
     }
 
     /** 입고 검수 등에서 불량으로 판정한다 */
     fun markDefective() {
-        validateStatusCombination(QualityStatus.DEFECTIVE, allocationStatus)
+        validateNoActiveAllocation()
         qualityStatus = QualityStatus.DEFECTIVE
     }
 
     /** 유통기한 경과 등으로 폐기 예정 처리한다 */
     fun markDisposalScheduled() {
-        validateStatusCombination(QualityStatus.DISPOSAL_SCHEDULED, allocationStatus)
+        validateNoActiveAllocation()
         qualityStatus = QualityStatus.DISPOSAL_SCHEDULED
     }
 
     fun delete(actor: String) {
         softDelete(actor)
+    }
+
+    private fun validateAmount(amount: Int) {
+        if (amount <= 0) {
+            throw InvalidInventoryAmountException()
+        }
+    }
+
+    private fun validateAllocatable() {
+        if (qualityStatus != QualityStatus.NORMAL) {
+            throw InventoryNotAllocatableException()
+        }
+    }
+
+    private fun validateSufficientAvailable(amount: Int) {
+        if (amount > availableQuantity) {
+            throw InsufficientAvailableQuantityException()
+        }
+    }
+
+    private fun validateSufficientHeld(amount: Int) {
+        if (amount > allocatedQuantity) {
+            throw InsufficientHeldQuantityException()
+        }
+    }
+
+    private fun validateNoActiveAllocation() {
+        if (allocatedQuantity > 0) {
+            throw InventoryHasActiveAllocationException()
+        }
     }
 
     override fun equals(other: Any?): Boolean {

@@ -1,6 +1,5 @@
 package com.dozycoffee.wms.inventory.fixture
 
-import com.dozycoffee.wms.inventory.domain.enumeration.AllocationStatus
 import com.dozycoffee.wms.inventory.domain.enumeration.QualityStatus
 import com.dozycoffee.wms.inventory.domain.model.Inventory
 
@@ -11,8 +10,8 @@ class InventoryTestBuilder {
     private var lotId: Long? = 1L
     private var locationId: Long? = 1L
     private var quantity: Int = 10
+    private var allocatedQuantity: Int = 0
     private var qualityStatus: QualityStatus = QualityStatus.NORMAL
-    private var allocationStatus: AllocationStatus = AllocationStatus.AVAILABLE
 
     companion object {
         fun inventory(): InventoryTestBuilder = InventoryTestBuilder()
@@ -43,13 +42,13 @@ class InventoryTestBuilder {
         return this
     }
 
-    fun qualityStatus(qualityStatus: QualityStatus): InventoryTestBuilder {
-        this.qualityStatus = qualityStatus
+    fun allocatedQuantity(allocatedQuantity: Int): InventoryTestBuilder {
+        this.allocatedQuantity = allocatedQuantity
         return this
     }
 
-    fun allocationStatus(allocationStatus: AllocationStatus): InventoryTestBuilder {
-        this.allocationStatus = allocationStatus
+    fun qualityStatus(qualityStatus: QualityStatus): InventoryTestBuilder {
+        this.qualityStatus = qualityStatus
         return this
     }
 
@@ -62,8 +61,8 @@ class InventoryTestBuilder {
                 lotId = requireNotNull(lotId) { "lotId는 재구성 시 필수입니다." },
                 locationId = requireNotNull(locationId) { "locationId는 재구성 시 필수입니다." },
                 quantity = quantity,
-                qualityStatus = qualityStatus,
-                allocationStatus = allocationStatus
+                allocatedQuantity = allocatedQuantity,
+                qualityStatus = qualityStatus
             )
         }
         return Inventory.create(

@@ -1,6 +1,13 @@
 package com.dozycoffee.wms.inventory.domain.enumeration
 
 enum class AllocationStatus(val description: String) {
-    AVAILABLE("가용"),
-    ALLOCATED("할당됨")
+    HELD("점유중"),
+    RELEASED("해제됨"),
+    FULFILLED("완료됨");
+
+    fun canTransitionTo(target: AllocationStatus): Boolean = when (this) {
+        HELD -> target == RELEASED || target == FULFILLED
+        RELEASED -> false
+        FULFILLED -> false
+    }
 }
