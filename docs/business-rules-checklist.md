@@ -20,7 +20,7 @@
 
 | 규칙 | 구현 위치 | 테스트 | 상태 |
 |---|---|---|---|
-| 상품은 반드시 지정된 Zone에만 적재 — `product.category`가 Zone을 1:1로 결정(`default_zone_id` 컬럼 없음), 실제 배치 시점의 FK는 `inbound_item.zone_id` | [ProductCategory.kt](../src/main/kotlin/com/dozycoffee/wms/product/domain/enumeration/ProductCategory.kt) (category→zoneCode 매핑만 정의됨. inbound 도메인이 없어 실제 적재/용량 검증은 아직 미구현) | [ProductCategoryTest.kt](../src/test/kotlin/com/dozycoffee/wms/product/domain/ProductCategoryTest.kt) | ⚠️ 부분 구현 |
+| 상품은 반드시 지정된 Zone에만 적재 — `product.category`가 Zone을 1:1로 결정(`default_zone_id` 컬럼 없음), 실제 배치 시점의 FK는 `inbound_item.zone_id` | [ProductCategory.kt](../src/main/kotlin/com/dozycoffee/wms/product/domain/enumeration/ProductCategory.kt) (category→zoneCode 매핑), [InboundItem.kt](../src/main/kotlin/com/dozycoffee/wms/inbound/domain/model/InboundItem.kt) (`zoneId` 필드는 준비됨. product.category와 실제 일치 여부 검증 및 Zone 잔여 capacity 확인은 서비스 계층 미구현) | [ProductCategoryTest.kt](../src/test/kotlin/com/dozycoffee/wms/product/domain/ProductCategoryTest.kt) | ⚠️ 부분 구현 |
 | Location `usedCapacity`는 적재 즉시 갱신, `maxCapacity` 초과 불가 | [Location.kt:61-92](../src/main/kotlin/com/dozycoffee/wms/warehouse/domain/model/Location.kt#L61-L92) (`occupy`/`release` + `validateCapacityNotExceeded`) | [LocationTest.kt](../src/test/kotlin/com/dozycoffee/wms/warehouse/domain/LocationTest.kt) | ✅ 검증됨 |
 | WorkArea 점유량은 건별로 점유/반환하며, 전체 reset으로 다른 건의 점유량을 지우면 안 됨 | [WorkArea.kt:54-68](../src/main/kotlin/com/dozycoffee/wms/warehouse/domain/model/WorkArea.kt#L54-L68) (`occupy`/`release`가 amount만큼만 증감, 전체 초기화 메서드 없음) | [WorkAreaTest.kt](../src/test/kotlin/com/dozycoffee/wms/warehouse/domain/WorkAreaTest.kt) | ✅ 검증됨 |
 | 비활성(INACTIVE) Zone/WorkArea/Location은 점유 시도 시 거부 | [WorkArea.kt:76-80](../src/main/kotlin/com/dozycoffee/wms/warehouse/domain/model/WorkArea.kt#L76-L80), [Location.kt:82-86](../src/main/kotlin/com/dozycoffee/wms/warehouse/domain/model/Location.kt#L82-L86) | [WorkAreaTest.kt](../src/test/kotlin/com/dozycoffee/wms/warehouse/domain/WorkAreaTest.kt), [LocationTest.kt](../src/test/kotlin/com/dozycoffee/wms/warehouse/domain/LocationTest.kt) | ✅ 검증됨 |
@@ -29,13 +29,13 @@
 
 | 규칙 | 구현 위치 | 테스트 | 상태 |
 |---|---|---|---|
-| 입고 예정 등록 시 Zone 잔여 capacity 사전 점검, 부족 시 반려 (경고 아님) (ADR-0003) | 미구현 (inbound 도메인 없음) | 없음 | ❌ 미구현 |
-| 단일 Location에 모두 적재 불가 시 여러 Location으로 분산 배치 | 미구현 | 없음 | ❌ 미구현 |
+| 입고 예정 등록 시 Zone 잔여 capacity 사전 점검, 부족 시 반려 (경고 아님) (ADR-0003) | 미구현 — Zone/Location 포트 연동이 필요해 서비스 계층에서 처리 예정 | 없음 | ❌ 미구현 |
+| 단일 Location에 모두 적재 불가 시 여러 Location으로 분산 배치 | 미구현 — `InboundItem.zoneId` 단위로만 모델링됨(Location 분산은 서비스 계층에서 여러 `Inventory` 생성으로 구현 예정) | 없음 | ❌ 미구현 |
 | 입고 완료 후 해당 건이 점유했던 만큼만 WorkArea `usedCapacity`를 release (전체 reset 금지) | 미구현 — 단, WorkArea 쪽 `release(amount)` 기반은 준비됨 ([WorkArea.kt:67](../src/main/kotlin/com/dozycoffee/wms/warehouse/domain/model/WorkArea.kt#L67)) | 없음 | ❌ 미구현 |
-| 상태 흐름 `EXPECTED → WAITING → PROCESSING → COMPLETED` 준수 | 미구현 | 없음 | ❌ 미구현 |
-| 입고 검수: 실제 입고 수량과 예정 수량을 비교하고 차이를 기록 | 미구현 | 없음 | ❌ 미구현 |
-| 입고 검수: 파손 여부·유통기한·품질 상태를 확인해 정상/불량 상품을 구분 | 미구현 | 없음 | ❌ 미구현 |
-| 불량 상품은 정상 재고로 등록하지 않고 반품 처리장 또는 폐기 처리장으로 이동 | 미구현 | 없음 | ❌ 미구현 |
+| 상태 흐름 `EXPECTED → WAITING → PROCESSING → COMPLETED` 준수 | [Inbound.kt](../src/main/kotlin/com/dozycoffee/wms/inbound/domain/model/Inbound.kt), [InboundStatus.kt](../src/main/kotlin/com/dozycoffee/wms/inbound/domain/enumeration/InboundStatus.kt) `canTransitionTo` | [InboundTest.kt](../src/test/kotlin/com/dozycoffee/wms/inbound/domain/InboundTest.kt), [InboundStatusTest.kt](../src/test/kotlin/com/dozycoffee/wms/inbound/domain/InboundStatusTest.kt) | ✅ 검증됨 |
+| 입고 검수: 실제 입고 수량과 예정 수량을 비교하고 차이를 기록 | [InboundItem.kt](../src/main/kotlin/com/dozycoffee/wms/inbound/domain/model/InboundItem.kt) `inspect()`/`quantityDiscrepancy` | [InboundItemTest.kt](../src/test/kotlin/com/dozycoffee/wms/inbound/domain/InboundItemTest.kt) | ✅ 검증됨 |
+| 입고 검수: 파손 여부·유통기한·품질 상태를 확인해 정상/불량 상품을 구분 | [InboundItem.kt](../src/main/kotlin/com/dozycoffee/wms/inbound/domain/model/InboundItem.kt) `inspect()`가 `InspectionResult`(NORMAL/DEFECTIVE)를 기록 — 파손/유통기한/품질을 판단하는 검수 로직 자체는 서비스 계층(또는 검수자 입력)의 책임이고, InboundItem은 판정 결과만 보관 | [InboundItemTest.kt](../src/test/kotlin/com/dozycoffee/wms/inbound/domain/InboundItemTest.kt) | ⚠️ 부분 구현 |
+| 불량 상품은 정상 재고로 등록하지 않고 반품 처리장 또는 폐기 처리장으로 이동 | 미구현 — `InspectionResult.DEFECTIVE`까지는 기록되나(위 항목), 반품/폐기 도메인이 없어 실제 이동 처리는 없음 | 없음 | ❌ 미구현 |
 
 ## 출고 (Outbound)
 
