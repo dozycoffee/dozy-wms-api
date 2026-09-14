@@ -68,17 +68,18 @@ class Lot private constructor(
 
     /** 배치 스캔에서 유통기한 임박(30일 이내)으로 판정될 때 호출한다 */
     fun markExpiringSoon() {
-        if (lotStatus != LotStatus.NORMAL) {
-            throw InvalidLotStatusTransitionException()
-        }
-        lotStatus = LotStatus.EXPIRING_SOON
+        transitionTo(LotStatus.EXPIRING_SOON)
     }
 
     /** 배치 스캔에서 유통기한이 경과했을 때 호출한다 */
     fun markExpired() {
-        if (lotStatus == LotStatus.EXPIRED) {
+        transitionTo(LotStatus.EXPIRED)
+    }
+
+    private fun transitionTo(target: LotStatus) {
+        if (!lotStatus.canTransitionTo(target)) {
             throw InvalidLotStatusTransitionException()
         }
-        lotStatus = LotStatus.EXPIRED
+        lotStatus = target
     }
 }
