@@ -71,9 +71,10 @@
 
 | 규칙 | 구현 위치 | 테스트 | 상태 |
 |---|---|---|---|
-| Zone/Location 단위로 실시간 재고 현황(수량, Capacity 대비 사용률)을 조회 | 미구현 | 없음 | ❌ 미구현 |
+| Location/상품/품질상태로 재고 목록을 필터링 조회 | [InventoryController.getAll()](../src/main/kotlin/com/dozycoffee/wms/inventory/adapter/in/web/InventoryController.kt), [InventoryService.getAll()](../src/main/kotlin/com/dozycoffee/wms/inventory/application/service/InventoryService.kt) | [InventoryControllerTest.kt](../src/test/kotlin/com/dozycoffee/wms/inventory/adapter/in/web/InventoryControllerTest.kt), [InventoryPersistenceAdapterTest.kt](../src/test/kotlin/com/dozycoffee/wms/inventory/adapter/out/persistence/InventoryPersistenceAdapterTest.kt) | ✅ 검증됨 |
+| Zone 단위로 재고 현황(수량, Capacity 대비 사용률)을 조회 — Location→Zone 집계는 warehouse 도메인 스키마 조인이 필요해 별도 조회 모델로 다룰 예정 | 미구현 | 없음 | ❌ 미구현 |
 | 재고 수량/유통기한/입고일 기준 정렬 조회 | 미구현 | 없음 | ❌ 미구현 |
-| 재고 상세 조회 시 연결된 Lot 정보(제조일자/유통기한)와 최근 재고 이력을 함께 제공 | 미구현 | 없음 | ❌ 미구현 |
+| 재고 상세 조회 시 연결된 Lot 정보(제조일자/유통기한)와 최근 재고 이력을 함께 제공 — Lot은 `GetLotUseCase`로 별도 조회 가능하나 Inventory 응답에 합쳐서 내려주지는 않음 | [LotController.kt](../src/main/kotlin/com/dozycoffee/wms/inventory/adapter/in/web/LotController.kt) | 없음 | ⚠️ 부분 구현 |
 | Lot 단위 조회 시 Zone/Location별 재고 분포와 유통기한 임박 여부를 함께 제공 | 미구현 | 없음 | ❌ 미구현 |
 | 재고 이력 조회 시 변동 유형(입고/출고/반품/폐기/조정)·기간으로 필터링, 시간순 정렬 | 미구현 | 없음 | ❌ 미구현 |
 
@@ -98,4 +99,4 @@
 | `Allocation` 상태 전이는 `HELD → RELEASED`, `HELD → FULFILLED`만 허용(완전 종단) | [Allocation.kt](../src/main/kotlin/com/dozycoffee/wms/inventory/domain/model/Allocation.kt), [AllocationStatus.kt](../src/main/kotlin/com/dozycoffee/wms/inventory/domain/enumeration/AllocationStatus.kt) `canTransitionTo` | [AllocationTest.kt](../src/test/kotlin/com/dozycoffee/wms/inventory/domain/AllocationTest.kt), [AllocationStatusTest.kt](../src/test/kotlin/com/dozycoffee/wms/inventory/domain/AllocationStatusTest.kt) | ✅ 검증됨 |
 | `Allocation.quantity`는 생성 후 불변 | [Allocation.kt](../src/main/kotlin/com/dozycoffee/wms/inventory/domain/model/Allocation.kt) (변경 메서드 없음, `val`) | [AllocationTest.kt](../src/test/kotlin/com/dozycoffee/wms/inventory/domain/AllocationTest.kt) | ✅ 검증됨 |
 | `FULFILLED` 전환 시 `Inventory.quantity`와 `allocatedQuantity`를 함께 차감 | [Inventory.kt](../src/main/kotlin/com/dozycoffee/wms/inventory/domain/model/Inventory.kt) `fulfillHold()` | [InventoryTest.kt](../src/test/kotlin/com/dozycoffee/wms/inventory/domain/InventoryTest.kt) | ✅ 검증됨 |
-| `(inventoryId, referenceType, referenceId)`는 `HELD` 상태에만 조건부 유니크(이벤트 재수신 멱등성) | 미구현 — 도메인 모델 규칙만 확정, R2DBC 마이그레이션/조건부 유니크 인덱스는 미구현 | 없음 | ❌ 미구현 |
+| `(inventoryId, referenceType, referenceId)`는 `HELD` 상태에만 조건부 유니크(이벤트 재수신 멱등성) | [V8__create_lot_inventory_allocation.sql](../src/main/resources/db/migration/V8__create_lot_inventory_allocation.sql) — MySQL이 partial unique index를 지원하지 않아 `idempotency_key` STORED 생성 컬럼으로 우회, [AllocationService.hold()](../src/main/kotlin/com/dozycoffee/wms/inventory/application/service/AllocationService.kt)가 위반 시 기존 HELD를 재조회해 멱등 응답 | [AllocationPersistenceAdapterTest.kt](../src/test/kotlin/com/dozycoffee/wms/inventory/adapter/out/persistence/AllocationPersistenceAdapterTest.kt), [AllocationServiceTest.kt](../src/test/kotlin/com/dozycoffee/wms/inventory/application/service/AllocationServiceTest.kt) | ✅ 검증됨 |
