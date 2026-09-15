@@ -48,7 +48,8 @@
 
 | 규칙 | 구현 위치 | 테스트 | 상태 |
 |---|---|---|---|
-| 상태 흐름 `RECEIVED → INSPECTING → COMPLETED` 준수 | 미구현 | 없음 | ❌ 미구현 |
+| 상태 흐름 `RECEIVED → INSPECTING → COMPLETED` 준수 | [ReturnRequest.kt](../src/main/kotlin/com/dozycoffee/wms/return_request/domain/model/ReturnRequest.kt), [ReturnRequestStatus.kt](../src/main/kotlin/com/dozycoffee/wms/return_request/domain/enumeration/ReturnRequestStatus.kt) `canTransitionTo` | [ReturnRequestTest.kt](../src/test/kotlin/com/dozycoffee/wms/return_request/domain/ReturnRequestTest.kt), [ReturnRequestStatusTest.kt](../src/test/kotlin/com/dozycoffee/wms/return_request/domain/ReturnRequestStatusTest.kt) | ✅ 검증됨 |
+| 반품 상품(ReturnItem)은 반품 신고 수량(`expectedQuantity`)과 실제 검수 수량(`actualQuantity`)을 구분해 기록하고, 검수 결과(`ReturnInspectionResult`: PENDING/NORMAL/DEFECTIVE)로 정상/불량을 판정 | [ReturnItem.kt](../src/main/kotlin/com/dozycoffee/wms/return_request/domain/model/ReturnItem.kt) `inspect()` — Inbound의 `InboundItem.inspect()` 패턴을 따름(설계 결정, CLAUDE.md/ERD에 명시된 규칙은 아니며 이번 도메인 모델 신설 시 결정). 검수 후 대상 재고를 정상 재고로 복귀시키거나 폐기 처리장으로 이동시키는 서비스 레이어 연동은 아직 없음 | [ReturnItemTest.kt](../src/test/kotlin/com/dozycoffee/wms/return_request/domain/ReturnItemTest.kt) | ⚠️ 부분 구현 |
 
 ## 폐기 (Disposal)
 
