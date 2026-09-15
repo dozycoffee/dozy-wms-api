@@ -10,6 +10,8 @@ import com.dozycoffee.wms.inventory.domain.model.Allocation
 import com.dozycoffee.wms.inventory.domain.model.Inventory
 import com.dozycoffee.wms.inventory.fixture.AllocationTestBuilder.Companion.allocation
 import com.dozycoffee.wms.inventory.fixture.InventoryTestBuilder.Companion.inventory
+import kotlinx.coroutines.flow.flowOf
+import kotlinx.coroutines.flow.toList
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.test.runTest
 import org.assertj.core.api.Assertions.assertThat
@@ -126,6 +128,22 @@ class AllocationServiceTest {
             verify(inventoryRepository).save(captor.capture())
             assertThat(captor.firstValue.quantity).isEqualTo(40)
             assertThat(captor.firstValue.allocatedQuantity).isEqualTo(0)
+        }
+    }
+
+    @Nested
+    inner class 참조_기준_점유_목록_조회 {
+
+        @Test
+        fun `참조 주체 기준으로 HELD 상태 점유 목록을 조회한다`() = runTest {
+            val heldAllocation: Allocation = allocation().allocationId(1L).referenceId(100L).build()
+            whenever(allocationRepository.findAllHeldByReference(AllocationReferenceType.OUTBOUND, 100L))
+                .thenReturn(flowOf(heldAllocation))
+
+            val result = allocationService.getAllHeldByReference(AllocationReferenceType.OUTBOUND, 100L).toList()
+
+            assertThat(result).hasSize(1)
+            assertThat(result.first().allocationId).isEqualTo(1L)
         }
     }
 }

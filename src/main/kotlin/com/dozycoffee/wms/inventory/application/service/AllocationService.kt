@@ -1,15 +1,19 @@
 package com.dozycoffee.wms.inventory.application.service
 
 import com.dozycoffee.wms.inventory.application.port.`in`.FulfillAllocationUseCase
+import com.dozycoffee.wms.inventory.application.port.`in`.GetAllocationUseCase
 import com.dozycoffee.wms.inventory.application.port.`in`.HoldInventoryUseCase
 import com.dozycoffee.wms.inventory.application.port.`in`.ReleaseAllocationUseCase
 import com.dozycoffee.wms.inventory.application.port.`in`.command.HoldInventoryCommand
 import com.dozycoffee.wms.inventory.application.port.`in`.result.AllocationResult
 import com.dozycoffee.wms.inventory.application.port.out.AllocationRepository
 import com.dozycoffee.wms.inventory.application.port.out.InventoryRepository
+import com.dozycoffee.wms.inventory.domain.enumeration.AllocationReferenceType
 import com.dozycoffee.wms.inventory.domain.exception.AllocationNotFoundException
 import com.dozycoffee.wms.inventory.domain.exception.InventoryNotFoundException
 import com.dozycoffee.wms.inventory.domain.model.Allocation
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.map
 import org.springframework.dao.DataIntegrityViolationException
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
@@ -18,7 +22,7 @@ import org.springframework.transaction.annotation.Transactional
 class AllocationService(
     private val allocationRepository: AllocationRepository,
     private val inventoryRepository: InventoryRepository
-) : HoldInventoryUseCase, ReleaseAllocationUseCase, FulfillAllocationUseCase {
+) : HoldInventoryUseCase, ReleaseAllocationUseCase, FulfillAllocationUseCase, GetAllocationUseCase {
 
     /**
      * ADR-0008 멱등성 처리: Allocation을 먼저 insert하고, 그게 성공했을 때만 Inventory.hold()를 반영한다.
@@ -76,6 +80,11 @@ class AllocationService(
         inventoryRepository.save(inventory)
 
         return AllocationResult.from(saved)
+    }
+
+    @Transactional(readOnly = true)
+    override fun getAllHeldByReference(referenceType: AllocationReferenceType, referenceId: Long): Flow<AllocationResult> {
+        return allocationRepository.findAllHeldByReference(referenceType, referenceId).map { AllocationResult.from(it) }
     }
 
     private suspend fun findAllocationOrThrow(allocationId: Long): Allocation {
