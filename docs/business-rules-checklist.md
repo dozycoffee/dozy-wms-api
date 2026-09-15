@@ -54,10 +54,10 @@
 
 | 규칙 | 구현 위치 | 테스트 | 상태 |
 |---|---|---|---|
-| 상태 흐름 `REQUESTED → APPROVED → COMPLETED` 준수 | 미구현 | 없음 | ❌ 미구현 |
-| 품질 상태가 `DISPOSAL_SCHEDULED`인 재고를 폐기 처리장으로 물리 이동시키고, 폐기 처리장 `usedCapacity`를 갱신 | 미구현 | 없음 | ❌ 미구현 |
-| 폐기 승인 시 사유(유통기한 경과/검수 불량/반품 불량 등)와 수량을 기록 | 미구현 | 없음 | ❌ 미구현 |
-| 폐기 확정 시 대상 Inventory를 가용/총 수량에서 완전히 제외(soft delete)하고, 폐기 처리장 `usedCapacity`를 감소 | 미구현 | 없음 | ❌ 미구현 |
+| 상태 흐름 `REQUESTED → APPROVED → COMPLETED` 준수 | [Disposal.kt](../src/main/kotlin/com/dozycoffee/wms/disposal/domain/model/Disposal.kt), [DisposalStatus.kt](../src/main/kotlin/com/dozycoffee/wms/disposal/domain/enumeration/DisposalStatus.kt) `canTransitionTo` | [DisposalTest.kt](../src/test/kotlin/com/dozycoffee/wms/disposal/domain/DisposalTest.kt), [DisposalStatusTest.kt](../src/test/kotlin/com/dozycoffee/wms/disposal/domain/DisposalStatusTest.kt) | ✅ 검증됨 |
+| 품질 상태가 `DISPOSAL_SCHEDULED`(또는 `DEFECTIVE`)인 재고를 폐기 처리장으로 물리 이동시키고, 폐기 처리장 `usedCapacity`를 갱신 | 미구현 — `Disposal.approve()`는 상태 전이만 담당(위 항목). Inventory `qualityStatus` 검증과 `AreaCode.DISPOSAL` WorkArea 점유는 서비스 계층 구현 시점으로 범위 분리 | 없음 | ❌ 미구현 |
+| 폐기 승인 시 사유(유통기한 경과/검수 불량/반품 불량 등)와 수량을 기록 | [DisposalItem.kt](../src/main/kotlin/com/dozycoffee/wms/disposal/domain/model/DisposalItem.kt) `create()`, [DisposalReason.kt](../src/main/kotlin/com/dozycoffee/wms/disposal/domain/enumeration/DisposalReason.kt) — 대상 재고(`inventoryId`)·수량·사유를 필수값으로 기록하는 자리는 준비됨. 다만 이 기록이 실제로 언제(등록 시점 vs 승인 시점) 확정되는지는 등록 API가 있는 서비스 계층에서 결정 예정 | [DisposalItemTest.kt](../src/test/kotlin/com/dozycoffee/wms/disposal/domain/DisposalItemTest.kt) | ⚠️ 부분 구현 |
+| 폐기 확정 시 대상 Inventory를 가용/총 수량에서 완전히 제외(soft delete)하고, 폐기 처리장 `usedCapacity`를 감소 | 미구현 — `Disposal.complete()`는 상태 전이만 담당(위 항목). Inventory soft delete 연동, Location/WorkArea 점유 해제는 서비스 계층 구현 시점으로 범위 분리 | 없음 | ❌ 미구현 |
 
 ## 유통기한 모니터링 (배치 스캔)
 
