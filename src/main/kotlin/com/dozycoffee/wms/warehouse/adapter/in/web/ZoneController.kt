@@ -4,6 +4,7 @@ import com.dozycoffee.wms.warehouse.adapter.`in`.web.request.RegisterZoneRequest
 import com.dozycoffee.wms.warehouse.adapter.`in`.web.response.ZoneResponse
 import com.dozycoffee.wms.warehouse.application.port.`in`.GetZoneUseCase
 import com.dozycoffee.wms.warehouse.application.port.`in`.RegisterZoneUseCase
+import com.dozycoffee.wms.warehouse.domain.enumeration.ZoneCode
 import jakarta.validation.Valid
 import org.springframework.http.HttpStatus
 import org.springframework.web.bind.annotation.GetMapping
@@ -29,5 +30,13 @@ class ZoneController(
     @GetMapping("/api/zones/{zoneId}")
     fun getById(@PathVariable zoneId: Long): Mono<ZoneResponse> {
         return getZoneUseCase.getById(zoneId).map { ZoneResponse.from(it) }
+    }
+
+    @GetMapping("/api/warehouses/{warehouseId}/zones/{zoneCode}")
+    fun getByWarehouseIdAndZoneCode(
+        @PathVariable warehouseId: Long,
+        @PathVariable zoneCode: ZoneCode
+    ): Mono<ZoneResponse> {
+        return getZoneUseCase.getByWarehouseIdAndZoneCode(warehouseId, zoneCode).map { ZoneResponse.from(it) }
     }
 }

@@ -83,4 +83,28 @@ class ZoneControllerTest {
                 .expectStatus().isNotFound
         }
     }
+
+    @Nested
+    inner class 창고와_구역코드로_조회 {
+
+        @Test
+        fun `존재하면 200과 구역 정보를 반환한다`() {
+            `when`(getZoneUseCase.getByWarehouseIdAndZoneCode(1L, ZoneCode.A)).thenReturn(Mono.just(sampleResult()))
+
+            webTestClient.get().uri("/api/warehouses/{warehouseId}/zones/{zoneCode}", 1L, "A")
+                .exchange()
+                .expectStatus().isOk
+                .expectBody()
+                .jsonPath("$.zoneCode").isEqualTo("A")
+        }
+
+        @Test
+        fun `존재하지 않으면 404를 반환한다`() {
+            `when`(getZoneUseCase.getByWarehouseIdAndZoneCode(1L, ZoneCode.B)).thenReturn(Mono.error(ZoneNotFoundException()))
+
+            webTestClient.get().uri("/api/warehouses/{warehouseId}/zones/{zoneCode}", 1L, "B")
+                .exchange()
+                .expectStatus().isNotFound
+        }
+    }
 }

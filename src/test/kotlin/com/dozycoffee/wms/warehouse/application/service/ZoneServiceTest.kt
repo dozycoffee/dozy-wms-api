@@ -68,4 +68,26 @@ class ZoneServiceTest {
                 .verifyError(ZoneNotFoundException::class.java)
         }
     }
+
+    @Nested
+    inner class 창고와_구역코드로_조회 {
+
+        @Test
+        fun `존재하는 구역을 조회하면 결과를 반환한다`() {
+            val found: Zone = zone().zoneId(1L).warehouseId(1L).zoneCode(ZoneCode.A).build()
+            `when`(zoneRepository.findByWarehouseIdAndZoneCode(1L, ZoneCode.A)).thenReturn(Mono.just(found))
+
+            StepVerifier.create(zoneService.getByWarehouseIdAndZoneCode(1L, ZoneCode.A))
+                .assertNext { result -> assertThat(result.zoneId).isEqualTo(1L) }
+                .verifyComplete()
+        }
+
+        @Test
+        fun `존재하지 않으면 예외를 던진다`() {
+            `when`(zoneRepository.findByWarehouseIdAndZoneCode(1L, ZoneCode.A)).thenReturn(Mono.empty())
+
+            StepVerifier.create(zoneService.getByWarehouseIdAndZoneCode(1L, ZoneCode.A))
+                .verifyError(ZoneNotFoundException::class.java)
+        }
+    }
 }

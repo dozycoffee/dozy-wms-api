@@ -9,6 +9,7 @@ import com.dozycoffee.wms.warehouse.application.port.`in`.command.RegisterWorkAr
 import com.dozycoffee.wms.warehouse.application.port.`in`.command.ReleaseWorkAreaCommand
 import com.dozycoffee.wms.warehouse.application.port.`in`.result.WorkAreaResult
 import com.dozycoffee.wms.warehouse.application.port.out.WorkAreaRepository
+import com.dozycoffee.wms.warehouse.domain.enumeration.AreaCode
 import com.dozycoffee.wms.warehouse.domain.enumeration.AvailabilityStatus
 import com.dozycoffee.wms.warehouse.domain.exception.WorkAreaNotFoundException
 import com.dozycoffee.wms.warehouse.domain.model.WorkArea
@@ -46,6 +47,13 @@ class WorkAreaService(
     @Transactional(readOnly = true)
     override fun getById(workAreaId: Long): Mono<WorkAreaResult> {
         return findWorkAreaOrThrow(workAreaId).map { WorkAreaResult.from(it) }
+    }
+
+    @Transactional(readOnly = true)
+    override fun getByWarehouseIdAndAreaCode(warehouseId: Long, areaCode: AreaCode): Mono<WorkAreaResult> {
+        return workAreaRepository.findByWarehouseIdAndAreaCode(warehouseId, areaCode)
+            .switchIfEmpty(Mono.error(WorkAreaNotFoundException()))
+            .map { WorkAreaResult.from(it) }
     }
 
     private fun findWorkAreaOrThrow(workAreaId: Long): Mono<WorkArea> {

@@ -1,6 +1,7 @@
 package com.dozycoffee.wms.warehouse.adapter.out.persistence
 
 import com.dozycoffee.wms.warehouse.application.port.out.ZoneRepository
+import com.dozycoffee.wms.warehouse.domain.enumeration.ZoneCode
 import com.dozycoffee.wms.warehouse.domain.model.Zone
 import org.springframework.stereotype.Component
 import reactor.core.publisher.Mono
@@ -22,6 +23,10 @@ class ZonePersistenceAdapter(
 
     override fun findById(zoneId: Long): Mono<Zone> {
         return zoneR2dbcRepository.findById(zoneId).map { it.toDomain() }
+    }
+
+    override fun findByWarehouseIdAndZoneCode(warehouseId: Long, zoneCode: ZoneCode): Mono<Zone> {
+        return zoneR2dbcRepository.findByWarehouseIdAndZoneCode(warehouseId, zoneCode.name).map { it.toDomain() }
     }
 
     override fun delete(zone: Zone): Mono<Void> {

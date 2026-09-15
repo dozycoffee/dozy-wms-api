@@ -9,6 +9,7 @@ import com.dozycoffee.wms.warehouse.application.port.`in`.RegisterWorkAreaUseCas
 import com.dozycoffee.wms.warehouse.application.port.`in`.ReleaseWorkAreaUseCase
 import com.dozycoffee.wms.warehouse.application.port.`in`.command.OccupyWorkAreaCommand
 import com.dozycoffee.wms.warehouse.application.port.`in`.command.ReleaseWorkAreaCommand
+import com.dozycoffee.wms.warehouse.domain.enumeration.AreaCode
 import jakarta.validation.Valid
 import org.springframework.http.HttpStatus
 import org.springframework.web.bind.annotation.GetMapping
@@ -40,6 +41,14 @@ class WorkAreaController(
     @GetMapping("/api/work-areas/{workAreaId}")
     fun getById(@PathVariable workAreaId: Long): Mono<WorkAreaResponse> {
         return getWorkAreaUseCase.getById(workAreaId).map { WorkAreaResponse.from(it) }
+    }
+
+    @GetMapping("/api/warehouses/{warehouseId}/work-areas/{areaCode}")
+    fun getByWarehouseIdAndAreaCode(
+        @PathVariable warehouseId: Long,
+        @PathVariable areaCode: AreaCode
+    ): Mono<WorkAreaResponse> {
+        return getWorkAreaUseCase.getByWarehouseIdAndAreaCode(warehouseId, areaCode).map { WorkAreaResponse.from(it) }
     }
 
     @PatchMapping("/api/work-areas/{workAreaId}/occupy")

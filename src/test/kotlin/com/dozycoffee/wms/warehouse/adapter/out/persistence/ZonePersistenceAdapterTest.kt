@@ -61,4 +61,26 @@ class ZonePersistenceAdapterTest {
         StepVerifier.create(zonePersistenceAdapter.findById(999_999L))
             .verifyComplete()
     }
+
+    @Test
+    fun `창고 ID와 구역코드로 조회하면 해당 구역을 반환한다`() {
+        val warehouseId: Long = requireNotNull(
+            warehousePersistenceAdapter.save(warehouse().build()).map { requireNotNull(it.warehouseId) }.block()
+        )
+        zonePersistenceAdapter.save(zone().warehouseId(warehouseId).zoneCode(ZoneCode.A).build()).block()
+
+        StepVerifier.create(zonePersistenceAdapter.findByWarehouseIdAndZoneCode(warehouseId, ZoneCode.A))
+            .assertNext { found -> assertThat(found.zoneCode).isEqualTo(ZoneCode.A) }
+            .verifyComplete()
+    }
+
+    @Test
+    fun `창고에 없는 구역코드로 조회하면 빈 결과를 반환한다`() {
+        val warehouseId: Long = requireNotNull(
+            warehousePersistenceAdapter.save(warehouse().build()).map { requireNotNull(it.warehouseId) }.block()
+        )
+
+        StepVerifier.create(zonePersistenceAdapter.findByWarehouseIdAndZoneCode(warehouseId, ZoneCode.B))
+            .verifyComplete()
+    }
 }
