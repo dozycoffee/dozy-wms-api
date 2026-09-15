@@ -46,11 +46,35 @@ dependencies {
 	testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
 }
 
+def loadDotenv(String path) {
+	def envFile = file(path)
+	def env = [:]
+	if (envFile.exists()) {
+		envFile.eachLine { line ->
+			line = line.trim()
+			if (line && !line.startsWith('#')) {
+				def idx = line.indexOf('=')
+				if (idx > 0) {
+					env[line.substring(0, idx).trim()] = line.substring(idx + 1).trim()
+				}
+			}
+		}
+	}
+	return env
+}
+
+def dotenv = loadDotenv("${rootDir}/.env")
+
 tasks.named('test') {
 	useJUnitPlatform()
+	environment(dotenv)
 	testLogging {
 		exceptionFormat = 'full'
 		showCauses = true
 		showStackTraces = true
 	}
+}
+
+tasks.named('bootRun') {
+	environment(dotenv)
 }
