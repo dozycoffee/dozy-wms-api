@@ -1,5 +1,6 @@
 package com.dozycoffee.wms.inventory.application.service
 
+import com.dozycoffee.wms.inventory.application.port.`in`.ConfirmInventoryDisposalUseCase
 import com.dozycoffee.wms.inventory.application.port.`in`.GetInventoryUseCase
 import com.dozycoffee.wms.inventory.application.port.`in`.MarkInventoryDefectiveUseCase
 import com.dozycoffee.wms.inventory.application.port.`in`.MarkInventoryDisposalScheduledUseCase
@@ -21,7 +22,11 @@ import org.springframework.transaction.annotation.Transactional
 class InventoryService(
     private val inventoryRepository: InventoryRepository,
     private val lotRepository: LotRepository
-) : RegisterInventoryUseCase, GetInventoryUseCase, MarkInventoryDefectiveUseCase, MarkInventoryDisposalScheduledUseCase {
+) : RegisterInventoryUseCase,
+    GetInventoryUseCase,
+    MarkInventoryDefectiveUseCase,
+    MarkInventoryDisposalScheduledUseCase,
+    ConfirmInventoryDisposalUseCase {
 
     @Transactional
     override suspend fun register(command: RegisterInventoryCommand): InventoryResult {
@@ -59,7 +64,19 @@ class InventoryService(
         return InventoryResult.from(inventoryRepository.save(inventory))
     }
 
+    /** 폐기 확정 — 대상 재고를 가용/총 수량에서 완전히 제외한다 */
+    @Transactional
+    override suspend fun confirmDisposal(inventoryId: Long): InventoryResult {
+        val inventory = findInventoryOrThrow(inventoryId)
+        inventory.delete(DISPOSAL_ACTOR)
+        return InventoryResult.from(inventoryRepository.save(inventory))
+    }
+
     private suspend fun findInventoryOrThrow(inventoryId: Long): Inventory {
         return inventoryRepository.findById(inventoryId) ?: throw InventoryNotFoundException()
+    }
+
+    companion object {
+        private const val DISPOSAL_ACTOR = "system"
     }
 }

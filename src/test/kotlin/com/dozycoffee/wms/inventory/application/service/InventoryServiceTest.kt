@@ -141,4 +141,29 @@ class InventoryServiceTest {
             assertThat(result.qualityStatus).isEqualTo(QualityStatus.DISPOSAL_SCHEDULED)
         }
     }
+
+    @Nested
+    inner class 재고_폐기_확정 {
+
+        @Test
+        fun `폐기예정 재고를 폐기 확정하면 soft delete된다`() = runTest {
+            val found: Inventory = inventory().inventoryId(1L).qualityStatus(QualityStatus.DISPOSAL_SCHEDULED).build()
+            whenever(inventoryRepository.findById(1L)).thenReturn(found)
+            whenever(inventoryRepository.save(any())).thenAnswer { it.getArgument(0) }
+
+            inventoryService.confirmDisposal(1L)
+
+            val captor = argumentCaptor<Inventory>()
+            verify(inventoryRepository).save(captor.capture())
+            assertThat(captor.firstValue.isDeleted()).isTrue()
+        }
+
+        @Test
+        fun `존재하지 않는 재고를 폐기 확정하면 예외를 던진다`() = runTest {
+            whenever(inventoryRepository.findById(1L)).thenReturn(null)
+
+            assertThatThrownBy { runBlocking { inventoryService.confirmDisposal(1L) } }
+                .isInstanceOf(InventoryNotFoundException::class.java)
+        }
+    }
 }
