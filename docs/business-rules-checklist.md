@@ -41,8 +41,8 @@
 
 | 규칙 | 구현 위치 | 테스트 | 상태 |
 |---|---|---|---|
-| 피킹은 FIFO — `lot.expiration_date` 기준 오름차순 선택 | 미구현 (outbound/inventory 도메인 없음) | 없음 | ❌ 미구현 |
-| 상태 흐름 `REQUESTED → PICKING → INSPECTING → COMPLETED` 준수 | 미구현 | 없음 | ❌ 미구현 |
+| 피킹은 FIFO — `lot.expiration_date` 기준 오름차순 선택 | 미구현 — [OutboundItem.pick()](../src/main/kotlin/com/dozycoffee/wms/outbound/domain/model/OutboundItem.kt)에 피킹 결과(수량)를 기록하는 자리는 준비됨. Lot 오름차순 조회 및 여러 Lot 분할 피킹, `Allocation` 생성은 서비스 계층 구현 시점으로 범위 분리 | 없음 | ❌ 미구현 |
+| 상태 흐름 `REQUESTED → PICKING → INSPECTING → COMPLETED` 준수 | [Outbound.kt](../src/main/kotlin/com/dozycoffee/wms/outbound/domain/model/Outbound.kt), [OutboundStatus.kt](../src/main/kotlin/com/dozycoffee/wms/outbound/domain/enumeration/OutboundStatus.kt) `canTransitionTo` | [OutboundTest.kt](../src/test/kotlin/com/dozycoffee/wms/outbound/domain/OutboundTest.kt), [OutboundStatusTest.kt](../src/test/kotlin/com/dozycoffee/wms/outbound/domain/OutboundStatusTest.kt) | ✅ 검증됨 |
 
 ## 반품 (ReturnRequest)
 
