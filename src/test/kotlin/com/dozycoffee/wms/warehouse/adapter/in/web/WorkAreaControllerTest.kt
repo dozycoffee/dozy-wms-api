@@ -116,4 +116,19 @@ class WorkAreaControllerTest {
                 .jsonPath("$.usedCapacity").isEqualTo(5)
         }
     }
+
+    @Nested
+    inner class 창고와_구역타입으로_조회 {
+
+        @Test
+        fun `존재하면 200과 작업구역 정보를 반환한다`() {
+            `when`(getWorkAreaUseCase.getByWarehouseIdAndAreaCode(1L, AreaCode.INBOUND)).thenReturn(Mono.just(sampleResult(0)))
+
+            webTestClient.get().uri("/api/warehouses/{warehouseId}/work-areas/{areaCode}", 1L, "INBOUND")
+                .exchange()
+                .expectStatus().isOk
+                .expectBody()
+                .jsonPath("$.areaCode").isEqualTo("INBOUND")
+        }
+    }
 }

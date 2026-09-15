@@ -20,5 +20,15 @@ enum class InboundErrorCode(
         "INBOUND_INVALID_STATUS_TRANSITION",
         "입고 상태를 역행하거나 건너뛸 수 없습니다."
     ),
+    INSUFFICIENT_ZONE_CAPACITY(
+        ErrorType.CONFLICT,
+        "INBOUND_INSUFFICIENT_ZONE_CAPACITY",
+        "Zone의 잔여 용량이 부족해 입고를 등록할 수 없습니다."
+    ),
+    NOT_ALL_ITEMS_INSPECTED(
+        ErrorType.CONFLICT,
+        "INBOUND_NOT_ALL_ITEMS_INSPECTED",
+        "검수가 완료되지 않은 입고 상품이 있어 입고를 완료할 수 없습니다."
+    ),
     INBOUND_NOT_FOUND(ErrorType.NOT_FOUND, "INBOUND_NOT_FOUND", "존재하지 않는 입고입니다.")
 }

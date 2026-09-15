@@ -106,4 +106,26 @@ class WorkAreaServiceTest {
                 .verifyError(WorkAreaNotFoundException::class.java)
         }
     }
+
+    @Nested
+    inner class 창고와_구역타입으로_조회 {
+
+        @Test
+        fun `존재하는 작업구역을 조회하면 결과를 반환한다`() {
+            val found: WorkArea = workArea().workAreaId(1L).warehouseId(1L).areaCode(AreaCode.INBOUND).build()
+            `when`(workAreaRepository.findByWarehouseIdAndAreaCode(1L, AreaCode.INBOUND)).thenReturn(Mono.just(found))
+
+            StepVerifier.create(workAreaService.getByWarehouseIdAndAreaCode(1L, AreaCode.INBOUND))
+                .assertNext { result -> assertThat(result.workAreaId).isEqualTo(1L) }
+                .verifyComplete()
+        }
+
+        @Test
+        fun `존재하지 않으면 예외를 던진다`() {
+            `when`(workAreaRepository.findByWarehouseIdAndAreaCode(1L, AreaCode.INBOUND)).thenReturn(Mono.empty())
+
+            StepVerifier.create(workAreaService.getByWarehouseIdAndAreaCode(1L, AreaCode.INBOUND))
+                .verifyError(WorkAreaNotFoundException::class.java)
+        }
+    }
 }

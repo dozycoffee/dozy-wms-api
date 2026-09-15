@@ -64,4 +64,26 @@ class WorkAreaPersistenceAdapterTest {
         StepVerifier.create(workAreaPersistenceAdapter.findById(999_999L))
             .verifyComplete()
     }
+
+    @Test
+    fun `창고 ID와 구역타입으로 조회하면 해당 작업구역을 반환한다`() {
+        val warehouseId: Long = requireNotNull(
+            warehousePersistenceAdapter.save(warehouse().build()).map { requireNotNull(it.warehouseId) }.block()
+        )
+        workAreaPersistenceAdapter.save(workArea().warehouseId(warehouseId).areaCode(AreaCode.INBOUND).build()).block()
+
+        StepVerifier.create(workAreaPersistenceAdapter.findByWarehouseIdAndAreaCode(warehouseId, AreaCode.INBOUND))
+            .assertNext { found -> assertThat(found.areaCode).isEqualTo(AreaCode.INBOUND) }
+            .verifyComplete()
+    }
+
+    @Test
+    fun `창고에 없는 구역타입으로 조회하면 빈 결과를 반환한다`() {
+        val warehouseId: Long = requireNotNull(
+            warehousePersistenceAdapter.save(warehouse().build()).map { requireNotNull(it.warehouseId) }.block()
+        )
+
+        StepVerifier.create(workAreaPersistenceAdapter.findByWarehouseIdAndAreaCode(warehouseId, AreaCode.OUTBOUND))
+            .verifyComplete()
+    }
 }
