@@ -19,6 +19,7 @@ import com.dozycoffee.wms.warehouse.adapter.out.persistence.ZoneR2dbcRepository
 import com.dozycoffee.wms.warehouse.fixture.LocationTestBuilder.Companion.location
 import com.dozycoffee.wms.warehouse.fixture.WarehouseTestBuilder.Companion.warehouse
 import com.dozycoffee.wms.warehouse.fixture.ZoneTestBuilder.Companion.zone
+import kotlinx.coroutines.flow.toList
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.test.runTest
 import org.assertj.core.api.Assertions.assertThat
@@ -98,7 +99,7 @@ class AllocationPersistenceAdapterTest {
         warehouseR2dbcRepository.deleteAll().block()
     }
 
-    private suspend fun createInventory(): Long {
+    private suspend fun createInventory(productCode: String = "PRD-0001"): Long {
         val warehouseId: Long = requireNotNull(
             warehousePersistenceAdapter.save(warehouse().build()).map { requireNotNull(it.warehouseId) }.block()
         )
@@ -110,7 +111,7 @@ class AllocationPersistenceAdapterTest {
             locationPersistenceAdapter.save(location().zoneId(zoneId).build())
                 .map { requireNotNull(it.locationId) }.block()
         )
-        val productId = requireNotNull(productPersistenceAdapter.save(product().build()).productId)
+        val productId = requireNotNull(productPersistenceAdapter.save(product().productCode(productCode).build()).productId)
         val lotId = requireNotNull(lotPersistenceAdapter.save(lot().productId(productId).build()).lotId)
         val saved = inventoryPersistenceAdapter.save(
             inventory().productId(productId).lotId(lotId).locationId(locationId).quantity(50).build()
@@ -173,5 +174,27 @@ class AllocationPersistenceAdapterTest {
         )
 
         assertThat(second.status).isEqualTo(AllocationStatus.HELD)
+    }
+
+    @Test
+    fun `참조 주체 기준으로 여러 Inventory에 걸친 HELD 점유 목록을 조회한다`() = runTest {
+        val firstInventoryId = createInventory()
+        val secondInventoryId = createInventory("PRD-0002")
+        val held = allocationPersistenceAdapter.save(
+            allocation().inventoryId(firstInventoryId).referenceId(200L).quantity(10).build()
+        )
+        val otherHeld = allocationPersistenceAdapter.save(
+            allocation().inventoryId(secondInventoryId).referenceId(200L).quantity(5).build()
+        )
+        val releasedElsewhere = allocationPersistenceAdapter.save(
+            allocation().inventoryId(firstInventoryId).referenceId(999L).quantity(1).build()
+        )
+
+        val result = allocationPersistenceAdapter.findAllHeldByReference(AllocationReferenceType.OUTBOUND, 200L)
+            .toList()
+
+        assertThat(result).extracting("allocationId")
+            .containsExactlyInAnyOrder(held.allocationId, otherHeld.allocationId)
+            .doesNotContain(releasedElsewhere.allocationId)
     }
 }

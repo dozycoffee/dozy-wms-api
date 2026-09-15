@@ -1,5 +1,6 @@
 package com.dozycoffee.wms.inventory.adapter.out.persistence
 
+import kotlinx.coroutines.flow.Flow
 import org.springframework.data.r2dbc.repository.Query
 import org.springframework.data.repository.kotlin.CoroutineCrudRepository
 
@@ -15,4 +16,14 @@ interface AllocationR2dbcRepository : CoroutineCrudRepository<AllocationEntity, 
         """
     )
     suspend fun findHeld(inventoryId: Long, referenceType: String, referenceId: Long): AllocationEntity?
+
+    @Query(
+        """
+        SELECT * FROM allocation
+        WHERE reference_type = :referenceType
+          AND reference_id = :referenceId
+          AND status = 'ALLOCATION_STATUS_HELD'
+        """
+    )
+    fun findAllHeldByReference(referenceType: String, referenceId: Long): Flow<AllocationEntity>
 }
