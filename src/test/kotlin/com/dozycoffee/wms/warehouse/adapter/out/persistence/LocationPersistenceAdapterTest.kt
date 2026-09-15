@@ -2,6 +2,7 @@ package com.dozycoffee.wms.warehouse.adapter.out.persistence
 
 import com.dozycoffee.wms.global.config.R2dbcConfig
 import com.dozycoffee.wms.warehouse.domain.enumeration.AvailabilityStatus
+import com.dozycoffee.wms.warehouse.domain.enumeration.ZoneCode
 import com.dozycoffee.wms.warehouse.domain.model.Location
 import com.dozycoffee.wms.warehouse.fixture.LocationTestBuilder.Companion.location
 import com.dozycoffee.wms.warehouse.fixture.WarehouseTestBuilder.Companion.warehouse
@@ -73,6 +74,30 @@ class LocationPersistenceAdapterTest {
     @Test
     fun `존재하지 않는 ID로 조회하면 빈 결과를 반환한다`() {
         StepVerifier.create(locationPersistenceAdapter.findById(999_999L))
+            .verifyComplete()
+    }
+
+    @Test
+    fun `Zone ID로 조회하면 해당 Zone에 속한 위치만 반환한다`() {
+        val warehouseId: Long = requireNotNull(
+            warehousePersistenceAdapter.save(warehouse().build()).map { requireNotNull(it.warehouseId) }.block()
+        )
+        val zoneId: Long = requireNotNull(
+            zonePersistenceAdapter.save(zone().warehouseId(warehouseId).build()).map { requireNotNull(it.zoneId) }.block()
+        )
+        val otherZoneId: Long = requireNotNull(
+            zonePersistenceAdapter.save(zone().warehouseId(warehouseId).zoneCode(ZoneCode.B).build())
+                .map { requireNotNull(it.zoneId) }.block()
+        )
+        locationPersistenceAdapter.save(location().zoneId(zoneId).locationCode("A-01").maxCapacity(70).build()).block()
+        locationPersistenceAdapter.save(location().zoneId(zoneId).locationCode("A-02").maxCapacity(60).build()).block()
+        locationPersistenceAdapter.save(location().zoneId(otherZoneId).locationCode("B-01").maxCapacity(60).build()).block()
+
+        StepVerifier.create(locationPersistenceAdapter.findByZoneId(zoneId).collectList())
+            .assertNext { found ->
+                assertThat(found).hasSize(2)
+                assertThat(found.map { it.locationCode.value }).containsExactlyInAnyOrder("A-01", "A-02")
+            }
             .verifyComplete()
     }
 }

@@ -15,6 +15,7 @@ import org.junit.jupiter.api.extension.ExtendWith
 import org.mockito.InjectMocks
 import org.mockito.Mock
 import org.mockito.junit.jupiter.MockitoExtension
+import reactor.core.publisher.Flux
 import reactor.core.publisher.Mono
 import reactor.test.StepVerifier
 import org.mockito.kotlin.any
@@ -93,6 +94,32 @@ class LocationServiceTest {
 
             StepVerifier.create(locationService.getById(1L))
                 .assertNext { result -> assertThat(result.locationId).isEqualTo(1L) }
+                .verifyComplete()
+        }
+    }
+
+    @Nested
+    inner class Zone_기준_목록_조회 {
+
+        @Test
+        fun `Zone에 속한 위치 목록을 반환한다`() {
+            val locations: List<Location> = listOf(
+                location().locationId(1L).zoneId(10L).locationCode("A-01").build(),
+                location().locationId(2L).zoneId(10L).locationCode("A-02").build()
+            )
+            `when`(locationRepository.findByZoneId(10L)).thenReturn(Flux.fromIterable(locations))
+
+            StepVerifier.create(locationService.getByZoneId(10L))
+                .expectNextMatches { it.locationId == 1L }
+                .expectNextMatches { it.locationId == 2L }
+                .verifyComplete()
+        }
+
+        @Test
+        fun `Zone에 속한 위치가 없으면 빈 결과를 반환한다`() {
+            `when`(locationRepository.findByZoneId(10L)).thenReturn(Flux.empty())
+
+            StepVerifier.create(locationService.getByZoneId(10L))
                 .verifyComplete()
         }
     }

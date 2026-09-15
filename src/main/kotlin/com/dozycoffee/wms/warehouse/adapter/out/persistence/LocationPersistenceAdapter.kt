@@ -3,6 +3,7 @@ package com.dozycoffee.wms.warehouse.adapter.out.persistence
 import com.dozycoffee.wms.warehouse.application.port.out.LocationRepository
 import com.dozycoffee.wms.warehouse.domain.model.Location
 import org.springframework.stereotype.Component
+import reactor.core.publisher.Flux
 import reactor.core.publisher.Mono
 
 @Component
@@ -22,6 +23,10 @@ class LocationPersistenceAdapter(
 
     override fun findById(locationId: Long): Mono<Location> {
         return locationR2dbcRepository.findById(locationId).map { it.toDomain() }
+    }
+
+    override fun findByZoneId(zoneId: Long): Flux<Location> {
+        return locationR2dbcRepository.findByZoneId(zoneId).map { it.toDomain() }
     }
 
     override fun delete(location: Location): Mono<Void> {

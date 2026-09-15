@@ -14,6 +14,7 @@ import com.dozycoffee.wms.warehouse.domain.exception.LocationNotFoundException
 import com.dozycoffee.wms.warehouse.domain.model.Location
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
+import reactor.core.publisher.Flux
 import reactor.core.publisher.Mono
 
 @Service
@@ -51,6 +52,11 @@ class LocationService(
     @Transactional(readOnly = true)
     override fun getById(locationId: Long): Mono<LocationResult> {
         return findLocationOrThrow(locationId).map { LocationResult.from(it) }
+    }
+
+    @Transactional(readOnly = true)
+    override fun getByZoneId(zoneId: Long): Flux<LocationResult> {
+        return locationRepository.findByZoneId(zoneId).map { LocationResult.from(it) }
     }
 
     private fun findLocationOrThrow(locationId: Long): Mono<Location> {
