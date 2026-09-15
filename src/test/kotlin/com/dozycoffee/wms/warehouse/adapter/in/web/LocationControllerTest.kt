@@ -16,6 +16,7 @@ import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.webflux.test.autoconfigure.WebFluxTest
 import org.springframework.test.context.bean.override.mockito.MockitoBean
 import org.springframework.test.web.reactive.server.WebTestClient
+import reactor.core.publisher.Flux
 import reactor.core.publisher.Mono
 import org.mockito.kotlin.any
 import org.mockito.kotlin.eq
@@ -77,6 +78,22 @@ class LocationControllerTest {
             webTestClient.get().uri("/api/locations/{locationId}", 999L)
                 .exchange()
                 .expectStatus().isNotFound
+        }
+    }
+
+    @Nested
+    inner class Zone_기준_목록_조회 {
+
+        @Test
+        fun `Zone에 속한 위치 목록을 반환한다`() {
+            `when`(getLocationUseCase.getByZoneId(eq(1L)))
+                .thenReturn(Flux.just(sampleResult(0), sampleResult(10)))
+
+            webTestClient.get().uri("/api/zones/{zoneId}/locations", 1L)
+                .exchange()
+                .expectStatus().isOk
+                .expectBody()
+                .jsonPath("$.length()").isEqualTo(2)
         }
     }
 

@@ -18,6 +18,7 @@ import org.springframework.web.bind.annotation.PostMapping
 import org.springframework.web.bind.annotation.RequestBody
 import org.springframework.web.bind.annotation.ResponseStatus
 import org.springframework.web.bind.annotation.RestController
+import reactor.core.publisher.Flux
 import reactor.core.publisher.Mono
 
 @RestController
@@ -37,6 +38,11 @@ class LocationController(
     @GetMapping("/api/locations/{locationId}")
     fun getById(@PathVariable locationId: Long): Mono<LocationResponse> {
         return getLocationUseCase.getById(locationId).map { LocationResponse.from(it) }
+    }
+
+    @GetMapping("/api/zones/{zoneId}/locations")
+    fun getByZoneId(@PathVariable zoneId: Long): Flux<LocationResponse> {
+        return getLocationUseCase.getByZoneId(zoneId).map { LocationResponse.from(it) }
     }
 
     @PatchMapping("/api/locations/{locationId}/occupy")
