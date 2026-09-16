@@ -10,6 +10,7 @@ import com.dozycoffee.wms.inventory.domain.exception.InventoryNotFoundException
 import com.dozycoffee.wms.inventory.domain.exception.LotNotFoundException
 import com.dozycoffee.wms.inventory.domain.model.Inventory
 import com.dozycoffee.wms.inventory.domain.model.InventoryHistory
+import com.dozycoffee.wms.inventory.fixture.InventoryHistoryTestBuilder.Companion.inventoryHistory
 import com.dozycoffee.wms.inventory.fixture.InventoryTestBuilder.Companion.inventory
 import com.dozycoffee.wms.inventory.fixture.LotTestBuilder.Companion.lot
 import kotlinx.coroutines.flow.flowOf
@@ -28,6 +29,7 @@ import org.mockito.kotlin.any
 import org.mockito.kotlin.argumentCaptor
 import org.mockito.kotlin.verify
 import org.mockito.kotlin.whenever
+import java.time.LocalDate
 
 @ExtendWith(MockitoExtension::class)
 class InventoryServiceTest {
@@ -187,6 +189,37 @@ class InventoryServiceTest {
 
             assertThatThrownBy { runBlocking { inventoryService.confirmDisposal(1L, 200L) } }
                 .isInstanceOf(InventoryNotFoundException::class.java)
+        }
+    }
+
+    @Nested
+    inner class 재고_이력_조회 {
+
+        @Test
+        fun `기간을 지정하면 시작일 00시부터 종료일 다음날 00시 이전까지로 변환해 조회한다`() = runTest {
+            val from = LocalDate.of(2026, 9, 1)
+            val to = LocalDate.of(2026, 9, 16)
+            val found = inventoryHistory().inventoryHistoryId(1L).build()
+            whenever(
+                inventoryHistoryRepository.findAll(
+                    1L, InventoryHistoryType.INBOUND, from.atStartOfDay(), to.plusDays(1).atStartOfDay()
+                )
+            ).thenReturn(flowOf(found))
+
+            val result = inventoryService.getAll(1L, InventoryHistoryType.INBOUND, from, to).toList()
+
+            assertThat(result).hasSize(1)
+            assertThat(result[0].inventoryHistoryId).isEqualTo(1L)
+        }
+
+        @Test
+        fun `필터 없이 조회하면 전체 이력을 반환한다`() = runTest {
+            val found = listOf(inventoryHistory().inventoryHistoryId(1L).build(), inventoryHistory().inventoryHistoryId(2L).build())
+            whenever(inventoryHistoryRepository.findAll(null, null, null, null)).thenReturn(flowOf(*found.toTypedArray()))
+
+            val result = inventoryService.getAll(null, null, null, null).toList()
+
+            assertThat(result).hasSize(2)
         }
     }
 }

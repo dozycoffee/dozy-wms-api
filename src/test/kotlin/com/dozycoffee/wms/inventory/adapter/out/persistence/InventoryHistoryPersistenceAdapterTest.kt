@@ -17,6 +17,7 @@ import com.dozycoffee.wms.warehouse.adapter.out.persistence.ZoneR2dbcRepository
 import com.dozycoffee.wms.warehouse.fixture.LocationTestBuilder.Companion.location
 import com.dozycoffee.wms.warehouse.fixture.WarehouseTestBuilder.Companion.warehouse
 import com.dozycoffee.wms.warehouse.fixture.ZoneTestBuilder.Companion.zone
+import kotlinx.coroutines.flow.toList
 import kotlinx.coroutines.test.runTest
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.AfterEach
@@ -24,6 +25,7 @@ import org.junit.jupiter.api.Test
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.data.r2dbc.test.autoconfigure.DataR2dbcTest
 import org.springframework.context.annotation.Import
+import java.time.LocalDateTime
 
 @DataR2dbcTest
 @Import(
@@ -93,7 +95,7 @@ class InventoryHistoryPersistenceAdapterTest {
         warehouseR2dbcRepository.deleteAll().block()
     }
 
-    private suspend fun createInventory(): Long {
+    private suspend fun createInventory(productCode: String = "PRD-0001"): Long {
         val warehouseId: Long = requireNotNull(
             warehousePersistenceAdapter.save(warehouse().build()).map { requireNotNull(it.warehouseId) }.block()
         )
@@ -105,7 +107,8 @@ class InventoryHistoryPersistenceAdapterTest {
             locationPersistenceAdapter.save(location().zoneId(zoneId).build())
                 .map { requireNotNull(it.locationId) }.block()
         )
-        val productId = requireNotNull(productPersistenceAdapter.save(product().build()).productId)
+        val productId =
+            requireNotNull(productPersistenceAdapter.save(product().productCode(productCode).build()).productId)
         val lotId = requireNotNull(lotPersistenceAdapter.save(lot().productId(productId).build()).lotId)
         val saved = inventoryPersistenceAdapter.save(
             inventory().productId(productId).lotId(lotId).locationId(locationId).quantity(50).build()
@@ -140,5 +143,66 @@ class InventoryHistoryPersistenceAdapterTest {
 
         assertThat(saved.quantityChange).isEqualTo(-10)
         assertThat(saved.historyType).isEqualTo(InventoryHistoryType.OUTBOUND)
+    }
+
+    @Test
+    fun `inventoryId로 필터링하면 해당 재고의 이력만 최신순으로 반환한다`() = runTest {
+        val inventoryId1 = createInventory("PRD-0001")
+        val inventoryId2 = createInventory("PRD-0002")
+        inventoryHistoryPersistenceAdapter.save(
+            inventoryHistory().inventoryId(inventoryId1).historyType(InventoryHistoryType.INBOUND)
+                .quantityChange(10).referenceId(1L).build()
+        )
+        val second = inventoryHistoryPersistenceAdapter.save(
+            inventoryHistory().inventoryId(inventoryId1).historyType(InventoryHistoryType.OUTBOUND)
+                .quantityChange(-5).referenceId(2L).build()
+        )
+        inventoryHistoryPersistenceAdapter.save(
+            inventoryHistory().inventoryId(inventoryId2).historyType(InventoryHistoryType.INBOUND)
+                .quantityChange(20).referenceId(3L).build()
+        )
+
+        val result = inventoryHistoryPersistenceAdapter.findAll(inventoryId1, null, null, null).toList()
+
+        assertThat(result).hasSize(2)
+        assertThat(result).allMatch { it.inventoryId == inventoryId1 }
+        assertThat(result.first().inventoryHistoryId).isEqualTo(second.inventoryHistoryId)
+    }
+
+    @Test
+    fun `historyType으로 필터링하면 해당 유형의 이력만 반환한다`() = runTest {
+        val inventoryId = createInventory()
+        inventoryHistoryPersistenceAdapter.save(
+            inventoryHistory().inventoryId(inventoryId).historyType(InventoryHistoryType.INBOUND)
+                .quantityChange(10).referenceId(1L).build()
+        )
+        inventoryHistoryPersistenceAdapter.save(
+            inventoryHistory().inventoryId(inventoryId).historyType(InventoryHistoryType.OUTBOUND)
+                .quantityChange(-5).referenceId(2L).build()
+        )
+
+        val result = inventoryHistoryPersistenceAdapter.findAll(null, InventoryHistoryType.OUTBOUND, null, null).toList()
+
+        assertThat(result).hasSize(1)
+        assertThat(result[0].historyType).isEqualTo(InventoryHistoryType.OUTBOUND)
+    }
+
+    @Test
+    fun `기간으로 필터링하면 범위 밖 이력은 제외된다`() = runTest {
+        val inventoryId = createInventory()
+        inventoryHistoryPersistenceAdapter.save(
+            inventoryHistory().inventoryId(inventoryId).historyType(InventoryHistoryType.INBOUND)
+                .quantityChange(10).referenceId(1L).build()
+        )
+
+        val within = inventoryHistoryPersistenceAdapter.findAll(
+            inventoryId, null, LocalDateTime.now().minusMinutes(1), LocalDateTime.now().plusMinutes(1)
+        ).toList()
+        val outside = inventoryHistoryPersistenceAdapter.findAll(
+            inventoryId, null, LocalDateTime.now().plusHours(1), LocalDateTime.now().plusHours(2)
+        ).toList()
+
+        assertThat(within).hasSize(1)
+        assertThat(outside).isEmpty()
     }
 }
