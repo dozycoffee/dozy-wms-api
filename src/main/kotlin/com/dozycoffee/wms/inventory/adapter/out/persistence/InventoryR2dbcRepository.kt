@@ -19,4 +19,7 @@ interface InventoryR2dbcRepository : CoroutineCrudRepository<InventoryEntity, Lo
         """
     )
     fun findAllActive(locationId: Long?, productId: Long?, qualityStatus: String?): Flow<InventoryEntity>
+
+    @Query("SELECT * FROM inventory WHERE deleted_at IS NULL AND lot_id = :lotId")
+    fun findAllActiveByLotId(lotId: Long): Flow<InventoryEntity>
 }

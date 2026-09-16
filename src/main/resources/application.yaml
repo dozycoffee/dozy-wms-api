@@ -23,3 +23,7 @@ spring:
     datatype:
       datetime:
         write-dates-as-timestamps: false
+
+wms:
+  expiration-monitoring:
+    cron: "0 0 1 * * *"
