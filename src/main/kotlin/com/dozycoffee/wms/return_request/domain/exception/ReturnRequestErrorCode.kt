@@ -20,5 +20,10 @@ enum class ReturnRequestErrorCode(
         "RETURN_REQUEST_NOT_ALL_ITEMS_INSPECTED",
         "검수가 완료되지 않은 반품 상품이 있어 반품을 완료할 수 없습니다."
     ),
+    INSUFFICIENT_ZONE_CAPACITY(
+        ErrorType.CONFLICT,
+        "RETURN_REQUEST_INSUFFICIENT_ZONE_CAPACITY",
+        "Zone의 잔여 용량이 부족해 반품 상품을 재고로 등록할 수 없습니다."
+    ),
     RETURN_REQUEST_NOT_FOUND(ErrorType.NOT_FOUND, "RETURN_REQUEST_NOT_FOUND", "존재하지 않는 반품입니다.")
 }

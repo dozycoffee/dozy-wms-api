@@ -1,7 +1,9 @@
 package com.dozycoffee.wms.return_request.adapter.`in`.web
 
+import com.dozycoffee.wms.return_request.adapter.`in`.web.request.CompleteReturnRequestRequest
 import com.dozycoffee.wms.return_request.adapter.`in`.web.request.RegisterReturnItemRequest
 import com.dozycoffee.wms.return_request.adapter.`in`.web.request.RegisterReturnRequestRequest
+import com.dozycoffee.wms.return_request.adapter.`in`.web.request.ReturnItemLotAssignmentRequest
 import com.dozycoffee.wms.return_request.application.port.`in`.CompleteReturnRequestUseCase
 import com.dozycoffee.wms.return_request.application.port.`in`.GetReturnRequestUseCase
 import com.dozycoffee.wms.return_request.application.port.`in`.RegisterReturnRequestUseCase
@@ -128,10 +130,11 @@ class ReturnRequestControllerTest {
         @Test
         fun `요청이 유효하면 200과 COMPLETED 상태를 반환한다`() {
             runBlocking {
-                whenever(completeReturnRequestUseCase.complete(1L)).thenReturn(sampleResult(ReturnRequestStatus.COMPLETED))
+                whenever(completeReturnRequestUseCase.complete(any())).thenReturn(sampleResult(ReturnRequestStatus.COMPLETED))
             }
 
             webTestClient.patch().uri("/api/return-requests/{returnRequestId}/complete", 1L)
+                .bodyValue(CompleteReturnRequestRequest(listOf(ReturnItemLotAssignmentRequest(1L, "LOT-1", null, null))))
                 .exchange()
                 .expectStatus().isOk
                 .expectBody()

@@ -35,5 +35,10 @@ enum class ReturnItemErrorCode(
         "RETURN_ITEM_ALREADY_INSPECTED",
         "이미 검수가 완료된 반품 상품입니다."
     ),
+    MISSING_LOT_ASSIGNMENT(
+        ErrorType.VALIDATION,
+        "RETURN_ITEM_MISSING_LOT_ASSIGNMENT",
+        "검수 완료된 반품 상품에는 Lot 정보가 필요합니다."
+    ),
     RETURN_ITEM_NOT_FOUND(ErrorType.NOT_FOUND, "RETURN_ITEM_NOT_FOUND", "존재하지 않는 반품 상품입니다.")
 }
