@@ -1,5 +1,11 @@
 package com.dozycoffee.wms.inbound.application.service
 
+import com.dozycoffee.wms.disposal.application.port.`in`.RegisterDisposalUseCase
+import com.dozycoffee.wms.disposal.application.port.`in`.command.RegisterDisposalCommand
+import com.dozycoffee.wms.disposal.application.port.`in`.command.RegisterDisposalItemCommand
+import com.dozycoffee.wms.disposal.application.port.`in`.result.DisposalResult
+import com.dozycoffee.wms.disposal.domain.enumeration.DisposalReason
+import com.dozycoffee.wms.disposal.domain.enumeration.DisposalStatus
 import com.dozycoffee.wms.inbound.application.port.`in`.command.CompleteInboundCommand
 import com.dozycoffee.wms.inbound.application.port.`in`.command.LotAssignmentCommand
 import com.dozycoffee.wms.inbound.application.port.`in`.command.RegisterInboundCommand
@@ -17,6 +23,7 @@ import com.dozycoffee.wms.inbound.domain.model.InboundItem
 import com.dozycoffee.wms.inbound.fixture.InboundItemTestBuilder.Companion.inboundItem
 import com.dozycoffee.wms.inbound.fixture.InboundTestBuilder.Companion.inbound
 import com.dozycoffee.wms.inventory.application.port.`in`.GetLotUseCase
+import com.dozycoffee.wms.inventory.application.port.`in`.MarkInventoryDefectiveUseCase
 import com.dozycoffee.wms.inventory.application.port.`in`.RegisterInventoryUseCase
 import com.dozycoffee.wms.inventory.application.port.`in`.RegisterLotUseCase
 import com.dozycoffee.wms.inventory.application.port.`in`.command.RegisterInventoryCommand
@@ -101,6 +108,12 @@ class InboundServiceTest {
 
     @Mock
     private lateinit var registerInventoryUseCase: RegisterInventoryUseCase
+
+    @Mock
+    private lateinit var markInventoryDefectiveUseCase: MarkInventoryDefectiveUseCase
+
+    @Mock
+    private lateinit var registerDisposalUseCase: RegisterDisposalUseCase
 
     @InjectMocks
     private lateinit var inboundService: InboundService
@@ -255,6 +268,42 @@ class InboundServiceTest {
             assertThatThrownBy {
                 runBlocking { inboundService.complete(CompleteInboundCommand(1L, emptyList())) }
             }.isInstanceOf(MissingLotAssignmentException::class.java)
+        }
+
+        @Test
+        fun `불량 판정 상품은 DEFECTIVE Inventory로 등록되고 검수 불량 사유로 폐기 등록과 연계된다`() = runTest {
+            val existingInbound: Inbound = inbound().inboundId(1L).warehouseId(1L).status(InboundStatus.PROCESSING).build()
+            val defectiveItem: InboundItem = inboundItem()
+                .inboundItemId(1L).inboundId(1L).productId(100L).zoneId(10L)
+                .expectedQuantity(30).actualQuantity(30).inspectionResult(InspectionResult.DEFECTIVE)
+                .build()
+            whenever(inboundRepository.findById(1L)).thenReturn(existingInbound)
+            whenever(inboundItemRepository.findAllByInboundId(1L)).thenReturn(flowOf(defectiveItem))
+            whenever(getLotUseCase.getAllByProduct(100L)).thenReturn(emptyFlow())
+            val registeredLot = LotResult(500L, "LOT-1", 100L, null, null, LotStatus.NORMAL)
+            whenever(registerLotUseCase.register(any())).thenReturn(registeredLot)
+            whenever(getLocationUseCase.getByZoneId(10L))
+                .thenReturn(Flux.just(locationResult(1L, 10L, 70, 10)))
+            whenever(occupyLocationUseCase.occupy(any())).thenReturn(Mono.just(locationResult(1L, 10L, 70, 40)))
+            val registeredInventory = InventoryResult(1L, 100L, 500L, 1L, 30, 0, 30, QualityStatus.NORMAL)
+            whenever(registerInventoryUseCase.register(any())).thenReturn(registeredInventory)
+            whenever(markInventoryDefectiveUseCase.markDefective(1L))
+                .thenReturn(registeredInventory.copy(qualityStatus = QualityStatus.DEFECTIVE))
+            whenever(registerDisposalUseCase.register(any()))
+                .thenReturn(DisposalResult(900L, 1L, DisposalStatus.REQUESTED))
+            whenever(getWorkAreaUseCase.getByWarehouseIdAndAreaCode(1L, AreaCode.INBOUND))
+                .thenReturn(Mono.just(workAreaResult(30)))
+            whenever(releaseWorkAreaUseCase.release(any())).thenReturn(Mono.just(workAreaResult(0)))
+            whenever(inboundRepository.save(any())).thenAnswer { it.getArgument(0) }
+
+            val command = CompleteInboundCommand(1L, listOf(LotAssignmentCommand(1L, "LOT-1", null, null)))
+            val result = inboundService.complete(command)
+
+            assertThat(result.status).isEqualTo(InboundStatus.COMPLETED)
+            verify(markInventoryDefectiveUseCase).markDefective(1L)
+            verify(registerDisposalUseCase).register(
+                RegisterDisposalCommand(1L, listOf(RegisterDisposalItemCommand(1L, 30, DisposalReason.INSPECTION_DEFECT)))
+            )
         }
     }
 }

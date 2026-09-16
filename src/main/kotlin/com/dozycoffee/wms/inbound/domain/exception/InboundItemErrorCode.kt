@@ -35,7 +35,7 @@ enum class InboundItemErrorCode(
     MISSING_LOT_ASSIGNMENT(
         ErrorType.VALIDATION,
         "INBOUND_ITEM_MISSING_LOT_ASSIGNMENT",
-        "정상 판정된 입고 상품에는 Lot 정보가 필요합니다."
+        "검수 완료된 입고 상품에는 Lot 정보가 필요합니다."
     ),
     INBOUND_ITEM_NOT_FOUND(ErrorType.NOT_FOUND, "INBOUND_ITEM_NOT_FOUND", "존재하지 않는 입고 상품입니다.")
 }
