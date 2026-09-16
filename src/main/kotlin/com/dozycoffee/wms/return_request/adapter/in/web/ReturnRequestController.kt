@@ -1,5 +1,6 @@
 package com.dozycoffee.wms.return_request.adapter.`in`.web
 
+import com.dozycoffee.wms.return_request.adapter.`in`.web.request.CompleteReturnRequestRequest
 import com.dozycoffee.wms.return_request.adapter.`in`.web.request.RegisterReturnRequestRequest
 import com.dozycoffee.wms.return_request.adapter.`in`.web.response.ReturnRequestResponse
 import com.dozycoffee.wms.return_request.application.port.`in`.CompleteReturnRequestUseCase
@@ -52,7 +53,10 @@ class ReturnRequestController(
     }
 
     @PatchMapping("/{returnRequestId}/complete")
-    suspend fun complete(@PathVariable returnRequestId: Long): ReturnRequestResponse {
-        return ReturnRequestResponse.from(completeReturnRequestUseCase.complete(returnRequestId))
+    suspend fun complete(
+        @PathVariable returnRequestId: Long,
+        @Valid @RequestBody request: CompleteReturnRequestRequest
+    ): ReturnRequestResponse {
+        return ReturnRequestResponse.from(completeReturnRequestUseCase.complete(request.toCommand(returnRequestId)))
     }
 }
