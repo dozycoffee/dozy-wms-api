@@ -88,7 +88,7 @@ class DisposalService(
         for (item in items) {
             val inventory = getInventoryUseCase.getById(item.inventoryId)
             releaseLocationUseCase.release(ReleaseLocationCommand(inventory.locationId, item.quantity)).awaitSingle()
-            confirmInventoryDisposalUseCase.confirmDisposal(item.inventoryId)
+            confirmInventoryDisposalUseCase.confirmDisposal(item.inventoryId, requireNotNull(item.disposalItemId))
             totalQuantity += item.quantity
         }
 

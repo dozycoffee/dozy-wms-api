@@ -79,7 +79,8 @@
 | 재고 수량/유통기한/입고일 기준 정렬 조회 | 미구현 | 없음 | ❌ 미구현 |
 | 재고 상세 조회 시 연결된 Lot 정보(제조일자/유통기한)와 최근 재고 이력을 함께 제공 — Lot은 `GetLotUseCase`로 별도 조회 가능하나 Inventory 응답에 합쳐서 내려주지는 않음 | [LotController.kt](../src/main/kotlin/com/dozycoffee/wms/inventory/adapter/in/web/LotController.kt) | 없음 | ⚠️ 부분 구현 |
 | Lot 단위 조회 시 Zone/Location별 재고 분포와 유통기한 임박 여부를 함께 제공 | 미구현 | 없음 | ❌ 미구현 |
-| 재고 이력 조회 시 변동 유형(입고/출고/반품/폐기/조정)·기간으로 필터링, 시간순 정렬 | 미구현 | 없음 | ❌ 미구현 |
+| 재고 수량이 변경될 때(입고/출고/폐기) `InventoryHistory`로 변동 유형·변화량·원인 문서를 기록 — 반품 복귀·재고실사 조정은 해당 도메인이 아직 없어 범위 밖(기록 대상 3종만 우선 구현, 품질상태 전환은 수량 변경이 아니므로 기록 대상 아님) | [InventoryService.register()](../src/main/kotlin/com/dozycoffee/wms/inventory/application/service/InventoryService.kt)/`confirmDisposal()`, [AllocationService.fulfill()](../src/main/kotlin/com/dozycoffee/wms/inventory/application/service/AllocationService.kt) — Inventory 상태 변경과 같은 트랜잭션 안에서 직접 기록(이벤트 방식 대신 도메인 내부 캡슐화를 선택한 설계 결정, 추후 이벤트 도입 시에도 발행 주체는 Inventory 도메인 유지 예정) | [InventoryHistoryTest.kt](../src/test/kotlin/com/dozycoffee/wms/inventory/domain/InventoryHistoryTest.kt), [InventoryServiceTest.kt](../src/test/kotlin/com/dozycoffee/wms/inventory/application/service/InventoryServiceTest.kt), [AllocationServiceTest.kt](../src/test/kotlin/com/dozycoffee/wms/inventory/application/service/AllocationServiceTest.kt), [InventoryHistoryPersistenceAdapterTest.kt](../src/test/kotlin/com/dozycoffee/wms/inventory/adapter/out/persistence/InventoryHistoryPersistenceAdapterTest.kt) | ✅ 검증됨 |
+| 재고 이력 조회 시 변동 유형(입고/출고/반품/폐기/조정)·기간으로 필터링, 시간순 정렬 | 미구현 — 기록(쓰기) 측만 이번에 구현, 조회 API는 별도 작업(재고 조회 고도화)으로 분리 | 없음 | ❌ 미구현 |
 
 ## 재고 실사 (별도 구현 예정, ERD 미포함 — Notion 시나리오는 상세화되었으나 ERD에 실사 테이블은 여전히 없음)
 

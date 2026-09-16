@@ -228,7 +228,7 @@ class InboundServiceTest {
 
             assertThat(result.status).isEqualTo(InboundStatus.COMPLETED)
             verify(occupyLocationUseCase).occupy(OccupyLocationCommand(1L, 30))
-            verify(registerInventoryUseCase).register(RegisterInventoryCommand(500L, 1L, 30))
+            verify(registerInventoryUseCase).register(RegisterInventoryCommand(500L, 1L, 30, 1L))
             verify(releaseWorkAreaUseCase).release(ReleaseWorkAreaCommand(1L, 30))
         }
 
