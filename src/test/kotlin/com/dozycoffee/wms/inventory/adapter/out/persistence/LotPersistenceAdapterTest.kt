@@ -83,4 +83,27 @@ class LotPersistenceAdapterTest {
 
         assertThat(result).hasSize(2)
     }
+
+    @Test
+    fun `EXPIRED가 아니면서 기준일 이내로 유통기한이 다가온 Lot만 조회한다`() = runTest {
+        val productId = requireNotNull(productPersistenceAdapter.save(product().build()).productId)
+        val today = LocalDate.now()
+        val withinThreshold = lotPersistenceAdapter.save(
+            lot().productId(productId).lotNumber("LOT-WITHIN").expirationDate(today.plusDays(10)).build()
+        )
+        lotPersistenceAdapter.save(
+            lot().productId(productId).lotNumber("LOT-FAR").expirationDate(today.plusDays(60)).build()
+        )
+        val alreadyExpired = lot().productId(productId).lotNumber("LOT-EXPIRED").expirationDate(today.minusDays(1))
+            .build()
+        alreadyExpired.markExpired()
+        lotPersistenceAdapter.save(alreadyExpired)
+
+        val result = lotPersistenceAdapter
+            .findAllByLotStatusNotAndExpirationDateLessThanEqual(LotStatus.EXPIRED, today.plusDays(30))
+            .toList()
+
+        assertThat(result).hasSize(1)
+        assertThat(result.first().lotId).isEqualTo(withinThreshold.lotId)
+    }
 }

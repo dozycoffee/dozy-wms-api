@@ -1,10 +1,13 @@
 package com.dozycoffee.wms.inventory.adapter.out.persistence
 
+import com.dozycoffee.wms.global.persistence.CommonCodes
 import com.dozycoffee.wms.inventory.application.port.out.LotRepository
+import com.dozycoffee.wms.inventory.domain.enumeration.LotStatus
 import com.dozycoffee.wms.inventory.domain.model.Lot
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 import org.springframework.stereotype.Component
+import java.time.LocalDate
 
 @Component
 class LotPersistenceAdapter(
@@ -30,5 +33,18 @@ class LotPersistenceAdapter(
 
     override fun findAllByProductId(productId: Long): Flow<Lot> {
         return lotR2dbcRepository.findAllByProductId(productId).map { it.toDomain() }
+    }
+
+    override fun findAllByLotStatusNotAndExpirationDateLessThanEqual(
+        lotStatus: LotStatus,
+        threshold: LocalDate
+    ): Flow<Lot> {
+        val lotStatusCode = CommonCodes.toCode(STATUS_GROUP, lotStatus)
+        return lotR2dbcRepository.findAllByLotStatusNotAndExpirationDateLessThanEqual(lotStatusCode, threshold)
+            .map { it.toDomain() }
+    }
+
+    companion object {
+        private const val STATUS_GROUP = "LOT_STATUS"
     }
 }

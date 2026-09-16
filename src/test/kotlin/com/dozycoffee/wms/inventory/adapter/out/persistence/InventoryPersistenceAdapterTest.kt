@@ -158,4 +158,25 @@ class InventoryPersistenceAdapterTest {
         assertThat(result).hasSize(1)
         assertThat(result.first().inventoryId).isEqualTo(target.inventoryId)
     }
+
+    @Test
+    fun `Lot ID로 재고 목록을 조회한다`() = runTest {
+        val locationId = createLocation()
+        val productId = requireNotNull(productPersistenceAdapter.save(product().build()).productId)
+        val lotId = requireNotNull(lotPersistenceAdapter.save(lot().productId(productId).build()).lotId)
+        val otherLotId = requireNotNull(
+            lotPersistenceAdapter.save(lot().productId(productId).lotNumber("LOT-OTHER").build()).lotId
+        )
+        val target = inventoryPersistenceAdapter.save(
+            inventory().productId(productId).lotId(lotId).locationId(locationId).build()
+        )
+        inventoryPersistenceAdapter.save(
+            inventory().productId(productId).lotId(otherLotId).locationId(locationId).build()
+        )
+
+        val result = inventoryPersistenceAdapter.findAllByLotId(lotId).toList()
+
+        assertThat(result).hasSize(1)
+        assertThat(result.first().inventoryId).isEqualTo(target.inventoryId)
+    }
 }

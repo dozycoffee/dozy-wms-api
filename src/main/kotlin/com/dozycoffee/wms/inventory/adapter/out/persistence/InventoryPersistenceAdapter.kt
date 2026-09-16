@@ -31,6 +31,10 @@ class InventoryPersistenceAdapter(
         return inventoryR2dbcRepository.findAllActive(locationId, productId, qualityStatusCode).map { it.toDomain() }
     }
 
+    override fun findAllByLotId(lotId: Long): Flow<Inventory> {
+        return inventoryR2dbcRepository.findAllActiveByLotId(lotId).map { it.toDomain() }
+    }
+
     companion object {
         private const val QUALITY_STATUS_GROUP = "QUALITY_STATUS"
     }
