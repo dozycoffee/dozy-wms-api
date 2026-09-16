@@ -15,5 +15,10 @@ enum class ReturnRequestErrorCode(
         "RETURN_REQUEST_INVALID_STATUS_TRANSITION",
         "반품 상태를 역행하거나 건너뛸 수 없습니다."
     ),
+    NOT_ALL_ITEMS_INSPECTED(
+        ErrorType.CONFLICT,
+        "RETURN_REQUEST_NOT_ALL_ITEMS_INSPECTED",
+        "검수가 완료되지 않은 반품 상품이 있어 반품을 완료할 수 없습니다."
+    ),
     RETURN_REQUEST_NOT_FOUND(ErrorType.NOT_FOUND, "RETURN_REQUEST_NOT_FOUND", "존재하지 않는 반품입니다.")
 }
