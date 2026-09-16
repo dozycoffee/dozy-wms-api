@@ -1,12 +1,15 @@
 package com.dozycoffee.wms.inventory.application.service
 
 import com.dozycoffee.wms.inventory.application.port.`in`.command.RegisterInventoryCommand
+import com.dozycoffee.wms.inventory.application.port.out.InventoryHistoryRepository
 import com.dozycoffee.wms.inventory.application.port.out.InventoryRepository
 import com.dozycoffee.wms.inventory.application.port.out.LotRepository
+import com.dozycoffee.wms.inventory.domain.enumeration.InventoryHistoryType
 import com.dozycoffee.wms.inventory.domain.enumeration.QualityStatus
 import com.dozycoffee.wms.inventory.domain.exception.InventoryNotFoundException
 import com.dozycoffee.wms.inventory.domain.exception.LotNotFoundException
 import com.dozycoffee.wms.inventory.domain.model.Inventory
+import com.dozycoffee.wms.inventory.domain.model.InventoryHistory
 import com.dozycoffee.wms.inventory.fixture.InventoryTestBuilder.Companion.inventory
 import com.dozycoffee.wms.inventory.fixture.LotTestBuilder.Companion.lot
 import kotlinx.coroutines.flow.flowOf
@@ -35,6 +38,9 @@ class InventoryServiceTest {
     @Mock
     private lateinit var lotRepository: LotRepository
 
+    @Mock
+    private lateinit var inventoryHistoryRepository: InventoryHistoryRepository
+
     @InjectMocks
     private lateinit var inventoryService: InventoryService
 
@@ -43,11 +49,12 @@ class InventoryServiceTest {
 
         @Test
         fun `존재하는 Lot을 참조하면 Lot의 상품으로 재고를 등록한다`() = runTest {
-            val command = RegisterInventoryCommand(1L, 1L, 10)
+            val command = RegisterInventoryCommand(1L, 1L, 10, 100L)
             val existingLot = lot().lotId(1L).productId(7L).build()
             val saved: Inventory = inventory().inventoryId(1L).productId(7L).lotId(1L).build()
             whenever(lotRepository.findById(1L)).thenReturn(existingLot)
             whenever(inventoryRepository.save(any())).thenReturn(saved)
+            whenever(inventoryHistoryRepository.save(any())).thenAnswer { it.getArgument(0) }
 
             val result = inventoryService.register(command)
 
@@ -56,11 +63,18 @@ class InventoryServiceTest {
             val captor = argumentCaptor<Inventory>()
             verify(inventoryRepository).save(captor.capture())
             assertThat(captor.firstValue.productId).isEqualTo(7L)
+
+            val historyCaptor = argumentCaptor<InventoryHistory>()
+            verify(inventoryHistoryRepository).save(historyCaptor.capture())
+            assertThat(historyCaptor.firstValue.inventoryId).isEqualTo(1L)
+            assertThat(historyCaptor.firstValue.historyType).isEqualTo(InventoryHistoryType.INBOUND)
+            assertThat(historyCaptor.firstValue.quantityChange).isEqualTo(10)
+            assertThat(historyCaptor.firstValue.referenceId).isEqualTo(100L)
         }
 
         @Test
         fun `존재하지 않는 Lot을 참조하면 예외를 던진다`() = runTest {
-            val command = RegisterInventoryCommand(999L, 1L, 10)
+            val command = RegisterInventoryCommand(999L, 1L, 10, 100L)
             whenever(lotRepository.findById(999L)).thenReturn(null)
 
             assertThatThrownBy { runBlocking { inventoryService.register(command) } }
@@ -147,22 +161,31 @@ class InventoryServiceTest {
 
         @Test
         fun `폐기예정 재고를 폐기 확정하면 soft delete된다`() = runTest {
-            val found: Inventory = inventory().inventoryId(1L).qualityStatus(QualityStatus.DISPOSAL_SCHEDULED).build()
+            val found: Inventory =
+                inventory().inventoryId(1L).quantity(30).qualityStatus(QualityStatus.DISPOSAL_SCHEDULED).build()
             whenever(inventoryRepository.findById(1L)).thenReturn(found)
             whenever(inventoryRepository.save(any())).thenAnswer { it.getArgument(0) }
+            whenever(inventoryHistoryRepository.save(any())).thenAnswer { it.getArgument(0) }
 
-            inventoryService.confirmDisposal(1L)
+            inventoryService.confirmDisposal(1L, 200L)
 
             val captor = argumentCaptor<Inventory>()
             verify(inventoryRepository).save(captor.capture())
             assertThat(captor.firstValue.isDeleted()).isTrue()
+
+            val historyCaptor = argumentCaptor<InventoryHistory>()
+            verify(inventoryHistoryRepository).save(historyCaptor.capture())
+            assertThat(historyCaptor.firstValue.inventoryId).isEqualTo(1L)
+            assertThat(historyCaptor.firstValue.historyType).isEqualTo(InventoryHistoryType.DISPOSAL)
+            assertThat(historyCaptor.firstValue.quantityChange).isEqualTo(-30)
+            assertThat(historyCaptor.firstValue.referenceId).isEqualTo(200L)
         }
 
         @Test
         fun `존재하지 않는 재고를 폐기 확정하면 예외를 던진다`() = runTest {
             whenever(inventoryRepository.findById(1L)).thenReturn(null)
 
-            assertThatThrownBy { runBlocking { inventoryService.confirmDisposal(1L) } }
+            assertThatThrownBy { runBlocking { inventoryService.confirmDisposal(1L, 200L) } }
                 .isInstanceOf(InventoryNotFoundException::class.java)
         }
     }

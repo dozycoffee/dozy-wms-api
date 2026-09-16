@@ -174,7 +174,9 @@ class InboundService(
 
             val allocatedQuantity = minOf(availableCapacity, remainingQuantity)
             occupyLocationUseCase.occupy(OccupyLocationCommand(location.locationId, allocatedQuantity)).awaitSingle()
-            registerInventoryUseCase.register(RegisterInventoryCommand(lotId, location.locationId, allocatedQuantity))
+            registerInventoryUseCase.register(
+                RegisterInventoryCommand(lotId, location.locationId, allocatedQuantity, requireNotNull(item.inboundItemId))
+            )
             remainingQuantity -= allocatedQuantity
         }
 

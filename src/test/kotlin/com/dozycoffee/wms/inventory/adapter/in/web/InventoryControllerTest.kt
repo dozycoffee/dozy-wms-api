@@ -50,7 +50,7 @@ class InventoryControllerTest {
             runBlocking { whenever(registerInventoryUseCase.register(any())).thenReturn(sampleResult()) }
 
             webTestClient.post().uri("/api/inventories")
-                .bodyValue(RegisterInventoryRequest(1L, 1L, 20))
+                .bodyValue(RegisterInventoryRequest(1L, 1L, 20, 100L))
                 .exchange()
                 .expectStatus().isCreated
                 .expectBody()
@@ -60,7 +60,7 @@ class InventoryControllerTest {
         @Test
         fun `필수값이 비어있으면 400을 반환한다`() {
             webTestClient.post().uri("/api/inventories")
-                .bodyValue(RegisterInventoryRequest(null, null, null))
+                .bodyValue(RegisterInventoryRequest(null, null, null, null))
                 .exchange()
                 .expectStatus().isBadRequest
         }

@@ -2,12 +2,15 @@ package com.dozycoffee.wms.inventory.application.service
 
 import com.dozycoffee.wms.inventory.application.port.`in`.command.HoldInventoryCommand
 import com.dozycoffee.wms.inventory.application.port.out.AllocationRepository
+import com.dozycoffee.wms.inventory.application.port.out.InventoryHistoryRepository
 import com.dozycoffee.wms.inventory.application.port.out.InventoryRepository
 import com.dozycoffee.wms.inventory.domain.enumeration.AllocationReferenceType
 import com.dozycoffee.wms.inventory.domain.enumeration.AllocationStatus
+import com.dozycoffee.wms.inventory.domain.enumeration.InventoryHistoryType
 import com.dozycoffee.wms.inventory.domain.exception.AllocationNotFoundException
 import com.dozycoffee.wms.inventory.domain.model.Allocation
 import com.dozycoffee.wms.inventory.domain.model.Inventory
+import com.dozycoffee.wms.inventory.domain.model.InventoryHistory
 import com.dozycoffee.wms.inventory.fixture.AllocationTestBuilder.Companion.allocation
 import com.dozycoffee.wms.inventory.fixture.InventoryTestBuilder.Companion.inventory
 import kotlinx.coroutines.flow.flowOf
@@ -36,6 +39,9 @@ class AllocationServiceTest {
 
     @Mock
     private lateinit var inventoryRepository: InventoryRepository
+
+    @Mock
+    private lateinit var inventoryHistoryRepository: InventoryHistoryRepository
 
     @InjectMocks
     private lateinit var allocationService: AllocationService
@@ -113,12 +119,14 @@ class AllocationServiceTest {
 
         @Test
         fun `HELD 상태의 점유를 이행하면 재고의 총 수량과 점유 수량이 함께 줄어든다`() = runTest {
-            val heldAllocation: Allocation = allocation().allocationId(1L).inventoryId(1L).quantity(10).build()
+            val heldAllocation: Allocation =
+                allocation().allocationId(1L).inventoryId(1L).referenceId(100L).quantity(10).build()
             val targetInventory: Inventory = inventory().inventoryId(1L).quantity(50).allocatedQuantity(10).build()
             whenever(allocationRepository.findById(1L)).thenReturn(heldAllocation)
             whenever(allocationRepository.save(any())).thenAnswer { it.getArgument(0) }
             whenever(inventoryRepository.findById(1L)).thenReturn(targetInventory)
             whenever(inventoryRepository.save(any())).thenAnswer { it.getArgument(0) }
+            whenever(inventoryHistoryRepository.save(any())).thenAnswer { it.getArgument(0) }
 
             val result = allocationService.fulfill(1L)
 
@@ -128,6 +136,13 @@ class AllocationServiceTest {
             verify(inventoryRepository).save(captor.capture())
             assertThat(captor.firstValue.quantity).isEqualTo(40)
             assertThat(captor.firstValue.allocatedQuantity).isEqualTo(0)
+
+            val historyCaptor = argumentCaptor<InventoryHistory>()
+            verify(inventoryHistoryRepository).save(historyCaptor.capture())
+            assertThat(historyCaptor.firstValue.inventoryId).isEqualTo(1L)
+            assertThat(historyCaptor.firstValue.historyType).isEqualTo(InventoryHistoryType.OUTBOUND)
+            assertThat(historyCaptor.firstValue.quantityChange).isEqualTo(-10)
+            assertThat(historyCaptor.firstValue.referenceId).isEqualTo(100L)
         }
     }
 

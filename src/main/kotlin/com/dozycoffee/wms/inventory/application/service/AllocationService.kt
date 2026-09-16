@@ -7,11 +7,14 @@ import com.dozycoffee.wms.inventory.application.port.`in`.ReleaseAllocationUseCa
 import com.dozycoffee.wms.inventory.application.port.`in`.command.HoldInventoryCommand
 import com.dozycoffee.wms.inventory.application.port.`in`.result.AllocationResult
 import com.dozycoffee.wms.inventory.application.port.out.AllocationRepository
+import com.dozycoffee.wms.inventory.application.port.out.InventoryHistoryRepository
 import com.dozycoffee.wms.inventory.application.port.out.InventoryRepository
 import com.dozycoffee.wms.inventory.domain.enumeration.AllocationReferenceType
+import com.dozycoffee.wms.inventory.domain.enumeration.InventoryHistoryType
 import com.dozycoffee.wms.inventory.domain.exception.AllocationNotFoundException
 import com.dozycoffee.wms.inventory.domain.exception.InventoryNotFoundException
 import com.dozycoffee.wms.inventory.domain.model.Allocation
+import com.dozycoffee.wms.inventory.domain.model.InventoryHistory
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 import org.springframework.dao.DataIntegrityViolationException
@@ -21,7 +24,8 @@ import org.springframework.transaction.annotation.Transactional
 @Service
 class AllocationService(
     private val allocationRepository: AllocationRepository,
-    private val inventoryRepository: InventoryRepository
+    private val inventoryRepository: InventoryRepository,
+    private val inventoryHistoryRepository: InventoryHistoryRepository
 ) : HoldInventoryUseCase, ReleaseAllocationUseCase, FulfillAllocationUseCase, GetAllocationUseCase {
 
     /**
@@ -78,6 +82,14 @@ class AllocationService(
         val inventory = inventoryRepository.findById(allocation.inventoryId) ?: throw InventoryNotFoundException()
         inventory.fulfillHold(allocation.quantity)
         inventoryRepository.save(inventory)
+        inventoryHistoryRepository.save(
+            InventoryHistory.create(
+                inventory.inventoryId,
+                InventoryHistoryType.OUTBOUND,
+                -allocation.quantity,
+                allocation.referenceId
+            )
+        )
 
         return AllocationResult.from(saved)
     }

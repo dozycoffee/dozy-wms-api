@@ -170,7 +170,7 @@ class DisposalServiceTest {
             whenever(disposalItemRepository.findAllByDisposalId(1L)).thenReturn(flowOf(item))
             whenever(getInventoryUseCase.getById(10L)).thenReturn(inventoryResult(10L, 5, 200L))
             whenever(releaseLocationUseCase.release(any())).thenReturn(Mono.just(locationResult(200L)))
-            whenever(confirmInventoryDisposalUseCase.confirmDisposal(10L)).thenReturn(inventoryResult(10L, 0))
+            whenever(confirmInventoryDisposalUseCase.confirmDisposal(10L, 1L)).thenReturn(inventoryResult(10L, 0))
             whenever(getWorkAreaUseCase.getByWarehouseIdAndAreaCode(1L, AreaCode.DISPOSAL)).thenReturn(Mono.just(workAreaResult(5)))
             whenever(releaseWorkAreaUseCase.release(any())).thenReturn(Mono.just(workAreaResult(0)))
             whenever(disposalRepository.save(any())).thenAnswer { it.getArgument(0) }
@@ -179,7 +179,7 @@ class DisposalServiceTest {
 
             assertThat(result.status).isEqualTo(DisposalStatus.COMPLETED)
             verify(releaseLocationUseCase).release(ReleaseLocationCommand(200L, 5))
-            verify(confirmInventoryDisposalUseCase).confirmDisposal(10L)
+            verify(confirmInventoryDisposalUseCase).confirmDisposal(10L, 1L)
             verify(releaseWorkAreaUseCase).release(ReleaseWorkAreaCommand(1L, 5))
         }
 
