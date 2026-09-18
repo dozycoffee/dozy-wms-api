@@ -2,6 +2,7 @@ package com.dozycoffee.wms.inventory.adapter.`in`.web
 
 import com.dozycoffee.wms.inventory.adapter.`in`.web.request.RegisterInventoryRequest
 import com.dozycoffee.wms.inventory.application.port.`in`.GetInventoryUseCase
+import com.dozycoffee.wms.inventory.application.port.`in`.GetZoneInventorySummaryUseCase
 import com.dozycoffee.wms.inventory.application.port.`in`.InventorySortBy
 import com.dozycoffee.wms.inventory.application.port.`in`.MarkInventoryDefectiveUseCase
 import com.dozycoffee.wms.inventory.application.port.`in`.MarkInventoryDisposalScheduledUseCase
@@ -9,9 +10,11 @@ import com.dozycoffee.wms.inventory.application.port.`in`.RegisterInventoryUseCa
 import com.dozycoffee.wms.inventory.application.port.`in`.result.InventoryDetailResult
 import com.dozycoffee.wms.inventory.application.port.`in`.result.InventoryResult
 import com.dozycoffee.wms.inventory.application.port.`in`.result.LotResult
+import com.dozycoffee.wms.inventory.application.port.`in`.result.ZoneInventorySummaryResult
 import com.dozycoffee.wms.inventory.domain.enumeration.LotStatus
 import com.dozycoffee.wms.inventory.domain.enumeration.QualityStatus
 import com.dozycoffee.wms.inventory.domain.exception.InventoryNotFoundException
+import com.dozycoffee.wms.warehouse.domain.enumeration.ZoneCode
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.runBlocking
 import org.junit.jupiter.api.Nested
@@ -35,6 +38,9 @@ class InventoryControllerTest {
 
     @MockitoBean
     private lateinit var getInventoryUseCase: GetInventoryUseCase
+
+    @MockitoBean
+    private lateinit var getZoneInventorySummaryUseCase: GetZoneInventorySummaryUseCase
 
     @MockitoBean
     private lateinit var markInventoryDefectiveUseCase: MarkInventoryDefectiveUseCase
@@ -98,6 +104,26 @@ class InventoryControllerTest {
             webTestClient.get().uri("/api/inventories/{inventoryId}", 999L)
                 .exchange()
                 .expectStatus().isNotFound
+        }
+    }
+
+    @Nested
+    inner class Zone별_재고_현황_조회 {
+
+        @Test
+        fun `조회하면 200과 Zone별 Capacity·품질상태별 수량을 반환한다`() {
+            val summary = ZoneInventorySummaryResult(1L, ZoneCode.A, 180, 90, mapOf(QualityStatus.NORMAL to 90))
+            whenever(getZoneInventorySummaryUseCase.getAll()).thenReturn(flowOf(summary))
+
+            webTestClient.get().uri("/api/inventories/zone-summary")
+                .exchange()
+                .expectStatus().isOk
+                .expectBody()
+                .jsonPath("$[0].zoneId").isEqualTo(1)
+                .jsonPath("$[0].zoneCode").isEqualTo("A")
+                .jsonPath("$[0].maxCapacity").isEqualTo(180)
+                .jsonPath("$[0].usedCapacity").isEqualTo(90)
+                .jsonPath("$[0].usageRate").isEqualTo(0.5)
         }
     }
 
