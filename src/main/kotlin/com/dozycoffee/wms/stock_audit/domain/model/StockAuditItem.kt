@@ -4,12 +4,18 @@ import com.dozycoffee.wms.global.common.BaseEntity
 import com.dozycoffee.wms.global.error.DomainValidator.requireNonNull
 import com.dozycoffee.wms.global.error.InvalidDomainValueException
 import com.dozycoffee.wms.stock_audit.domain.exception.StockAuditItemErrorCode
+import java.time.LocalDateTime
 
 class StockAuditItem private constructor(
     val stockAuditItemId: Long?,
     val stockAuditId: Long,
     val inventoryId: Long,
     val snapshotQuantity: Int,
+    /**
+     * 스냅샷을 뜬 시각 — BaseEntity.createdAt(감사용, 재구성 시 채워지지 않음)에 기대지 않고 이 도메인이
+     * 직접 소유하는 비즈니스 값으로 둔다. "미반영 입출고 이력" 판단의 기준 시각으로 쓰인다(ADR-0009)
+     */
+    val snapshotTakenAt: LocalDateTime,
     countedQuantity: Int?,
     hasUncommittedMovement: Boolean
 ) : BaseEntity() {
@@ -38,6 +44,7 @@ class StockAuditItem private constructor(
                 stockAuditId = validStockAuditId,
                 inventoryId = validInventoryId,
                 snapshotQuantity = snapshotQuantity,
+                snapshotTakenAt = LocalDateTime.now(),
                 countedQuantity = null,
                 hasUncommittedMovement = false
             )
@@ -48,6 +55,7 @@ class StockAuditItem private constructor(
             stockAuditId: Long,
             inventoryId: Long,
             snapshotQuantity: Int,
+            snapshotTakenAt: LocalDateTime,
             countedQuantity: Int?,
             hasUncommittedMovement: Boolean
         ): StockAuditItem {
@@ -56,6 +64,7 @@ class StockAuditItem private constructor(
                 stockAuditId,
                 inventoryId,
                 snapshotQuantity,
+                snapshotTakenAt,
                 countedQuantity,
                 hasUncommittedMovement
             )

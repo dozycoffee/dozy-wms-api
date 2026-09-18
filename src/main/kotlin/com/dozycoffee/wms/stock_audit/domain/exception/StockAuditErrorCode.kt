@@ -22,5 +22,10 @@ enum class StockAuditErrorCode(
         "STOCK_AUDIT_APPROVAL_REQUIRED",
         "조정 수량이 임계치를 초과해 승인자가 필요합니다."
     ),
+    ITEMS_NOT_FULLY_COUNTED(
+        ErrorType.CONFLICT,
+        "STOCK_AUDIT_ITEMS_NOT_FULLY_COUNTED",
+        "모든 실사 항목의 카운트가 완료되어야 합니다."
+    ),
     STOCK_AUDIT_NOT_FOUND(ErrorType.NOT_FOUND, "STOCK_AUDIT_NOT_FOUND", "존재하지 않는 실사입니다.")
 }
