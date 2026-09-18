@@ -26,6 +26,7 @@ class StockAuditItemTest {
             assertThat(item.isCounted).isFalse()
             assertThat(item.discrepancy).isNull()
             assertThat(item.hasUncommittedMovement).isFalse()
+            assertThat(item.snapshotTakenAt).isNotNull()
         }
 
         @Test
