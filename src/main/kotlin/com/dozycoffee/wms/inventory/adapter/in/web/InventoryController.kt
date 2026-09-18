@@ -1,6 +1,7 @@
 package com.dozycoffee.wms.inventory.adapter.`in`.web
 
 import com.dozycoffee.wms.inventory.adapter.`in`.web.request.RegisterInventoryRequest
+import com.dozycoffee.wms.inventory.adapter.`in`.web.response.InventoryDetailResponse
 import com.dozycoffee.wms.inventory.adapter.`in`.web.response.InventoryResponse
 import com.dozycoffee.wms.inventory.application.port.`in`.GetInventoryUseCase
 import com.dozycoffee.wms.inventory.application.port.`in`.InventorySortBy
@@ -38,8 +39,8 @@ class InventoryController(
     }
 
     @GetMapping("/{inventoryId}")
-    suspend fun getById(@PathVariable inventoryId: Long): InventoryResponse {
-        return InventoryResponse.from(getInventoryUseCase.getById(inventoryId))
+    suspend fun getById(@PathVariable inventoryId: Long): InventoryDetailResponse {
+        return InventoryDetailResponse.from(getInventoryUseCase.getDetailById(inventoryId))
     }
 
     @GetMapping

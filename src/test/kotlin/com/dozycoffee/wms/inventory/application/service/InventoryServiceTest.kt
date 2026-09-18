@@ -108,6 +108,35 @@ class InventoryServiceTest {
     }
 
     @Nested
+    inner class 재고_상세_조회 {
+
+        @Test
+        fun `존재하는 재고를 상세 조회하면 Lot과 최근 이력을 함께 반환한다`() = runTest {
+            val found: Inventory = inventory().inventoryId(1L).lotId(10L).build()
+            val existingLot = lot().lotId(10L).productId(found.productId).build()
+            val history = inventoryHistory().inventoryHistoryId(100L).inventoryId(1L).build()
+            whenever(inventoryRepository.findById(1L)).thenReturn(found)
+            whenever(lotRepository.findById(10L)).thenReturn(existingLot)
+            whenever(inventoryHistoryRepository.findRecentByInventoryId(1L, 5)).thenReturn(flowOf(history))
+
+            val result = inventoryService.getDetailById(1L)
+
+            assertThat(result.inventory.inventoryId).isEqualTo(1L)
+            assertThat(result.lot.lotId).isEqualTo(10L)
+            assertThat(result.recentHistories).hasSize(1)
+            assertThat(result.recentHistories[0].inventoryHistoryId).isEqualTo(100L)
+        }
+
+        @Test
+        fun `존재하지 않는 재고를 상세 조회하면 예외를 던진다`() = runTest {
+            whenever(inventoryRepository.findById(1L)).thenReturn(null)
+
+            assertThatThrownBy { runBlocking { inventoryService.getDetailById(1L) } }
+                .isInstanceOf(InventoryNotFoundException::class.java)
+        }
+    }
+
+    @Nested
     inner class 재고_목록_조회 {
 
         @Test

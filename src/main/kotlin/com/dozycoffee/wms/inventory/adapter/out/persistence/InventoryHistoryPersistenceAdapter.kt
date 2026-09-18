@@ -30,6 +30,10 @@ class InventoryHistoryPersistenceAdapter(
             .map { it.toDomain() }
     }
 
+    override fun findRecentByInventoryId(inventoryId: Long, limit: Int): Flow<InventoryHistory> {
+        return inventoryHistoryR2dbcRepository.findRecentByInventoryId(inventoryId, limit).map { it.toDomain() }
+    }
+
     companion object {
         private const val HISTORY_TYPE_GROUP = "INVENTORY_HISTORY_TYPE"
     }

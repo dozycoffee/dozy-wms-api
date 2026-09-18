@@ -23,4 +23,14 @@ interface InventoryHistoryR2dbcRepository : CoroutineCrudRepository<InventoryHis
         from: LocalDateTime?,
         to: LocalDateTime?
     ): Flow<InventoryHistoryEntity>
+
+    @Query(
+        """
+        SELECT * FROM inventory_history
+        WHERE inventory_id = :inventoryId
+        ORDER BY created_at DESC
+        LIMIT :limit
+        """
+    )
+    fun findRecentByInventoryId(inventoryId: Long, limit: Int): Flow<InventoryHistoryEntity>
 }

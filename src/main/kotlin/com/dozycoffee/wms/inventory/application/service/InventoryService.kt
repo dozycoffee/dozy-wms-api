@@ -8,8 +8,10 @@ import com.dozycoffee.wms.inventory.application.port.`in`.MarkInventoryDefective
 import com.dozycoffee.wms.inventory.application.port.`in`.MarkInventoryDisposalScheduledUseCase
 import com.dozycoffee.wms.inventory.application.port.`in`.RegisterInventoryUseCase
 import com.dozycoffee.wms.inventory.application.port.`in`.command.RegisterInventoryCommand
+import com.dozycoffee.wms.inventory.application.port.`in`.result.InventoryDetailResult
 import com.dozycoffee.wms.inventory.application.port.`in`.result.InventoryHistoryResult
 import com.dozycoffee.wms.inventory.application.port.`in`.result.InventoryResult
+import com.dozycoffee.wms.inventory.application.port.`in`.result.LotResult
 import com.dozycoffee.wms.inventory.application.port.out.InventoryHistoryRepository
 import com.dozycoffee.wms.inventory.application.port.out.InventoryRepository
 import com.dozycoffee.wms.inventory.application.port.out.LotRepository
@@ -21,6 +23,7 @@ import com.dozycoffee.wms.inventory.domain.model.Inventory
 import com.dozycoffee.wms.inventory.domain.model.InventoryHistory
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.toList
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
 import java.time.LocalDate
@@ -54,6 +57,16 @@ class InventoryService(
     @Transactional(readOnly = true)
     override suspend fun getById(inventoryId: Long): InventoryResult {
         return InventoryResult.from(findInventoryOrThrow(inventoryId))
+    }
+
+    @Transactional(readOnly = true)
+    override suspend fun getDetailById(inventoryId: Long): InventoryDetailResult {
+        val inventory = findInventoryOrThrow(inventoryId)
+        val lot = lotRepository.findById(inventory.lotId) ?: throw LotNotFoundException()
+        val recentHistories = inventoryHistoryRepository.findRecentByInventoryId(inventoryId, RECENT_HISTORY_LIMIT)
+            .map { InventoryHistoryResult.from(it) }
+            .toList()
+        return InventoryDetailResult(InventoryResult.from(inventory), LotResult.from(lot), recentHistories)
     }
 
     @Transactional(readOnly = true)
@@ -122,5 +135,6 @@ class InventoryService(
 
     companion object {
         private const val DISPOSAL_ACTOR = "system"
+        private const val RECENT_HISTORY_LIMIT = 5
     }
 }
