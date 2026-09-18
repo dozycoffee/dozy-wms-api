@@ -1,11 +1,13 @@
 package com.dozycoffee.wms.inventory.application.service
 
 import com.dozycoffee.wms.inventory.application.port.`in`.ConfirmInventoryDisposalUseCase
+import com.dozycoffee.wms.inventory.application.port.`in`.GetInventoryHistoryUseCase
 import com.dozycoffee.wms.inventory.application.port.`in`.GetInventoryUseCase
 import com.dozycoffee.wms.inventory.application.port.`in`.MarkInventoryDefectiveUseCase
 import com.dozycoffee.wms.inventory.application.port.`in`.MarkInventoryDisposalScheduledUseCase
 import com.dozycoffee.wms.inventory.application.port.`in`.RegisterInventoryUseCase
 import com.dozycoffee.wms.inventory.application.port.`in`.command.RegisterInventoryCommand
+import com.dozycoffee.wms.inventory.application.port.`in`.result.InventoryHistoryResult
 import com.dozycoffee.wms.inventory.application.port.`in`.result.InventoryResult
 import com.dozycoffee.wms.inventory.application.port.out.InventoryHistoryRepository
 import com.dozycoffee.wms.inventory.application.port.out.InventoryRepository
@@ -20,6 +22,7 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
+import java.time.LocalDate
 
 @Service
 class InventoryService(
@@ -30,7 +33,8 @@ class InventoryService(
     GetInventoryUseCase,
     MarkInventoryDefectiveUseCase,
     MarkInventoryDisposalScheduledUseCase,
-    ConfirmInventoryDisposalUseCase {
+    ConfirmInventoryDisposalUseCase,
+    GetInventoryHistoryUseCase {
 
     @Transactional
     override suspend fun register(command: RegisterInventoryCommand): InventoryResult {
@@ -79,6 +83,19 @@ class InventoryService(
         val saved = inventoryRepository.save(inventory)
         recordHistory(saved.inventoryId, InventoryHistoryType.DISPOSAL, -disposedQuantity, referenceId)
         return InventoryResult.from(saved)
+    }
+
+    @Transactional(readOnly = true)
+    override fun getAll(
+        inventoryId: Long?,
+        historyType: InventoryHistoryType?,
+        from: LocalDate?,
+        to: LocalDate?
+    ): Flow<InventoryHistoryResult> {
+        val fromDateTime = from?.atStartOfDay()
+        val toDateTime = to?.plusDays(1)?.atStartOfDay()
+        return inventoryHistoryRepository.findAll(inventoryId, historyType, fromDateTime, toDateTime)
+            .map { InventoryHistoryResult.from(it) }
     }
 
     private suspend fun findInventoryOrThrow(inventoryId: Long): Inventory {

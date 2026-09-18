@@ -27,13 +27,15 @@ class InventoryHistoryEntity private constructor() : BaseEntity() {
         private set
 
     fun toDomain(): InventoryHistory {
-        return InventoryHistory.reconstitute(
+        val domain = InventoryHistory.reconstitute(
             requireNotNull(inventoryHistoryId),
             requireNotNull(inventoryId),
             CommonCodes.fromCode(InventoryHistoryType::class.java, requireNotNull(historyType)),
             requireNotNull(quantityChange),
             requireNotNull(referenceId)
         )
+        domain.copyAuditFieldsFrom(this)
+        return domain
     }
 
     companion object {
