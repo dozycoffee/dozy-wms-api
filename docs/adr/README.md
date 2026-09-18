@@ -44,5 +44,6 @@ Proposed | Accepted | Deprecated | Superseded by ADR-YYYY
 | [0006](0006-kotlin-coroutines-for-new-domains.md) | 신규 Kotlin 도메인은 Coroutines 사용 | Accepted |
 | [0007](0007-full-kotlin-migration.md) | 전체 코드베이스 Kotlin 마이그레이션 | Accepted |
 | [0008](0008-inventory-allocation-entity.md) | 재고 부분 점유를 위한 Allocation 엔티티 도입 | Accepted |
+| [0009](0009-stock-audit-domain-design.md) | 재고 실사(Stock Audit) 도메인 설계 | Accepted |
 
 새 ADR은 `NNNN-kebab-case-제목.md` 형식으로 추가하고, 이 표에도 반드시 등록한다.
