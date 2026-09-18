@@ -8,6 +8,7 @@ import com.dozycoffee.wms.inventory.domain.enumeration.InventoryHistoryType
 import com.dozycoffee.wms.inventory.domain.enumeration.QualityStatus
 import com.dozycoffee.wms.inventory.domain.exception.InventoryNotFoundException
 import com.dozycoffee.wms.inventory.domain.exception.LotNotFoundException
+import com.dozycoffee.wms.inventory.application.port.`in`.InventorySortBy
 import com.dozycoffee.wms.inventory.domain.model.Inventory
 import com.dozycoffee.wms.inventory.domain.model.InventoryHistory
 import com.dozycoffee.wms.inventory.fixture.InventoryHistoryTestBuilder.Companion.inventoryHistory
@@ -112,11 +113,23 @@ class InventoryServiceTest {
         @Test
         fun `필터 없이 조회하면 전체 재고 목록을 반환한다`() = runTest {
             val found: List<Inventory> = listOf(inventory().inventoryId(1L).build(), inventory().inventoryId(2L).build())
-            whenever(inventoryRepository.findAll(null, null, null)).thenReturn(flowOf(*found.toTypedArray()))
+            whenever(inventoryRepository.findAll(null, null, null, null)).thenReturn(flowOf(*found.toTypedArray()))
 
-            val result = inventoryService.getAll(null, null, null).toList()
+            val result = inventoryService.getAll(locationId = null, productId = null, qualityStatus = null, sortBy = null).toList()
 
             assertThat(result).hasSize(2)
+        }
+
+        @Test
+        fun `정렬 기준을 지정하면 그대로 리포지토리에 전달한다`() = runTest {
+            val found: Inventory = inventory().inventoryId(1L).build()
+            whenever(inventoryRepository.findAll(null, null, null, InventorySortBy.EXPIRATION_DATE))
+                .thenReturn(flowOf(found))
+
+            val result = inventoryService.getAll(null, null, null, InventorySortBy.EXPIRATION_DATE).toList()
+
+            assertThat(result).hasSize(1)
+            assertThat(result[0].inventoryId).isEqualTo(1L)
         }
     }
 
@@ -217,7 +230,7 @@ class InventoryServiceTest {
             val found = listOf(inventoryHistory().inventoryHistoryId(1L).build(), inventoryHistory().inventoryHistoryId(2L).build())
             whenever(inventoryHistoryRepository.findAll(null, null, null, null)).thenReturn(flowOf(*found.toTypedArray()))
 
-            val result = inventoryService.getAll(null, null, null, null).toList()
+            val result = inventoryService.getAll(inventoryId = null, historyType = null, from = null, to = null).toList()
 
             assertThat(result).hasSize(2)
         }

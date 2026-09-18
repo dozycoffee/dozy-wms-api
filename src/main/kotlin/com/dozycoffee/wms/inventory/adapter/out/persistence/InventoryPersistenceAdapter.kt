@@ -1,6 +1,7 @@
 package com.dozycoffee.wms.inventory.adapter.out.persistence
 
 import com.dozycoffee.wms.global.persistence.CommonCodes
+import com.dozycoffee.wms.inventory.application.port.`in`.InventorySortBy
 import com.dozycoffee.wms.inventory.application.port.out.InventoryRepository
 import com.dozycoffee.wms.inventory.domain.enumeration.QualityStatus
 import com.dozycoffee.wms.inventory.domain.model.Inventory
@@ -26,9 +27,15 @@ class InventoryPersistenceAdapter(
         return inventoryR2dbcRepository.findActiveById(inventoryId)?.toDomain()
     }
 
-    override fun findAll(locationId: Long?, productId: Long?, qualityStatus: QualityStatus?): Flow<Inventory> {
+    override fun findAll(
+        locationId: Long?,
+        productId: Long?,
+        qualityStatus: QualityStatus?,
+        sortBy: InventorySortBy?
+    ): Flow<Inventory> {
         val qualityStatusCode = qualityStatus?.let { CommonCodes.toCode(QUALITY_STATUS_GROUP, it) }
-        return inventoryR2dbcRepository.findAllActive(locationId, productId, qualityStatusCode).map { it.toDomain() }
+        return inventoryR2dbcRepository.findAllActive(locationId, productId, qualityStatusCode, sortBy?.name)
+            .map { it.toDomain() }
     }
 
     override fun findAllByLotId(lotId: Long): Flow<Inventory> {
