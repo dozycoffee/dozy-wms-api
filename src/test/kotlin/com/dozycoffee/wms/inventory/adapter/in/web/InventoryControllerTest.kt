@@ -6,7 +6,10 @@ import com.dozycoffee.wms.inventory.application.port.`in`.InventorySortBy
 import com.dozycoffee.wms.inventory.application.port.`in`.MarkInventoryDefectiveUseCase
 import com.dozycoffee.wms.inventory.application.port.`in`.MarkInventoryDisposalScheduledUseCase
 import com.dozycoffee.wms.inventory.application.port.`in`.RegisterInventoryUseCase
+import com.dozycoffee.wms.inventory.application.port.`in`.result.InventoryDetailResult
 import com.dozycoffee.wms.inventory.application.port.`in`.result.InventoryResult
+import com.dozycoffee.wms.inventory.application.port.`in`.result.LotResult
+import com.dozycoffee.wms.inventory.domain.enumeration.LotStatus
 import com.dozycoffee.wms.inventory.domain.enumeration.QualityStatus
 import com.dozycoffee.wms.inventory.domain.exception.InventoryNotFoundException
 import kotlinx.coroutines.flow.flowOf
@@ -43,6 +46,11 @@ class InventoryControllerTest {
         return InventoryResult(1L, 1L, 1L, 1L, 20, 0, 20, qualityStatus)
     }
 
+    private fun sampleDetailResult(): InventoryDetailResult {
+        val lot = LotResult(1L, "LOT-20260101-001", 1L, null, null, LotStatus.NORMAL)
+        return InventoryDetailResult(sampleResult(), lot, emptyList())
+    }
+
     @Nested
     inner class 재고_등록 {
 
@@ -71,19 +79,21 @@ class InventoryControllerTest {
     inner class 재고_단건_조회 {
 
         @Test
-        fun `존재하면 200과 재고 정보를 반환한다`() {
-            runBlocking { whenever(getInventoryUseCase.getById(1L)).thenReturn(sampleResult()) }
+        fun `존재하면 200과 재고·Lot·최근 이력을 함께 반환한다`() {
+            runBlocking { whenever(getInventoryUseCase.getDetailById(1L)).thenReturn(sampleDetailResult()) }
 
             webTestClient.get().uri("/api/inventories/{inventoryId}", 1L)
                 .exchange()
                 .expectStatus().isOk
                 .expectBody()
-                .jsonPath("$.inventoryId").isEqualTo(1)
+                .jsonPath("$.inventory.inventoryId").isEqualTo(1)
+                .jsonPath("$.lot.lotId").isEqualTo(1)
+                .jsonPath("$.recentHistories").isArray
         }
 
         @Test
         fun `존재하지 않으면 404를 반환한다`() {
-            runBlocking { whenever(getInventoryUseCase.getById(eq(999L))).thenThrow(InventoryNotFoundException()) }
+            runBlocking { whenever(getInventoryUseCase.getDetailById(eq(999L))).thenThrow(InventoryNotFoundException()) }
 
             webTestClient.get().uri("/api/inventories/{inventoryId}", 999L)
                 .exchange()

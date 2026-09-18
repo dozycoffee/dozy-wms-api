@@ -205,4 +205,26 @@ class InventoryHistoryPersistenceAdapterTest {
         assertThat(within).hasSize(1)
         assertThat(outside).isEmpty()
     }
+
+    @Test
+    fun `최근 이력을 limit건만 최신순으로 반환한다`() = runTest {
+        val inventoryId = createInventory()
+        val first = inventoryHistoryPersistenceAdapter.save(
+            inventoryHistory().inventoryId(inventoryId).historyType(InventoryHistoryType.INBOUND)
+                .quantityChange(10).referenceId(1L).build()
+        )
+        val second = inventoryHistoryPersistenceAdapter.save(
+            inventoryHistory().inventoryId(inventoryId).historyType(InventoryHistoryType.OUTBOUND)
+                .quantityChange(-5).referenceId(2L).build()
+        )
+        val third = inventoryHistoryPersistenceAdapter.save(
+            inventoryHistory().inventoryId(inventoryId).historyType(InventoryHistoryType.OUTBOUND)
+                .quantityChange(-3).referenceId(3L).build()
+        )
+
+        val result = inventoryHistoryPersistenceAdapter.findRecentByInventoryId(inventoryId, 2).toList()
+
+        assertThat(result.map { it.inventoryHistoryId }).containsExactly(third.inventoryHistoryId, second.inventoryHistoryId)
+        assertThat(result).noneMatch { it.inventoryHistoryId == first.inventoryHistoryId }
+    }
 }
