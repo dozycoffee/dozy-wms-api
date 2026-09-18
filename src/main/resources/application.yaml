@@ -27,3 +27,5 @@ spring:
 wms:
   expiration-monitoring:
     cron: "0 0 1 * * *"
+  stock-audit:
+    adjustment-approval-threshold: 10

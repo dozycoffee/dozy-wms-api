@@ -1,8 +1,10 @@
 package com.dozycoffee.wms.stock_audit.adapter.`in`.web
 
 import com.dozycoffee.wms.stock_audit.adapter.`in`.web.request.AssignStockAuditRequest
+import com.dozycoffee.wms.stock_audit.adapter.`in`.web.request.CloseStockAuditRequest
 import com.dozycoffee.wms.stock_audit.adapter.`in`.web.request.RegisterStockAuditRequest
 import com.dozycoffee.wms.stock_audit.application.port.`in`.AssignStockAuditUseCase
+import com.dozycoffee.wms.stock_audit.application.port.`in`.CloseStockAuditUseCase
 import com.dozycoffee.wms.stock_audit.application.port.`in`.CompleteStockAuditUseCase
 import com.dozycoffee.wms.stock_audit.application.port.`in`.GetStockAuditUseCase
 import com.dozycoffee.wms.stock_audit.application.port.`in`.RegisterStockAuditUseCase
@@ -38,6 +40,9 @@ class StockAuditControllerTest {
 
     @MockitoBean
     private lateinit var completeStockAuditUseCase: CompleteStockAuditUseCase
+
+    @MockitoBean
+    private lateinit var closeStockAuditUseCase: CloseStockAuditUseCase
 
     private fun sampleResult(status: StockAuditStatus = StockAuditStatus.SCHEDULED): StockAuditResult {
         return StockAuditResult(1L, 1L, 10L, status, null, null)
@@ -146,6 +151,35 @@ class StockAuditControllerTest {
                 .expectStatus().isOk
                 .expectBody()
                 .jsonPath("$.status").isEqualTo("COMPLETED")
+        }
+    }
+
+    @Nested
+    inner class 실사_마감 {
+
+        @Test
+        fun `승인자 없이 요청하면 200과 CLOSED 상태를 반환한다`() {
+            runBlocking {
+                whenever(closeStockAuditUseCase.close(1L, null)).thenReturn(sampleResult(StockAuditStatus.CLOSED))
+            }
+
+            webTestClient.patch().uri("/api/stock-audits/{stockAuditId}/close", 1L)
+                .bodyValue(CloseStockAuditRequest(null))
+                .exchange()
+                .expectStatus().isOk
+                .expectBody()
+                .jsonPath("$.status").isEqualTo("CLOSED")
+        }
+
+        @Test
+        fun `본문 없이 요청해도 200을 반환한다`() {
+            runBlocking {
+                whenever(closeStockAuditUseCase.close(1L, null)).thenReturn(sampleResult(StockAuditStatus.CLOSED))
+            }
+
+            webTestClient.patch().uri("/api/stock-audits/{stockAuditId}/close", 1L)
+                .exchange()
+                .expectStatus().isOk
         }
     }
 }

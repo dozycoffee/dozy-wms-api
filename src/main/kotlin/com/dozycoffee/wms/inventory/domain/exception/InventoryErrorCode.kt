@@ -30,5 +30,15 @@ enum class InventoryErrorCode(
         "INVENTORY_HAS_ACTIVE_ALLOCATION",
         "점유된 재고가 남아있어 품질 상태를 변경할 수 없습니다."
     ),
+    INVALID_ADJUSTED_QUANTITY(
+        ErrorType.VALIDATION,
+        "INVENTORY_INVALID_ADJUSTED_QUANTITY",
+        "조정 수량은 0 이상이어야 합니다."
+    ),
+    ADJUSTED_QUANTITY_BELOW_ALLOCATED(
+        ErrorType.CONFLICT,
+        "INVENTORY_ADJUSTED_QUANTITY_BELOW_ALLOCATED",
+        "조정 수량이 점유된 수량보다 적을 수 없습니다."
+    ),
     INVENTORY_NOT_FOUND(ErrorType.NOT_FOUND, "INVENTORY_NOT_FOUND", "존재하지 않는 재고입니다.")
 }

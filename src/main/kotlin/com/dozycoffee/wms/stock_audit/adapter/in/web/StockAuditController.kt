@@ -1,9 +1,11 @@
 package com.dozycoffee.wms.stock_audit.adapter.`in`.web
 
 import com.dozycoffee.wms.stock_audit.adapter.`in`.web.request.AssignStockAuditRequest
+import com.dozycoffee.wms.stock_audit.adapter.`in`.web.request.CloseStockAuditRequest
 import com.dozycoffee.wms.stock_audit.adapter.`in`.web.request.RegisterStockAuditRequest
 import com.dozycoffee.wms.stock_audit.adapter.`in`.web.response.StockAuditResponse
 import com.dozycoffee.wms.stock_audit.application.port.`in`.AssignStockAuditUseCase
+import com.dozycoffee.wms.stock_audit.application.port.`in`.CloseStockAuditUseCase
 import com.dozycoffee.wms.stock_audit.application.port.`in`.CompleteStockAuditUseCase
 import com.dozycoffee.wms.stock_audit.application.port.`in`.GetStockAuditUseCase
 import com.dozycoffee.wms.stock_audit.application.port.`in`.RegisterStockAuditUseCase
@@ -28,7 +30,8 @@ class StockAuditController(
     private val registerStockAuditUseCase: RegisterStockAuditUseCase,
     private val getStockAuditUseCase: GetStockAuditUseCase,
     private val assignStockAuditUseCase: AssignStockAuditUseCase,
-    private val completeStockAuditUseCase: CompleteStockAuditUseCase
+    private val completeStockAuditUseCase: CompleteStockAuditUseCase,
+    private val closeStockAuditUseCase: CloseStockAuditUseCase
 ) {
 
     @PostMapping
@@ -61,5 +64,13 @@ class StockAuditController(
     @PatchMapping("/{stockAuditId}/complete")
     suspend fun complete(@PathVariable stockAuditId: Long): StockAuditResponse {
         return StockAuditResponse.from(completeStockAuditUseCase.complete(stockAuditId))
+    }
+
+    @PatchMapping("/{stockAuditId}/close")
+    suspend fun close(
+        @PathVariable stockAuditId: Long,
+        @RequestBody(required = false) request: CloseStockAuditRequest?
+    ): StockAuditResponse {
+        return StockAuditResponse.from(closeStockAuditUseCase.close(stockAuditId, request?.approvedBy))
     }
 }

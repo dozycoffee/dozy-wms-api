@@ -235,6 +235,46 @@ class InventoryServiceTest {
     }
 
     @Nested
+    inner class 재고_조정 {
+
+        @Test
+        fun `실측 수량으로 조정하면 변동분이 ADJUSTMENT 이력으로 기록된다`() = runTest {
+            val found: Inventory = inventory().inventoryId(1L).quantity(20).build()
+            whenever(inventoryRepository.findById(1L)).thenReturn(found)
+            whenever(inventoryRepository.save(any())).thenAnswer { it.getArgument(0) }
+            whenever(inventoryHistoryRepository.save(any())).thenAnswer { it.getArgument(0) }
+
+            val result = inventoryService.adjust(1L, 18, 500L)
+
+            assertThat(result.quantity).isEqualTo(18)
+            val historyCaptor = argumentCaptor<InventoryHistory>()
+            verify(inventoryHistoryRepository).save(historyCaptor.capture())
+            assertThat(historyCaptor.firstValue.historyType).isEqualTo(InventoryHistoryType.ADJUSTMENT)
+            assertThat(historyCaptor.firstValue.quantityChange).isEqualTo(-2)
+            assertThat(historyCaptor.firstValue.referenceId).isEqualTo(500L)
+        }
+
+        @Test
+        fun `조정 전후 수량이 같으면 이력을 기록하지 않는다`() = runTest {
+            val found: Inventory = inventory().inventoryId(1L).quantity(20).build()
+            whenever(inventoryRepository.findById(1L)).thenReturn(found)
+            whenever(inventoryRepository.save(any())).thenAnswer { it.getArgument(0) }
+
+            inventoryService.adjust(1L, 20, 500L)
+
+            verify(inventoryHistoryRepository, org.mockito.kotlin.never()).save(any())
+        }
+
+        @Test
+        fun `존재하지 않는 재고를 조정하면 예외를 던진다`() = runTest {
+            whenever(inventoryRepository.findById(1L)).thenReturn(null)
+
+            assertThatThrownBy { runBlocking { inventoryService.adjust(1L, 18, 500L) } }
+                .isInstanceOf(InventoryNotFoundException::class.java)
+        }
+    }
+
+    @Nested
     inner class 재고_이력_조회 {
 
         @Test
