@@ -3,9 +3,12 @@ package com.dozycoffee.wms.inventory.adapter.`in`.web
 import com.dozycoffee.wms.inventory.adapter.`in`.web.request.RegisterLotRequest
 import com.dozycoffee.wms.inventory.application.port.`in`.GetLotUseCase
 import com.dozycoffee.wms.inventory.application.port.`in`.RegisterLotUseCase
+import com.dozycoffee.wms.inventory.application.port.`in`.result.LotDetailResult
+import com.dozycoffee.wms.inventory.application.port.`in`.result.LotDistributionResult
 import com.dozycoffee.wms.inventory.application.port.`in`.result.LotResult
 import com.dozycoffee.wms.inventory.domain.enumeration.LotStatus
 import com.dozycoffee.wms.inventory.domain.exception.LotNotFoundException
+import com.dozycoffee.wms.warehouse.domain.enumeration.ZoneCode
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.runBlocking
 import org.junit.jupiter.api.Nested
@@ -33,6 +36,10 @@ class LotControllerTest {
 
     private fun sampleResult(): LotResult {
         return LotResult(1L, "LOT-20260101-001", 1L, LocalDate.of(2026, 1, 1), LocalDate.of(2026, 12, 31), LotStatus.NORMAL)
+    }
+
+    private fun sampleDetailResult(): LotDetailResult {
+        return LotDetailResult(sampleResult(), listOf(LotDistributionResult(10L, 100L, ZoneCode.A, 20)))
     }
 
     @Nested
@@ -66,19 +73,21 @@ class LotControllerTest {
     inner class Lot_단건_조회 {
 
         @Test
-        fun `존재하면 200과 Lot 정보를 반환한다`() {
-            runBlocking { whenever(getLotUseCase.getById(1L)).thenReturn(sampleResult()) }
+        fun `존재하면 200과 Lot 정보·Zone Location별 분포를 반환한다`() {
+            runBlocking { whenever(getLotUseCase.getDetailById(1L)).thenReturn(sampleDetailResult()) }
 
             webTestClient.get().uri("/api/lots/{lotId}", 1L)
                 .exchange()
                 .expectStatus().isOk
                 .expectBody()
-                .jsonPath("$.lotId").isEqualTo(1)
+                .jsonPath("$.lot.lotId").isEqualTo(1)
+                .jsonPath("$.distribution[0].locationId").isEqualTo(10)
+                .jsonPath("$.distribution[0].zoneCode").isEqualTo("A")
         }
 
         @Test
         fun `존재하지 않으면 404를 반환한다`() {
-            runBlocking { whenever(getLotUseCase.getById(eq(999L))).thenThrow(LotNotFoundException()) }
+            runBlocking { whenever(getLotUseCase.getDetailById(eq(999L))).thenThrow(LotNotFoundException()) }
 
             webTestClient.get().uri("/api/lots/{lotId}", 999L)
                 .exchange()

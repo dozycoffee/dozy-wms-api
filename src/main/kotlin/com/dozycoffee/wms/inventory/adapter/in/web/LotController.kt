@@ -1,6 +1,7 @@
 package com.dozycoffee.wms.inventory.adapter.`in`.web
 
 import com.dozycoffee.wms.inventory.adapter.`in`.web.request.RegisterLotRequest
+import com.dozycoffee.wms.inventory.adapter.`in`.web.response.LotDetailResponse
 import com.dozycoffee.wms.inventory.adapter.`in`.web.response.LotResponse
 import com.dozycoffee.wms.inventory.application.port.`in`.GetLotUseCase
 import com.dozycoffee.wms.inventory.application.port.`in`.RegisterLotUseCase
@@ -31,8 +32,8 @@ class LotController(
     }
 
     @GetMapping("/{lotId}")
-    suspend fun getById(@PathVariable lotId: Long): LotResponse {
-        return LotResponse.from(getLotUseCase.getById(lotId))
+    suspend fun getById(@PathVariable lotId: Long): LotDetailResponse {
+        return LotDetailResponse.from(getLotUseCase.getDetailById(lotId))
     }
 
     @GetMapping

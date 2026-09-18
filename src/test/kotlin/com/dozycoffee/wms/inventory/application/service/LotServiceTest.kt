@@ -1,11 +1,14 @@
 package com.dozycoffee.wms.inventory.application.service
 
 import com.dozycoffee.wms.inventory.application.port.`in`.command.RegisterLotCommand
+import com.dozycoffee.wms.inventory.application.port.`in`.result.LotDistributionResult
+import com.dozycoffee.wms.inventory.application.port.out.LotDistributionRepository
 import com.dozycoffee.wms.inventory.application.port.out.LotRepository
 import com.dozycoffee.wms.inventory.domain.exception.DuplicateLotNumberException
 import com.dozycoffee.wms.inventory.domain.exception.LotNotFoundException
 import com.dozycoffee.wms.inventory.domain.model.Lot
 import com.dozycoffee.wms.inventory.fixture.LotTestBuilder.Companion.lot
+import com.dozycoffee.wms.warehouse.domain.enumeration.ZoneCode
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.toList
 import kotlinx.coroutines.runBlocking
@@ -27,6 +30,9 @@ class LotServiceTest {
 
     @Mock
     private lateinit var lotRepository: LotRepository
+
+    @Mock
+    private lateinit var lotDistributionRepository: LotDistributionRepository
 
     @InjectMocks
     private lateinit var lotService: LotService
@@ -78,6 +84,32 @@ class LotServiceTest {
             whenever(lotRepository.findById(1L)).thenReturn(null)
 
             assertThatThrownBy { runBlocking { lotService.getById(1L) } }
+                .isInstanceOf(LotNotFoundException::class.java)
+        }
+    }
+
+    @Nested
+    inner class Lot_상세_조회 {
+
+        @Test
+        fun `존재하는 Lot을 상세 조회하면 Zone Location별 분포를 함께 반환한다`() = runTest {
+            val found: Lot = lot().lotId(1L).build()
+            val distribution = LotDistributionResult(10L, 100L, ZoneCode.A, 20)
+            whenever(lotRepository.findById(1L)).thenReturn(found)
+            whenever(lotDistributionRepository.findAllByLotId(1L)).thenReturn(flowOf(distribution))
+
+            val result = lotService.getDetailById(1L)
+
+            assertThat(result.lot.lotId).isEqualTo(1L)
+            assertThat(result.distribution).hasSize(1)
+            assertThat(result.distribution[0].locationId).isEqualTo(10L)
+        }
+
+        @Test
+        fun `존재하지 않는 Lot을 상세 조회하면 예외를 던진다`() = runTest {
+            whenever(lotRepository.findById(1L)).thenReturn(null)
+
+            assertThatThrownBy { runBlocking { lotService.getDetailById(1L) } }
                 .isInstanceOf(LotNotFoundException::class.java)
         }
     }
