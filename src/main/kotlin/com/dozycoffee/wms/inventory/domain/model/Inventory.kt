@@ -4,8 +4,10 @@ import com.dozycoffee.wms.global.common.SoftDeletableEntity
 import com.dozycoffee.wms.global.error.DomainValidator.requireNonNull
 import com.dozycoffee.wms.global.error.InvalidDomainValueException
 import com.dozycoffee.wms.inventory.domain.enumeration.QualityStatus
+import com.dozycoffee.wms.inventory.domain.exception.AdjustedQuantityBelowAllocatedException
 import com.dozycoffee.wms.inventory.domain.exception.InsufficientAvailableQuantityException
 import com.dozycoffee.wms.inventory.domain.exception.InsufficientHeldQuantityException
+import com.dozycoffee.wms.inventory.domain.exception.InvalidAdjustedQuantityException
 import com.dozycoffee.wms.inventory.domain.exception.InventoryErrorCode
 import com.dozycoffee.wms.inventory.domain.exception.InventoryHasActiveAllocationException
 import com.dozycoffee.wms.inventory.domain.exception.InventoryNotAllocatableException
@@ -121,6 +123,17 @@ class Inventory private constructor(
 
     fun delete(actor: String) {
         softDelete(actor)
+    }
+
+    /** 재고 실사 확정 시 실측 수량으로 재고를 교정한다 — 점유된 수량보다 적게 조정할 수 없다(ADR-0009) */
+    fun adjust(newQuantity: Int) {
+        if (newQuantity < 0) {
+            throw InvalidAdjustedQuantityException()
+        }
+        if (newQuantity < allocatedQuantity) {
+            throw AdjustedQuantityBelowAllocatedException()
+        }
+        quantity = newQuantity
     }
 
     private fun validateAmount(amount: Int) {

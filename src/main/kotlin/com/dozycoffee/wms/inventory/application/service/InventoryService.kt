@@ -1,5 +1,6 @@
 package com.dozycoffee.wms.inventory.application.service
 
+import com.dozycoffee.wms.inventory.application.port.`in`.AdjustInventoryQuantityUseCase
 import com.dozycoffee.wms.inventory.application.port.`in`.ConfirmInventoryDisposalUseCase
 import com.dozycoffee.wms.inventory.application.port.`in`.GetInventoryHistoryUseCase
 import com.dozycoffee.wms.inventory.application.port.`in`.GetInventoryUseCase
@@ -38,6 +39,7 @@ class InventoryService(
     MarkInventoryDefectiveUseCase,
     MarkInventoryDisposalScheduledUseCase,
     ConfirmInventoryDisposalUseCase,
+    AdjustInventoryQuantityUseCase,
     GetInventoryHistoryUseCase {
 
     @Transactional
@@ -102,6 +104,19 @@ class InventoryService(
         inventory.delete(DISPOSAL_ACTOR)
         val saved = inventoryRepository.save(inventory)
         recordHistory(saved.inventoryId, InventoryHistoryType.DISPOSAL, -disposedQuantity, referenceId)
+        return InventoryResult.from(saved)
+    }
+
+    /** 재고 실사 확정 — 실측 수량으로 재고를 교정하고 변동분을 ADJUSTMENT 이력으로 남긴다 */
+    @Transactional
+    override suspend fun adjust(inventoryId: Long, newQuantity: Int, referenceId: Long): InventoryResult {
+        val inventory = findInventoryOrThrow(inventoryId)
+        val quantityChange = newQuantity - inventory.quantity
+        inventory.adjust(newQuantity)
+        val saved = inventoryRepository.save(inventory)
+        if (quantityChange != 0) {
+            recordHistory(saved.inventoryId, InventoryHistoryType.ADJUSTMENT, quantityChange, referenceId)
+        }
         return InventoryResult.from(saved)
     }
 

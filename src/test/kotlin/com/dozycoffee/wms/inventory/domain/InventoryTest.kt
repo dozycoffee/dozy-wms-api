@@ -2,8 +2,10 @@ package com.dozycoffee.wms.inventory.domain
 
 import com.dozycoffee.wms.global.error.InvalidDomainValueException
 import com.dozycoffee.wms.inventory.domain.enumeration.QualityStatus
+import com.dozycoffee.wms.inventory.domain.exception.AdjustedQuantityBelowAllocatedException
 import com.dozycoffee.wms.inventory.domain.exception.InsufficientAvailableQuantityException
 import com.dozycoffee.wms.inventory.domain.exception.InsufficientHeldQuantityException
+import com.dozycoffee.wms.inventory.domain.exception.InvalidAdjustedQuantityException
 import com.dozycoffee.wms.inventory.domain.exception.InvalidInventoryAmountException
 import com.dozycoffee.wms.inventory.domain.exception.InventoryErrorCode
 import com.dozycoffee.wms.inventory.domain.exception.InventoryHasActiveAllocationException
@@ -251,6 +253,46 @@ class InventoryTest {
 
             assertThat(inventory.isDeleted()).isTrue()
             assertThat(inventory.deletedBy).isEqualTo("system")
+        }
+    }
+
+    @Nested
+    inner class 조정 {
+
+        @Test
+        fun `실측 수량으로 재고를 교정한다`() {
+            val inventory: Inventory = inventory().inventoryId(1L).quantity(20).allocatedQuantity(5).build()
+
+            inventory.adjust(18)
+
+            assertThat(inventory.quantity).isEqualTo(18)
+        }
+
+        @Test
+        fun `조정 수량이 점유 수량과 같으면 허용된다`() {
+            val inventory: Inventory = inventory().inventoryId(1L).quantity(20).allocatedQuantity(5).build()
+
+            inventory.adjust(5)
+
+            assertThat(inventory.quantity).isEqualTo(5)
+        }
+
+        @Test
+        fun `조정 수량이 음수이면 예외를 던진다`() {
+            val inventory: Inventory = inventory().inventoryId(1L).quantity(20).build()
+
+            assertThatThrownBy { inventory.adjust(-1) }
+                .isInstanceOf(InvalidAdjustedQuantityException::class.java)
+                .hasMessage(InventoryErrorCode.INVALID_ADJUSTED_QUANTITY.message)
+        }
+
+        @Test
+        fun `조정 수량이 점유 수량보다 적으면 예외를 던진다`() {
+            val inventory: Inventory = inventory().inventoryId(1L).quantity(20).allocatedQuantity(5).build()
+
+            assertThatThrownBy { inventory.adjust(4) }
+                .isInstanceOf(AdjustedQuantityBelowAllocatedException::class.java)
+                .hasMessage(InventoryErrorCode.ADJUSTED_QUANTITY_BELOW_ALLOCATED.message)
         }
     }
 }
