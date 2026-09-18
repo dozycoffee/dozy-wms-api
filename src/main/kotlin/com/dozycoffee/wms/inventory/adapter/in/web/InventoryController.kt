@@ -3,7 +3,9 @@ package com.dozycoffee.wms.inventory.adapter.`in`.web
 import com.dozycoffee.wms.inventory.adapter.`in`.web.request.RegisterInventoryRequest
 import com.dozycoffee.wms.inventory.adapter.`in`.web.response.InventoryDetailResponse
 import com.dozycoffee.wms.inventory.adapter.`in`.web.response.InventoryResponse
+import com.dozycoffee.wms.inventory.adapter.`in`.web.response.ZoneInventorySummaryResponse
 import com.dozycoffee.wms.inventory.application.port.`in`.GetInventoryUseCase
+import com.dozycoffee.wms.inventory.application.port.`in`.GetZoneInventorySummaryUseCase
 import com.dozycoffee.wms.inventory.application.port.`in`.InventorySortBy
 import com.dozycoffee.wms.inventory.application.port.`in`.MarkInventoryDefectiveUseCase
 import com.dozycoffee.wms.inventory.application.port.`in`.MarkInventoryDisposalScheduledUseCase
@@ -28,6 +30,7 @@ import org.springframework.web.bind.annotation.RestController
 class InventoryController(
     private val registerInventoryUseCase: RegisterInventoryUseCase,
     private val getInventoryUseCase: GetInventoryUseCase,
+    private val getZoneInventorySummaryUseCase: GetZoneInventorySummaryUseCase,
     private val markInventoryDefectiveUseCase: MarkInventoryDefectiveUseCase,
     private val markInventoryDisposalScheduledUseCase: MarkInventoryDisposalScheduledUseCase
 ) {
@@ -36,6 +39,11 @@ class InventoryController(
     @ResponseStatus(HttpStatus.CREATED)
     suspend fun register(@Valid @RequestBody request: RegisterInventoryRequest): InventoryResponse {
         return InventoryResponse.from(registerInventoryUseCase.register(request.toCommand()))
+    }
+
+    @GetMapping("/zone-summary")
+    fun getZoneSummary(): Flow<ZoneInventorySummaryResponse> {
+        return getZoneInventorySummaryUseCase.getAll().map { ZoneInventorySummaryResponse.from(it) }
     }
 
     @GetMapping("/{inventoryId}")
