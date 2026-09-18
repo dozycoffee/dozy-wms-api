@@ -3,6 +3,7 @@ package com.dozycoffee.wms.inventory.application.service
 import com.dozycoffee.wms.inventory.application.port.`in`.ConfirmInventoryDisposalUseCase
 import com.dozycoffee.wms.inventory.application.port.`in`.GetInventoryHistoryUseCase
 import com.dozycoffee.wms.inventory.application.port.`in`.GetInventoryUseCase
+import com.dozycoffee.wms.inventory.application.port.`in`.InventorySortBy
 import com.dozycoffee.wms.inventory.application.port.`in`.MarkInventoryDefectiveUseCase
 import com.dozycoffee.wms.inventory.application.port.`in`.MarkInventoryDisposalScheduledUseCase
 import com.dozycoffee.wms.inventory.application.port.`in`.RegisterInventoryUseCase
@@ -56,8 +57,14 @@ class InventoryService(
     }
 
     @Transactional(readOnly = true)
-    override fun getAll(locationId: Long?, productId: Long?, qualityStatus: QualityStatus?): Flow<InventoryResult> {
-        return inventoryRepository.findAll(locationId, productId, qualityStatus).map { InventoryResult.from(it) }
+    override fun getAll(
+        locationId: Long?,
+        productId: Long?,
+        qualityStatus: QualityStatus?,
+        sortBy: InventorySortBy?
+    ): Flow<InventoryResult> {
+        return inventoryRepository.findAll(locationId, productId, qualityStatus, sortBy)
+            .map { InventoryResult.from(it) }
     }
 
     @Transactional

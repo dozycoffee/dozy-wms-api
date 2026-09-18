@@ -11,14 +11,25 @@ interface InventoryR2dbcRepository : CoroutineCrudRepository<InventoryEntity, Lo
 
     @Query(
         """
-        SELECT * FROM inventory
-        WHERE deleted_at IS NULL
-          AND (:locationId IS NULL OR location_id = :locationId)
-          AND (:productId IS NULL OR product_id = :productId)
-          AND (:qualityStatus IS NULL OR quality_status = :qualityStatus)
+        SELECT i.* FROM inventory i
+        LEFT JOIN lot l ON l.lot_id = i.lot_id
+        WHERE i.deleted_at IS NULL
+          AND (:locationId IS NULL OR i.location_id = :locationId)
+          AND (:productId IS NULL OR i.product_id = :productId)
+          AND (:qualityStatus IS NULL OR i.quality_status = :qualityStatus)
+        ORDER BY
+          CASE WHEN :sortBy = 'QUANTITY' THEN i.quantity END ASC,
+          CASE WHEN :sortBy = 'EXPIRATION_DATE' THEN l.expiration_date END ASC,
+          CASE WHEN :sortBy = 'INBOUND_DATE' THEN i.created_at END ASC,
+          i.inventory_id ASC
         """
     )
-    fun findAllActive(locationId: Long?, productId: Long?, qualityStatus: String?): Flow<InventoryEntity>
+    fun findAllActive(
+        locationId: Long?,
+        productId: Long?,
+        qualityStatus: String?,
+        sortBy: String?
+    ): Flow<InventoryEntity>
 
     @Query("SELECT * FROM inventory WHERE deleted_at IS NULL AND lot_id = :lotId")
     fun findAllActiveByLotId(lotId: Long): Flow<InventoryEntity>

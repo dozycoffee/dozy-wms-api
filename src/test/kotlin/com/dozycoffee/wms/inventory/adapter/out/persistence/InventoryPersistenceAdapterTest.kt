@@ -1,6 +1,7 @@
 package com.dozycoffee.wms.inventory.adapter.out.persistence
 
 import com.dozycoffee.wms.global.config.R2dbcConfig
+import com.dozycoffee.wms.inventory.application.port.`in`.InventorySortBy
 import com.dozycoffee.wms.inventory.domain.enumeration.QualityStatus
 import com.dozycoffee.wms.inventory.fixture.InventoryTestBuilder.Companion.inventory
 import com.dozycoffee.wms.inventory.fixture.LotTestBuilder.Companion.lot
@@ -24,6 +25,7 @@ import org.junit.jupiter.api.Test
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.data.r2dbc.test.autoconfigure.DataR2dbcTest
 import org.springframework.context.annotation.Import
+import java.time.LocalDate
 
 @DataR2dbcTest
 @Import(
@@ -153,10 +155,70 @@ class InventoryPersistenceAdapterTest {
             inventory().productId(productId).lotId(lotId).locationId(otherLocationId).build()
         )
 
-        val result = inventoryPersistenceAdapter.findAll(locationId, null, QualityStatus.NORMAL).toList()
+        val result = inventoryPersistenceAdapter.findAll(locationId, null, QualityStatus.NORMAL, null).toList()
 
         assertThat(result).hasSize(1)
         assertThat(result.first().inventoryId).isEqualTo(target.inventoryId)
+    }
+
+    @Test
+    fun `수량 오름차순으로 정렬 조회한다`() = runTest {
+        val locationId = createLocation()
+        val productId = requireNotNull(productPersistenceAdapter.save(product().build()).productId)
+        val lotId = requireNotNull(lotPersistenceAdapter.save(lot().productId(productId).build()).lotId)
+        val larger = inventoryPersistenceAdapter.save(
+            inventory().productId(productId).lotId(lotId).locationId(locationId).quantity(30).build()
+        )
+        val smaller = inventoryPersistenceAdapter.save(
+            inventory().productId(productId).lotId(lotId).locationId(locationId).quantity(10).build()
+        )
+
+        val result = inventoryPersistenceAdapter.findAll(null, productId, null, InventorySortBy.QUANTITY).toList()
+
+        assertThat(result.map { it.inventoryId }).containsExactly(smaller.inventoryId, larger.inventoryId)
+    }
+
+    @Test
+    fun `유통기한 임박순으로 정렬 조회한다`() = runTest {
+        val locationId = createLocation()
+        val productId = requireNotNull(productPersistenceAdapter.save(product().build()).productId)
+        val farLotId = requireNotNull(
+            lotPersistenceAdapter.save(
+                lot().productId(productId).lotNumber("LOT-FAR").expirationDate(LocalDate.of(2027, 12, 31)).build()
+            ).lotId
+        )
+        val nearLotId = requireNotNull(
+            lotPersistenceAdapter.save(
+                lot().productId(productId).lotNumber("LOT-NEAR").expirationDate(LocalDate.of(2026, 12, 31)).build()
+            ).lotId
+        )
+        val far = inventoryPersistenceAdapter.save(
+            inventory().productId(productId).lotId(farLotId).locationId(locationId).build()
+        )
+        val near = inventoryPersistenceAdapter.save(
+            inventory().productId(productId).lotId(nearLotId).locationId(locationId).build()
+        )
+
+        val result = inventoryPersistenceAdapter.findAll(null, productId, null, InventorySortBy.EXPIRATION_DATE).toList()
+
+        assertThat(result.map { it.inventoryId }).containsExactly(near.inventoryId, far.inventoryId)
+    }
+
+    @Test
+    fun `입고일 오름차순으로 정렬 조회한다`() = runTest {
+        val locationId = createLocation()
+        val productId = requireNotNull(productPersistenceAdapter.save(product().build()).productId)
+        val lotId = requireNotNull(lotPersistenceAdapter.save(lot().productId(productId).build()).lotId)
+        val firstInbound = inventoryPersistenceAdapter.save(
+            inventory().productId(productId).lotId(lotId).locationId(locationId).build()
+        )
+        val secondInbound = inventoryPersistenceAdapter.save(
+            inventory().productId(productId).lotId(lotId).locationId(locationId).build()
+        )
+
+        val result = inventoryPersistenceAdapter.findAll(null, productId, null, InventorySortBy.INBOUND_DATE).toList()
+
+        assertThat(result.map { it.inventoryId }).containsExactly(firstInbound.inventoryId, secondInbound.inventoryId)
     }
 
     @Test

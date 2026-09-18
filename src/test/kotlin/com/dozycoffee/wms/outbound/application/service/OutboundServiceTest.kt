@@ -146,7 +146,7 @@ class OutboundServiceTest {
                     lotResult(10L, LocalDate.of(2026, 1, 1))
                 )
             )
-            whenever(getInventoryUseCase.getAll(null, 100L, QualityStatus.NORMAL)).thenReturn(
+            whenever(getInventoryUseCase.getAll(null, 100L, QualityStatus.NORMAL, null)).thenReturn(
                 flowOf(
                     inventoryResult(2L, 20L, 200L, 20),
                     inventoryResult(1L, 10L, 100L, 5)
@@ -179,7 +179,7 @@ class OutboundServiceTest {
             whenever(outboundRepository.findById(1L)).thenReturn(existingOutbound)
             whenever(outboundItemRepository.findAllByOutboundId(1L)).thenReturn(flowOf(item))
             whenever(getLotUseCase.getAllByProduct(100L)).thenReturn(flowOf(lotResult(10L, LocalDate.of(2026, 1, 1))))
-            whenever(getInventoryUseCase.getAll(null, 100L, QualityStatus.NORMAL)).thenReturn(flowOf(inventoryResult(1L, 10L, 100L, 10)))
+            whenever(getInventoryUseCase.getAll(null, 100L, QualityStatus.NORMAL, null)).thenReturn(flowOf(inventoryResult(1L, 10L, 100L, 10)))
             whenever(holdInventoryUseCase.hold(any())).thenReturn(allocationResult(900L, 1L, 10))
             whenever(getWorkAreaUseCase.getByWarehouseIdAndAreaCode(1L, AreaCode.OUTBOUND)).thenReturn(Mono.just(workAreaResult(0)))
             whenever(occupyWorkAreaUseCase.occupy(any())).thenReturn(Mono.just(workAreaResult(10)))

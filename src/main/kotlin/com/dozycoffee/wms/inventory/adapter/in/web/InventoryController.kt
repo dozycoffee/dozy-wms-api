@@ -3,6 +3,7 @@ package com.dozycoffee.wms.inventory.adapter.`in`.web
 import com.dozycoffee.wms.inventory.adapter.`in`.web.request.RegisterInventoryRequest
 import com.dozycoffee.wms.inventory.adapter.`in`.web.response.InventoryResponse
 import com.dozycoffee.wms.inventory.application.port.`in`.GetInventoryUseCase
+import com.dozycoffee.wms.inventory.application.port.`in`.InventorySortBy
 import com.dozycoffee.wms.inventory.application.port.`in`.MarkInventoryDefectiveUseCase
 import com.dozycoffee.wms.inventory.application.port.`in`.MarkInventoryDisposalScheduledUseCase
 import com.dozycoffee.wms.inventory.application.port.`in`.RegisterInventoryUseCase
@@ -45,9 +46,11 @@ class InventoryController(
     fun getAll(
         @RequestParam(required = false) locationId: Long?,
         @RequestParam(required = false) productId: Long?,
-        @RequestParam(required = false) qualityStatus: QualityStatus?
+        @RequestParam(required = false) qualityStatus: QualityStatus?,
+        @RequestParam(required = false) sortBy: InventorySortBy?
     ): Flow<InventoryResponse> {
-        return getInventoryUseCase.getAll(locationId, productId, qualityStatus).map { InventoryResponse.from(it) }
+        return getInventoryUseCase.getAll(locationId, productId, qualityStatus, sortBy)
+            .map { InventoryResponse.from(it) }
     }
 
     @PatchMapping("/{inventoryId}/mark-defective")

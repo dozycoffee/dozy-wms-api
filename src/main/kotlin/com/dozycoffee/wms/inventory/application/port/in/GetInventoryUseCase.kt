@@ -6,5 +6,10 @@ import kotlinx.coroutines.flow.Flow
 
 interface GetInventoryUseCase {
     suspend fun getById(inventoryId: Long): InventoryResult
-    fun getAll(locationId: Long?, productId: Long?, qualityStatus: QualityStatus?): Flow<InventoryResult>
+    fun getAll(
+        locationId: Long?,
+        productId: Long?,
+        qualityStatus: QualityStatus?,
+        sortBy: InventorySortBy?
+    ): Flow<InventoryResult>
 }

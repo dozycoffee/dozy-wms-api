@@ -139,7 +139,7 @@ class OutboundService(
     private suspend fun pickFifo(item: OutboundItem): Int {
         val expirationDateByLotId = getLotUseCase.getAllByProduct(item.productId).toList()
             .associate { it.lotId to it.expirationDate }
-        val candidates = getInventoryUseCase.getAll(null, item.productId, QualityStatus.NORMAL).toList()
+        val candidates = getInventoryUseCase.getAll(null, item.productId, QualityStatus.NORMAL, null).toList()
             .sortedWith(compareBy(nullsLast()) { expirationDateByLotId[it.lotId] })
 
         var remainingQuantity = item.requestedQuantity

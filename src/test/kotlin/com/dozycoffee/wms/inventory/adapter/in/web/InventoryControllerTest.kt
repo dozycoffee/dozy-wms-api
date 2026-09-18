@@ -2,6 +2,7 @@ package com.dozycoffee.wms.inventory.adapter.`in`.web
 
 import com.dozycoffee.wms.inventory.adapter.`in`.web.request.RegisterInventoryRequest
 import com.dozycoffee.wms.inventory.application.port.`in`.GetInventoryUseCase
+import com.dozycoffee.wms.inventory.application.port.`in`.InventorySortBy
 import com.dozycoffee.wms.inventory.application.port.`in`.MarkInventoryDefectiveUseCase
 import com.dozycoffee.wms.inventory.application.port.`in`.MarkInventoryDisposalScheduledUseCase
 import com.dozycoffee.wms.inventory.application.port.`in`.RegisterInventoryUseCase
@@ -95,9 +96,21 @@ class InventoryControllerTest {
 
         @Test
         fun `필터 없이 조회하면 200과 재고 목록을 반환한다`() {
-            whenever(getInventoryUseCase.getAll(null, null, null)).thenReturn(flowOf(sampleResult()))
+            whenever(getInventoryUseCase.getAll(null, null, null, null)).thenReturn(flowOf(sampleResult()))
 
             webTestClient.get().uri("/api/inventories")
+                .exchange()
+                .expectStatus().isOk
+                .expectBody()
+                .jsonPath("$[0].inventoryId").isEqualTo(1)
+        }
+
+        @Test
+        fun `정렬 기준을 지정하면 UseCase에 그대로 전달한다`() {
+            whenever(getInventoryUseCase.getAll(null, null, null, InventorySortBy.EXPIRATION_DATE))
+                .thenReturn(flowOf(sampleResult()))
+
+            webTestClient.get().uri("/api/inventories?sortBy=EXPIRATION_DATE")
                 .exchange()
                 .expectStatus().isOk
                 .expectBody()
