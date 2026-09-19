@@ -3,7 +3,9 @@ package com.dozycoffee.wms.inventory.adapter.`in`.web
 import com.dozycoffee.wms.inventory.adapter.`in`.web.request.RegisterLotRequest
 import com.dozycoffee.wms.inventory.adapter.`in`.web.response.LotDetailResponse
 import com.dozycoffee.wms.inventory.adapter.`in`.web.response.LotResponse
+import com.dozycoffee.wms.inventory.adapter.`in`.web.response.OutboundRecommendationResponse
 import com.dozycoffee.wms.inventory.application.port.`in`.GetLotUseCase
+import com.dozycoffee.wms.inventory.application.port.`in`.GetOutboundRecommendationUseCase
 import com.dozycoffee.wms.inventory.application.port.`in`.RegisterLotUseCase
 import jakarta.validation.Valid
 import kotlinx.coroutines.flow.Flow
@@ -22,7 +24,8 @@ import org.springframework.web.bind.annotation.RestController
 @RequestMapping("/api/lots")
 class LotController(
     private val registerLotUseCase: RegisterLotUseCase,
-    private val getLotUseCase: GetLotUseCase
+    private val getLotUseCase: GetLotUseCase,
+    private val getOutboundRecommendationUseCase: GetOutboundRecommendationUseCase
 ) {
 
     @PostMapping
@@ -39,5 +42,10 @@ class LotController(
     @GetMapping
     fun getAllByProduct(@RequestParam productId: Long): Flow<LotResponse> {
         return getLotUseCase.getAllByProduct(productId).map { LotResponse.from(it) }
+    }
+
+    @GetMapping("/outbound-recommendations")
+    fun getOutboundRecommendations(): Flow<OutboundRecommendationResponse> {
+        return getOutboundRecommendationUseCase.getAll().map { OutboundRecommendationResponse.from(it) }
     }
 }

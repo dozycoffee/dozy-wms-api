@@ -2,10 +2,12 @@ package com.dozycoffee.wms.inventory.adapter.`in`.web
 
 import com.dozycoffee.wms.inventory.adapter.`in`.web.request.RegisterLotRequest
 import com.dozycoffee.wms.inventory.application.port.`in`.GetLotUseCase
+import com.dozycoffee.wms.inventory.application.port.`in`.GetOutboundRecommendationUseCase
 import com.dozycoffee.wms.inventory.application.port.`in`.RegisterLotUseCase
 import com.dozycoffee.wms.inventory.application.port.`in`.result.LotDetailResult
 import com.dozycoffee.wms.inventory.application.port.`in`.result.LotDistributionResult
 import com.dozycoffee.wms.inventory.application.port.`in`.result.LotResult
+import com.dozycoffee.wms.inventory.application.port.`in`.result.OutboundRecommendationResult
 import com.dozycoffee.wms.inventory.domain.enumeration.LotStatus
 import com.dozycoffee.wms.inventory.domain.exception.LotNotFoundException
 import com.dozycoffee.wms.warehouse.domain.enumeration.ZoneCode
@@ -21,6 +23,7 @@ import org.springframework.boot.webflux.test.autoconfigure.WebFluxTest
 import org.springframework.test.context.bean.override.mockito.MockitoBean
 import org.springframework.test.web.reactive.server.WebTestClient
 import java.time.LocalDate
+import java.time.LocalDateTime
 
 @WebFluxTest(LotController::class)
 class LotControllerTest {
@@ -33,6 +36,9 @@ class LotControllerTest {
 
     @MockitoBean
     private lateinit var getLotUseCase: GetLotUseCase
+
+    @MockitoBean
+    private lateinit var getOutboundRecommendationUseCase: GetOutboundRecommendationUseCase
 
     private fun sampleResult(): LotResult {
         return LotResult(1L, "LOT-20260101-001", 1L, LocalDate.of(2026, 1, 1), LocalDate.of(2026, 12, 31), LotStatus.NORMAL)
@@ -107,6 +113,32 @@ class LotControllerTest {
                 .expectStatus().isOk
                 .expectBody()
                 .jsonPath("$[0].lotId").isEqualTo(1)
+        }
+    }
+
+    @Nested
+    inner class 우선_출고_권고_조회 {
+
+        @Test
+        fun `우선 출고 권고 목록을 반환한다`() {
+            val recommendation = OutboundRecommendationResult(
+                lotId = 1L,
+                lotNumber = "LOT-20260101-001",
+                productId = 1L,
+                productName = "콜롬비아 원두",
+                expirationDate = LocalDate.of(2026, 10, 1),
+                availableQuantity = 15,
+                recommendedAt = LocalDateTime.of(2026, 9, 19, 1, 0)
+            )
+            whenever(getOutboundRecommendationUseCase.getAll()).thenReturn(flowOf(recommendation))
+
+            webTestClient.get().uri("/api/lots/outbound-recommendations")
+                .exchange()
+                .expectStatus().isOk
+                .expectBody()
+                .jsonPath("$[0].lotId").isEqualTo(1)
+                .jsonPath("$[0].productName").isEqualTo("콜롬비아 원두")
+                .jsonPath("$[0].availableQuantity").isEqualTo(15)
         }
     }
 }
