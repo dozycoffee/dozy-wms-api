@@ -24,6 +24,8 @@ import com.dozycoffee.wms.inventory.domain.exception.LotNotFoundException
 import com.dozycoffee.wms.inventory.domain.model.Inventory
 import com.dozycoffee.wms.inventory.domain.model.InventoryHistory
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.emitAll
+import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.toList
 import org.springframework.stereotype.Service
@@ -80,9 +82,13 @@ class InventoryService(
         qualityStatus: QualityStatus?,
         sortBy: InventorySortBy?,
         warehouseIds: List<Long>?
-    ): Flow<InventoryResult> {
-        return inventoryRepository.findAll(locationId, productId, qualityStatus, sortBy, warehouseIds)
-            .map { InventoryResult.from(it) }
+    ): Flow<InventoryResult> = flow {
+        val effectiveWarehouseIds = currentAccessScopeProvider.get().narrowWarehouseIds(warehouseIds)
+        if (effectiveWarehouseIds != null && effectiveWarehouseIds.isEmpty()) return@flow
+        emitAll(
+            inventoryRepository.findAll(locationId, productId, qualityStatus, sortBy, effectiveWarehouseIds)
+                .map { InventoryResult.from(it) }
+        )
     }
 
     @Transactional

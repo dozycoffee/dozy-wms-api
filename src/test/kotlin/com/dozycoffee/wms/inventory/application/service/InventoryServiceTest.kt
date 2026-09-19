@@ -30,6 +30,7 @@ import org.mockito.Mock
 import org.mockito.junit.jupiter.MockitoExtension
 import org.mockito.kotlin.any
 import org.mockito.kotlin.argumentCaptor
+import org.mockito.kotlin.never
 import org.mockito.kotlin.verify
 import org.mockito.kotlin.whenever
 import java.time.LocalDate
@@ -147,6 +148,7 @@ class InventoryServiceTest {
         @Test
         fun `필터 없이 조회하면 전체 재고 목록을 반환한다`() = runTest {
             val found: List<Inventory> = listOf(inventory().inventoryId(1L).build(), inventory().inventoryId(2L).build())
+            whenever(currentAccessScopeProvider.get()).thenReturn(AccessScope(userId = "tester"))
             whenever(inventoryRepository.findAll(null, null, null, null, null)).thenReturn(flowOf(*found.toTypedArray()))
 
             val result = inventoryService.getAll(
@@ -163,6 +165,7 @@ class InventoryServiceTest {
         @Test
         fun `정렬 기준을 지정하면 그대로 리포지토리에 전달한다`() = runTest {
             val found: Inventory = inventory().inventoryId(1L).build()
+            whenever(currentAccessScopeProvider.get()).thenReturn(AccessScope(userId = "tester"))
             whenever(inventoryRepository.findAll(null, null, null, InventorySortBy.EXPIRATION_DATE, null))
                 .thenReturn(flowOf(found))
 
@@ -173,14 +176,37 @@ class InventoryServiceTest {
         }
 
         @Test
-        fun `warehouseIds를 지정하면 그대로 리포지토리에 전달한다`() = runTest {
+        fun `스코프에 제한이 없으면 요청한 warehouseIds를 그대로 리포지토리에 전달한다`() = runTest {
             val found: Inventory = inventory().inventoryId(1L).build()
+            whenever(currentAccessScopeProvider.get()).thenReturn(AccessScope(userId = "tester"))
             whenever(inventoryRepository.findAll(null, null, null, null, listOf(1L, 2L)))
                 .thenReturn(flowOf(found))
 
             val result = inventoryService.getAll(null, null, null, null, listOf(1L, 2L)).toList()
 
             assertThat(result).hasSize(1)
+        }
+
+        @Test
+        fun `스코프가 제한적이면 요청한 warehouseIds와의 교집합만 리포지토리에 전달한다`() = runTest {
+            val found: Inventory = inventory().inventoryId(1L).build()
+            whenever(currentAccessScopeProvider.get()).thenReturn(AccessScope(userId = "tester", warehouseIds = listOf(2L, 3L)))
+            whenever(inventoryRepository.findAll(null, null, null, null, listOf(2L)))
+                .thenReturn(flowOf(found))
+
+            val result = inventoryService.getAll(null, null, null, null, listOf(1L, 2L)).toList()
+
+            assertThat(result).hasSize(1)
+        }
+
+        @Test
+        fun `요청한 warehouseIds가 스코프와 전혀 겹치지 않으면 리포지토리를 조회하지 않고 빈 목록을 반환한다`() = runTest {
+            whenever(currentAccessScopeProvider.get()).thenReturn(AccessScope(userId = "tester", warehouseIds = listOf(2L)))
+
+            val result = inventoryService.getAll(null, null, null, null, listOf(1L)).toList()
+
+            assertThat(result).isEmpty()
+            verify(inventoryRepository, never()).findAll(any(), any(), any(), any(), any())
         }
     }
 
