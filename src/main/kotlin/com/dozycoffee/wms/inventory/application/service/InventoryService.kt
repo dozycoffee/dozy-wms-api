@@ -1,5 +1,6 @@
 package com.dozycoffee.wms.inventory.application.service
 
+import com.dozycoffee.wms.global.security.CurrentAccessScopeProvider
 import com.dozycoffee.wms.inventory.application.port.`in`.AdjustInventoryQuantityUseCase
 import com.dozycoffee.wms.inventory.application.port.`in`.ConfirmInventoryDisposalUseCase
 import com.dozycoffee.wms.inventory.application.port.`in`.GetInventoryHistoryUseCase
@@ -33,7 +34,8 @@ import java.time.LocalDate
 class InventoryService(
     private val inventoryRepository: InventoryRepository,
     private val lotRepository: LotRepository,
-    private val inventoryHistoryRepository: InventoryHistoryRepository
+    private val inventoryHistoryRepository: InventoryHistoryRepository,
+    private val currentAccessScopeProvider: CurrentAccessScopeProvider
 ) : RegisterInventoryUseCase,
     GetInventoryUseCase,
     MarkInventoryDefectiveUseCase,
@@ -102,7 +104,7 @@ class InventoryService(
     override suspend fun confirmDisposal(inventoryId: Long, referenceId: Long): InventoryResult {
         val inventory = findInventoryOrThrow(inventoryId)
         val disposedQuantity = inventory.quantity
-        inventory.delete(DISPOSAL_ACTOR)
+        inventory.delete(currentAccessScopeProvider.get().userId)
         val saved = inventoryRepository.save(inventory)
         recordHistory(saved.inventoryId, InventoryHistoryType.DISPOSAL, -disposedQuantity, referenceId)
         return InventoryResult.from(saved)
@@ -150,7 +152,6 @@ class InventoryService(
     }
 
     companion object {
-        private const val DISPOSAL_ACTOR = "system"
         private const val RECENT_HISTORY_LIMIT = 5
     }
 }

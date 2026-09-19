@@ -1,16 +1,19 @@
 package com.dozycoffee.wms.global.config
 
+import com.dozycoffee.wms.global.security.CurrentAccessScopeProvider
+import kotlinx.coroutines.reactor.mono
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
 import org.springframework.data.domain.ReactiveAuditorAware
 import org.springframework.data.r2dbc.config.EnableR2dbcAuditing
-import reactor.core.publisher.Mono
 
 @Configuration
 @EnableR2dbcAuditing
-class R2dbcConfig {
+class R2dbcConfig(
+    private val currentAccessScopeProvider: CurrentAccessScopeProvider
+) {
 
-    // 인증 컨텍스트 도입 시 SecurityContext에서 현재 사용자로 대체
     @Bean
-    fun auditorAware(): ReactiveAuditorAware<String> = ReactiveAuditorAware { Mono.just("system") }
+    fun auditorAware(): ReactiveAuditorAware<String> =
+        ReactiveAuditorAware { mono { currentAccessScopeProvider.get().userId } }
 }

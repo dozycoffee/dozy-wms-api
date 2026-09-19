@@ -1,5 +1,7 @@
 package com.dozycoffee.wms.product.application.service
 
+import com.dozycoffee.wms.global.security.AccessScope
+import com.dozycoffee.wms.global.security.CurrentAccessScopeProvider
 import com.dozycoffee.wms.product.application.port.`in`.command.RegisterProductCommand
 import com.dozycoffee.wms.product.application.port.out.ProductRepository
 import com.dozycoffee.wms.product.domain.enumeration.ProductCategory
@@ -30,6 +32,9 @@ class ProductServiceTest {
 
     @Mock
     private lateinit var productRepository: ProductRepository
+
+    @Mock
+    private lateinit var currentAccessScopeProvider: CurrentAccessScopeProvider
 
     @InjectMocks
     private lateinit var productService: ProductService
@@ -169,6 +174,7 @@ class ProductServiceTest {
             val existing: Product = product().productId(1L).build()
             whenever(productRepository.findById(1L)).thenReturn(existing)
             whenever(productRepository.save(any())).thenAnswer { invocation -> invocation.getArgument(0) }
+            whenever(currentAccessScopeProvider.get()).thenReturn(AccessScope(userId = "tester"))
 
             productService.delete(1L)
 

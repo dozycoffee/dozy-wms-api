@@ -1,6 +1,7 @@
 package com.dozycoffee.wms.inbound.adapter.out.persistence
 
 import com.dozycoffee.wms.global.config.R2dbcConfig
+import com.dozycoffee.wms.global.security.MockAccessScopeProvider
 import com.dozycoffee.wms.inbound.domain.enumeration.InboundStatus
 import com.dozycoffee.wms.inbound.domain.model.Inbound
 import com.dozycoffee.wms.inbound.fixture.InboundTestBuilder.Companion.inbound
@@ -17,7 +18,7 @@ import org.springframework.boot.data.r2dbc.test.autoconfigure.DataR2dbcTest
 import org.springframework.context.annotation.Import
 
 @DataR2dbcTest
-@Import(R2dbcConfig::class, WarehousePersistenceAdapter::class, InboundPersistenceAdapter::class)
+@Import(R2dbcConfig::class, MockAccessScopeProvider::class, WarehousePersistenceAdapter::class, InboundPersistenceAdapter::class)
 class InboundPersistenceAdapterTest {
 
     @Autowired

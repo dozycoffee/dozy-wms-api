@@ -2,6 +2,7 @@ package com.dozycoffee.wms.product.adapter.out.persistence
 
 import com.dozycoffee.wms.global.config.R2dbcConfig
 import com.dozycoffee.wms.global.persistence.CommonCodes
+import com.dozycoffee.wms.global.security.MockAccessScopeProvider
 import com.dozycoffee.wms.product.domain.enumeration.ProductCategory
 import com.dozycoffee.wms.product.domain.enumeration.ProductStatus
 import com.dozycoffee.wms.product.fixture.ProductTestBuilder.Companion.product
@@ -15,7 +16,7 @@ import org.springframework.boot.data.r2dbc.test.autoconfigure.DataR2dbcTest
 import org.springframework.context.annotation.Import
 
 @DataR2dbcTest
-@Import(R2dbcConfig::class, ProductPersistenceAdapter::class)
+@Import(R2dbcConfig::class, MockAccessScopeProvider::class, ProductPersistenceAdapter::class)
 class ProductPersistenceAdapterTest {
 
     @Autowired

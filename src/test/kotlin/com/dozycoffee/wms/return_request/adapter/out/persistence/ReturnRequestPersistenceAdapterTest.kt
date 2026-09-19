@@ -1,6 +1,7 @@
 package com.dozycoffee.wms.return_request.adapter.out.persistence
 
 import com.dozycoffee.wms.global.config.R2dbcConfig
+import com.dozycoffee.wms.global.security.MockAccessScopeProvider
 import com.dozycoffee.wms.return_request.domain.enumeration.ReturnRequestStatus
 import com.dozycoffee.wms.return_request.domain.model.ReturnRequest
 import com.dozycoffee.wms.return_request.fixture.ReturnRequestTestBuilder.Companion.returnRequest
@@ -17,7 +18,7 @@ import org.springframework.boot.data.r2dbc.test.autoconfigure.DataR2dbcTest
 import org.springframework.context.annotation.Import
 
 @DataR2dbcTest
-@Import(R2dbcConfig::class, WarehousePersistenceAdapter::class, ReturnRequestPersistenceAdapter::class)
+@Import(R2dbcConfig::class, MockAccessScopeProvider::class, WarehousePersistenceAdapter::class, ReturnRequestPersistenceAdapter::class)
 class ReturnRequestPersistenceAdapterTest {
 
     @Autowired

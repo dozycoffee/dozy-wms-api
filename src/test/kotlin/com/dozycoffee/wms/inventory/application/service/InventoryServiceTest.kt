@@ -1,6 +1,8 @@
 package com.dozycoffee.wms.inventory.application.service
 
 import com.dozycoffee.wms.inventory.application.port.`in`.command.RegisterInventoryCommand
+import com.dozycoffee.wms.global.security.AccessScope
+import com.dozycoffee.wms.global.security.CurrentAccessScopeProvider
 import com.dozycoffee.wms.inventory.application.port.out.InventoryHistoryRepository
 import com.dozycoffee.wms.inventory.application.port.out.InventoryRepository
 import com.dozycoffee.wms.inventory.application.port.out.LotRepository
@@ -43,6 +45,9 @@ class InventoryServiceTest {
 
     @Mock
     private lateinit var inventoryHistoryRepository: InventoryHistoryRepository
+
+    @Mock
+    private lateinit var currentAccessScopeProvider: CurrentAccessScopeProvider
 
     @InjectMocks
     private lateinit var inventoryService: InventoryService
@@ -227,6 +232,7 @@ class InventoryServiceTest {
             whenever(inventoryRepository.findById(1L)).thenReturn(found)
             whenever(inventoryRepository.save(any())).thenAnswer { it.getArgument(0) }
             whenever(inventoryHistoryRepository.save(any())).thenAnswer { it.getArgument(0) }
+            whenever(currentAccessScopeProvider.get()).thenReturn(AccessScope(userId = "tester"))
 
             inventoryService.confirmDisposal(1L, 200L)
 

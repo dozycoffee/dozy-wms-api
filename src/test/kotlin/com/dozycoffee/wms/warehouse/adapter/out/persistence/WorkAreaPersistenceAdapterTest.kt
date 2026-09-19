@@ -1,6 +1,7 @@
 package com.dozycoffee.wms.warehouse.adapter.out.persistence
 
 import com.dozycoffee.wms.global.config.R2dbcConfig
+import com.dozycoffee.wms.global.security.MockAccessScopeProvider
 import com.dozycoffee.wms.warehouse.domain.enumeration.AreaCode
 import com.dozycoffee.wms.warehouse.domain.enumeration.AvailabilityStatus
 import com.dozycoffee.wms.warehouse.domain.model.WorkArea
@@ -15,7 +16,7 @@ import org.springframework.context.annotation.Import
 import reactor.test.StepVerifier
 
 @DataR2dbcTest
-@Import(R2dbcConfig::class, WarehousePersistenceAdapter::class, WorkAreaPersistenceAdapter::class)
+@Import(R2dbcConfig::class, MockAccessScopeProvider::class, WarehousePersistenceAdapter::class, WorkAreaPersistenceAdapter::class)
 class WorkAreaPersistenceAdapterTest {
 
     @Autowired
