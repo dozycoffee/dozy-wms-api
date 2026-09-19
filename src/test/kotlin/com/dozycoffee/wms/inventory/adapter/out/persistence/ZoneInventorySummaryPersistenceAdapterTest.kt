@@ -137,7 +137,7 @@ class ZoneInventorySummaryPersistenceAdapterTest {
         defective.markDefective()
         inventoryPersistenceAdapter.save(defective)
 
-        val result = zoneInventorySummaryPersistenceAdapter.findAll().toList()
+        val result = zoneInventorySummaryPersistenceAdapter.findAll(null).toList()
 
         val zoneASummary = result.first { it.zoneId == zoneA.zoneId }
         assertThat(zoneASummary.zoneCode).isEqualTo(ZoneCode.A)
@@ -159,12 +159,36 @@ class ZoneInventorySummaryPersistenceAdapterTest {
     fun `Location이 없는 Zone은 Capacity 0으로 집계된다`() = runTest {
         val zone = createZone(ZoneCode.C)
 
-        val result = zoneInventorySummaryPersistenceAdapter.findAll().toList()
+        val result = zoneInventorySummaryPersistenceAdapter.findAll(null).toList()
 
         val summary = result.first { it.zoneId == zone.zoneId }
         assertThat(summary.warehouseId).isEqualTo(zone.warehouseId)
         assertThat(summary.maxCapacity).isEqualTo(0)
         assertThat(summary.usedCapacity).isEqualTo(0)
         assertThat(summary.quantityByQualityStatus).isEmpty()
+    }
+
+    @Test
+    fun `warehouseIds를 지정하면 해당 창고의 Zone만 반환한다`() = runTest {
+        val zoneA = createZone(ZoneCode.A)
+        val zoneB = createZone(ZoneCode.B)
+        createLocation(zoneA.zoneId, "A-01", 70, 20)
+        createLocation(zoneB.zoneId, "B-01", 60, 10)
+
+        val result = zoneInventorySummaryPersistenceAdapter.findAll(listOf(zoneA.warehouseId)).toList()
+
+        assertThat(result).hasSize(1)
+        assertThat(result[0].zoneId).isEqualTo(zoneA.zoneId)
+        assertThat(result[0].warehouseId).isEqualTo(zoneA.warehouseId)
+    }
+
+    @Test
+    fun `warehouseIds가 빈 리스트이면 전체 Zone을 반환한다`() = runTest {
+        val zoneA = createZone(ZoneCode.A)
+        val zoneB = createZone(ZoneCode.B)
+
+        val result = zoneInventorySummaryPersistenceAdapter.findAll(emptyList()).toList()
+
+        assertThat(result.map { it.zoneId }).contains(zoneA.zoneId, zoneB.zoneId)
     }
 }

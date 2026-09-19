@@ -42,8 +42,10 @@ class InventoryController(
     }
 
     @GetMapping("/zone-summary")
-    fun getZoneSummary(): Flow<ZoneInventorySummaryResponse> {
-        return getZoneInventorySummaryUseCase.getAll().map { ZoneInventorySummaryResponse.from(it) }
+    fun getZoneSummary(
+        @RequestParam(required = false) warehouseIds: List<Long>?
+    ): Flow<ZoneInventorySummaryResponse> {
+        return getZoneInventorySummaryUseCase.getAll(warehouseIds).map { ZoneInventorySummaryResponse.from(it) }
     }
 
     @GetMapping("/{inventoryId}")

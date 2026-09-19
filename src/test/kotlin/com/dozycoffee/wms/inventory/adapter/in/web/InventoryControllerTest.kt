@@ -113,7 +113,7 @@ class InventoryControllerTest {
         @Test
         fun `조회하면 200과 Zone별 Capacity·품질상태별 수량을 반환한다`() {
             val summary = ZoneInventorySummaryResult(1L, ZoneCode.A, 10L, 180, 90, mapOf(QualityStatus.NORMAL to 90))
-            whenever(getZoneInventorySummaryUseCase.getAll()).thenReturn(flowOf(summary))
+            whenever(getZoneInventorySummaryUseCase.getAll(null)).thenReturn(flowOf(summary))
 
             webTestClient.get().uri("/api/inventories/zone-summary")
                 .exchange()
@@ -125,6 +125,18 @@ class InventoryControllerTest {
                 .jsonPath("$[0].maxCapacity").isEqualTo(180)
                 .jsonPath("$[0].usedCapacity").isEqualTo(90)
                 .jsonPath("$[0].usageRate").isEqualTo(0.5)
+        }
+
+        @Test
+        fun `warehouseIds를 지정하면 UseCase에 그대로 전달한다`() {
+            val summary = ZoneInventorySummaryResult(1L, ZoneCode.A, 10L, 180, 90, mapOf(QualityStatus.NORMAL to 90))
+            whenever(getZoneInventorySummaryUseCase.getAll(listOf(10L, 20L))).thenReturn(flowOf(summary))
+
+            webTestClient.get().uri("/api/inventories/zone-summary?warehouseIds=10,20")
+                .exchange()
+                .expectStatus().isOk
+                .expectBody()
+                .jsonPath("$[0].warehouseId").isEqualTo(10)
         }
     }
 
