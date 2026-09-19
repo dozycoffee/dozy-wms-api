@@ -112,7 +112,7 @@ class InventoryControllerTest {
 
         @Test
         fun `조회하면 200과 Zone별 Capacity·품질상태별 수량을 반환한다`() {
-            val summary = ZoneInventorySummaryResult(1L, ZoneCode.A, 180, 90, mapOf(QualityStatus.NORMAL to 90))
+            val summary = ZoneInventorySummaryResult(1L, ZoneCode.A, 10L, 180, 90, mapOf(QualityStatus.NORMAL to 90))
             whenever(getZoneInventorySummaryUseCase.getAll()).thenReturn(flowOf(summary))
 
             webTestClient.get().uri("/api/inventories/zone-summary")
@@ -121,6 +121,7 @@ class InventoryControllerTest {
                 .expectBody()
                 .jsonPath("$[0].zoneId").isEqualTo(1)
                 .jsonPath("$[0].zoneCode").isEqualTo("A")
+                .jsonPath("$[0].warehouseId").isEqualTo(10)
                 .jsonPath("$[0].maxCapacity").isEqualTo(180)
                 .jsonPath("$[0].usedCapacity").isEqualTo(90)
                 .jsonPath("$[0].usageRate").isEqualTo(0.5)

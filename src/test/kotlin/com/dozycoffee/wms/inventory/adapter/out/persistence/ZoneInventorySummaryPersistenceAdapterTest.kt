@@ -90,14 +90,17 @@ class ZoneInventorySummaryPersistenceAdapterTest {
         warehouseR2dbcRepository.deleteAll().block()
     }
 
-    private fun createZone(zoneCode: ZoneCode): Long {
+    private data class CreatedZone(val zoneId: Long, val warehouseId: Long)
+
+    private fun createZone(zoneCode: ZoneCode): CreatedZone {
         val warehouseId: Long = requireNotNull(
             warehousePersistenceAdapter.save(warehouse().build()).map { requireNotNull(it.warehouseId) }.block()
         )
-        return requireNotNull(
+        val zoneId: Long = requireNotNull(
             zonePersistenceAdapter.save(zone().warehouseId(warehouseId).zoneCode(zoneCode).build())
                 .map { requireNotNull(it.zoneId) }.block()
         )
+        return CreatedZone(zoneId, warehouseId)
     }
 
     private fun createLocation(zoneId: Long, locationCode: String, maxCapacity: Int, usedCapacity: Int): Long {
@@ -117,11 +120,11 @@ class ZoneInventorySummaryPersistenceAdapterTest {
 
     @Test
     fun `Zone별 Capacity와 품질상태별 재고 수량을 집계한다`() = runTest {
-        val zoneAId = createZone(ZoneCode.A)
-        val zoneBId = createZone(ZoneCode.B)
-        val zoneALocation1 = createLocation(zoneAId, "A-01", 70, 20)
-        val zoneALocation2 = createLocation(zoneAId, "A-02", 60, 10)
-        createLocation(zoneBId, "B-01", 60, 0)
+        val zoneA = createZone(ZoneCode.A)
+        val zoneB = createZone(ZoneCode.B)
+        val zoneALocation1 = createLocation(zoneA.zoneId, "A-01", 70, 20)
+        val zoneALocation2 = createLocation(zoneA.zoneId, "A-02", 60, 10)
+        createLocation(zoneB.zoneId, "B-01", 60, 0)
 
         val productId = requireNotNull(productPersistenceAdapter.save(product().build()).productId)
         val lotId = requireNotNull(lotPersistenceAdapter.save(lot().productId(productId).build()).lotId)
@@ -136,15 +139,17 @@ class ZoneInventorySummaryPersistenceAdapterTest {
 
         val result = zoneInventorySummaryPersistenceAdapter.findAll().toList()
 
-        val zoneASummary = result.first { it.zoneId == zoneAId }
+        val zoneASummary = result.first { it.zoneId == zoneA.zoneId }
         assertThat(zoneASummary.zoneCode).isEqualTo(ZoneCode.A)
+        assertThat(zoneASummary.warehouseId).isEqualTo(zoneA.warehouseId)
         assertThat(zoneASummary.maxCapacity).isEqualTo(130)
         assertThat(zoneASummary.usedCapacity).isEqualTo(30)
         assertThat(zoneASummary.quantityByQualityStatus)
             .containsEntry(QualityStatus.NORMAL, 20)
             .containsEntry(QualityStatus.DEFECTIVE, 10)
 
-        val zoneBSummary = result.first { it.zoneId == zoneBId }
+        val zoneBSummary = result.first { it.zoneId == zoneB.zoneId }
+        assertThat(zoneBSummary.warehouseId).isEqualTo(zoneB.warehouseId)
         assertThat(zoneBSummary.maxCapacity).isEqualTo(60)
         assertThat(zoneBSummary.usedCapacity).isEqualTo(0)
         assertThat(zoneBSummary.quantityByQualityStatus).isEmpty()
@@ -152,11 +157,12 @@ class ZoneInventorySummaryPersistenceAdapterTest {
 
     @Test
     fun `Location이 없는 Zone은 Capacity 0으로 집계된다`() = runTest {
-        val zoneId = createZone(ZoneCode.C)
+        val zone = createZone(ZoneCode.C)
 
         val result = zoneInventorySummaryPersistenceAdapter.findAll().toList()
 
-        val summary = result.first { it.zoneId == zoneId }
+        val summary = result.first { it.zoneId == zone.zoneId }
+        assertThat(summary.warehouseId).isEqualTo(zone.warehouseId)
         assertThat(summary.maxCapacity).isEqualTo(0)
         assertThat(summary.usedCapacity).isEqualTo(0)
         assertThat(summary.quantityByQualityStatus).isEmpty()

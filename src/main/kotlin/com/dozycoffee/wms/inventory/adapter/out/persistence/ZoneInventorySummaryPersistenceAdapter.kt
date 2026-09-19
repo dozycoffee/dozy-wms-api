@@ -30,6 +30,7 @@ class ZoneInventorySummaryPersistenceAdapter(
                 ZoneInventorySummaryResult(
                     zoneId = capacity.zoneId,
                     zoneCode = capacity.zoneCode,
+                    warehouseId = capacity.warehouseId,
                     maxCapacity = capacity.maxCapacity,
                     usedCapacity = capacity.usedCapacity,
                     quantityByQualityStatus = quantities[capacity.zoneId] ?: emptyMap()
@@ -44,6 +45,7 @@ class ZoneInventorySummaryPersistenceAdapter(
                 ZoneCapacityRow(
                     zoneId = requireNotNull(row.get("zone_id", java.lang.Long::class.java)).toLong(),
                     zoneCode = ZoneCode.valueOf(requireNotNull(row.get("zone_code", String::class.java))),
+                    warehouseId = requireNotNull(row.get("warehouse_id", java.lang.Long::class.java)).toLong(),
                     maxCapacity = requireNotNull(row.get("max_capacity", java.lang.Long::class.java)).toInt(),
                     usedCapacity = requireNotNull(row.get("used_capacity", java.lang.Long::class.java)).toInt()
                 )
@@ -69,17 +71,23 @@ class ZoneInventorySummaryPersistenceAdapter(
         return rows.groupBy { it.zoneId }.mapValues { (_, zoneRows) -> zoneRows.associate { it.qualityStatus to it.quantity } }
     }
 
-    private data class ZoneCapacityRow(val zoneId: Long, val zoneCode: ZoneCode, val maxCapacity: Int, val usedCapacity: Int)
+    private data class ZoneCapacityRow(
+        val zoneId: Long,
+        val zoneCode: ZoneCode,
+        val warehouseId: Long,
+        val maxCapacity: Int,
+        val usedCapacity: Int
+    )
     private data class ZoneQuantityRow(val zoneId: Long, val qualityStatus: QualityStatus, val quantity: Int)
 
     companion object {
         private const val ZONE_CAPACITY_QUERY = """
-            SELECT z.zone_id AS zone_id, z.zone_code AS zone_code,
+            SELECT z.zone_id AS zone_id, z.zone_code AS zone_code, z.warehouse_id AS warehouse_id,
                    CAST(COALESCE(SUM(l.max_capacity), 0) AS SIGNED) AS max_capacity,
                    CAST(COALESCE(SUM(l.used_capacity), 0) AS SIGNED) AS used_capacity
             FROM zone z
             LEFT JOIN location l ON l.zone_id = z.zone_id
-            GROUP BY z.zone_id, z.zone_code
+            GROUP BY z.zone_id, z.zone_code, z.warehouse_id
             ORDER BY z.zone_code
         """
 
