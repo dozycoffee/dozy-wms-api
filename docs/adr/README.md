@@ -46,5 +46,6 @@ Proposed | Accepted | Deprecated | Superseded by ADR-YYYY
 | [0008](0008-inventory-allocation-entity.md) | 재고 부분 점유를 위한 Allocation 엔티티 도입 | Accepted |
 | [0009](0009-stock-audit-domain-design.md) | 재고 실사(Stock Audit) 도메인 설계 | Accepted |
 | [0010](0010-current-access-scope-provider-port.md) | 인증/인가를 위한 CurrentAccessScopeProvider 포트 도입 | Accepted |
+| [0011](0011-auth-event-performance-roadmap.md) | 인증·이벤트·성능 확장을 위한 로드맵 방향 | Accepted |
 
 새 ADR은 `NNNN-kebab-case-제목.md` 형식으로 추가하고, 이 표에도 반드시 등록한다.
