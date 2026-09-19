@@ -31,11 +31,17 @@ class InventoryPersistenceAdapter(
         locationId: Long?,
         productId: Long?,
         qualityStatus: QualityStatus?,
-        sortBy: InventorySortBy?
+        sortBy: InventorySortBy?,
+        warehouseIds: List<Long>?
     ): Flow<Inventory> {
         val qualityStatusCode = qualityStatus?.let { CommonCodes.toCode(QUALITY_STATUS_GROUP, it) }
-        return inventoryR2dbcRepository.findAllActive(locationId, productId, qualityStatusCode, sortBy?.name)
-            .map { it.toDomain() }
+        return inventoryR2dbcRepository.findAllActive(
+            locationId,
+            productId,
+            qualityStatusCode,
+            sortBy?.name,
+            warehouseIds?.takeIf { it.isNotEmpty() }
+        ).map { it.toDomain() }
     }
 
     override fun findAllByLotId(lotId: Long): Flow<Inventory> {

@@ -142,9 +142,15 @@ class InventoryServiceTest {
         @Test
         fun `필터 없이 조회하면 전체 재고 목록을 반환한다`() = runTest {
             val found: List<Inventory> = listOf(inventory().inventoryId(1L).build(), inventory().inventoryId(2L).build())
-            whenever(inventoryRepository.findAll(null, null, null, null)).thenReturn(flowOf(*found.toTypedArray()))
+            whenever(inventoryRepository.findAll(null, null, null, null, null)).thenReturn(flowOf(*found.toTypedArray()))
 
-            val result = inventoryService.getAll(locationId = null, productId = null, qualityStatus = null, sortBy = null).toList()
+            val result = inventoryService.getAll(
+                locationId = null,
+                productId = null,
+                qualityStatus = null,
+                sortBy = null,
+                warehouseIds = null
+            ).toList()
 
             assertThat(result).hasSize(2)
         }
@@ -152,13 +158,24 @@ class InventoryServiceTest {
         @Test
         fun `정렬 기준을 지정하면 그대로 리포지토리에 전달한다`() = runTest {
             val found: Inventory = inventory().inventoryId(1L).build()
-            whenever(inventoryRepository.findAll(null, null, null, InventorySortBy.EXPIRATION_DATE))
+            whenever(inventoryRepository.findAll(null, null, null, InventorySortBy.EXPIRATION_DATE, null))
                 .thenReturn(flowOf(found))
 
-            val result = inventoryService.getAll(null, null, null, InventorySortBy.EXPIRATION_DATE).toList()
+            val result = inventoryService.getAll(null, null, null, InventorySortBy.EXPIRATION_DATE, null).toList()
 
             assertThat(result).hasSize(1)
             assertThat(result[0].inventoryId).isEqualTo(1L)
+        }
+
+        @Test
+        fun `warehouseIds를 지정하면 그대로 리포지토리에 전달한다`() = runTest {
+            val found: Inventory = inventory().inventoryId(1L).build()
+            whenever(inventoryRepository.findAll(null, null, null, null, listOf(1L, 2L)))
+                .thenReturn(flowOf(found))
+
+            val result = inventoryService.getAll(null, null, null, null, listOf(1L, 2L)).toList()
+
+            assertThat(result).hasSize(1)
         }
     }
 

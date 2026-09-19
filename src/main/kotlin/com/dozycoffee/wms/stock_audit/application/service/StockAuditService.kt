@@ -52,7 +52,7 @@ class StockAuditService(
 
         val locations = getLocationUseCase.getByZoneId(command.zoneId).collectList().awaitSingle()
         for (location in locations) {
-            val inventories = getInventoryUseCase.getAll(location.locationId, null, null, null).toList()
+            val inventories = getInventoryUseCase.getAll(location.locationId, null, null, null, null).toList()
             for (inventory in inventories) {
                 stockAuditItemRepository.save(
                     StockAuditItem.create(stockAuditId, inventory.inventoryId, inventory.quantity)

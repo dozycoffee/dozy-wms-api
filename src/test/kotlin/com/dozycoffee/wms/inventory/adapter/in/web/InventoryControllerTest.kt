@@ -145,7 +145,7 @@ class InventoryControllerTest {
 
         @Test
         fun `필터 없이 조회하면 200과 재고 목록을 반환한다`() {
-            whenever(getInventoryUseCase.getAll(null, null, null, null)).thenReturn(flowOf(sampleResult()))
+            whenever(getInventoryUseCase.getAll(null, null, null, null, null)).thenReturn(flowOf(sampleResult()))
 
             webTestClient.get().uri("/api/inventories")
                 .exchange()
@@ -156,10 +156,22 @@ class InventoryControllerTest {
 
         @Test
         fun `정렬 기준을 지정하면 UseCase에 그대로 전달한다`() {
-            whenever(getInventoryUseCase.getAll(null, null, null, InventorySortBy.EXPIRATION_DATE))
+            whenever(getInventoryUseCase.getAll(null, null, null, InventorySortBy.EXPIRATION_DATE, null))
                 .thenReturn(flowOf(sampleResult()))
 
             webTestClient.get().uri("/api/inventories?sortBy=EXPIRATION_DATE")
+                .exchange()
+                .expectStatus().isOk
+                .expectBody()
+                .jsonPath("$[0].inventoryId").isEqualTo(1)
+        }
+
+        @Test
+        fun `warehouseIds를 지정하면 UseCase에 그대로 전달한다`() {
+            whenever(getInventoryUseCase.getAll(null, null, null, null, listOf(1L, 2L)))
+                .thenReturn(flowOf(sampleResult()))
+
+            webTestClient.get().uri("/api/inventories?warehouseIds=1,2")
                 .exchange()
                 .expectStatus().isOk
                 .expectBody()
