@@ -4,6 +4,7 @@ import com.dozycoffee.wms.disposal.domain.enumeration.DisposalStatus
 import com.dozycoffee.wms.disposal.domain.model.Disposal
 import com.dozycoffee.wms.disposal.fixture.DisposalTestBuilder.Companion.disposal
 import com.dozycoffee.wms.global.config.R2dbcConfig
+import com.dozycoffee.wms.global.security.MockAccessScopeProvider
 import com.dozycoffee.wms.warehouse.adapter.out.persistence.WarehousePersistenceAdapter
 import com.dozycoffee.wms.warehouse.adapter.out.persistence.WarehouseR2dbcRepository
 import com.dozycoffee.wms.warehouse.fixture.WarehouseTestBuilder.Companion.warehouse
@@ -17,7 +18,7 @@ import org.springframework.boot.data.r2dbc.test.autoconfigure.DataR2dbcTest
 import org.springframework.context.annotation.Import
 
 @DataR2dbcTest
-@Import(R2dbcConfig::class, WarehousePersistenceAdapter::class, DisposalPersistenceAdapter::class)
+@Import(R2dbcConfig::class, MockAccessScopeProvider::class, WarehousePersistenceAdapter::class, DisposalPersistenceAdapter::class)
 class DisposalPersistenceAdapterTest {
 
     @Autowired

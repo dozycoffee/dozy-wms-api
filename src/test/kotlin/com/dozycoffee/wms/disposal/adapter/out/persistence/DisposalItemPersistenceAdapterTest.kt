@@ -4,6 +4,7 @@ import com.dozycoffee.wms.disposal.domain.enumeration.DisposalReason
 import com.dozycoffee.wms.disposal.fixture.DisposalItemTestBuilder.Companion.disposalItem
 import com.dozycoffee.wms.disposal.fixture.DisposalTestBuilder.Companion.disposal
 import com.dozycoffee.wms.global.config.R2dbcConfig
+import com.dozycoffee.wms.global.security.MockAccessScopeProvider
 import com.dozycoffee.wms.inventory.adapter.out.persistence.InventoryPersistenceAdapter
 import com.dozycoffee.wms.inventory.adapter.out.persistence.InventoryR2dbcRepository
 import com.dozycoffee.wms.inventory.adapter.out.persistence.LotPersistenceAdapter
@@ -34,6 +35,7 @@ import org.springframework.context.annotation.Import
 @DataR2dbcTest
 @Import(
     R2dbcConfig::class,
+    MockAccessScopeProvider::class,
     ProductPersistenceAdapter::class,
     LotPersistenceAdapter::class,
     InventoryPersistenceAdapter::class,

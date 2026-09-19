@@ -1,6 +1,7 @@
 package com.dozycoffee.wms.return_request.adapter.out.persistence
 
 import com.dozycoffee.wms.global.config.R2dbcConfig
+import com.dozycoffee.wms.global.security.MockAccessScopeProvider
 import com.dozycoffee.wms.product.adapter.out.persistence.ProductPersistenceAdapter
 import com.dozycoffee.wms.product.adapter.out.persistence.ProductR2dbcRepository
 import com.dozycoffee.wms.product.fixture.ProductTestBuilder.Companion.product
@@ -22,6 +23,7 @@ import org.springframework.context.annotation.Import
 @DataR2dbcTest
 @Import(
     R2dbcConfig::class,
+    MockAccessScopeProvider::class,
     ProductPersistenceAdapter::class,
     WarehousePersistenceAdapter::class,
     ReturnRequestPersistenceAdapter::class,

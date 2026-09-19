@@ -1,6 +1,7 @@
 package com.dozycoffee.wms.inventory.adapter.out.persistence
 
 import com.dozycoffee.wms.global.config.R2dbcConfig
+import com.dozycoffee.wms.global.security.MockAccessScopeProvider
 import com.dozycoffee.wms.inventory.domain.enumeration.LotStatus
 import com.dozycoffee.wms.inventory.fixture.LotTestBuilder.Companion.lot
 import com.dozycoffee.wms.product.adapter.out.persistence.ProductPersistenceAdapter
@@ -17,7 +18,7 @@ import org.springframework.context.annotation.Import
 import java.time.LocalDate
 
 @DataR2dbcTest
-@Import(R2dbcConfig::class, ProductPersistenceAdapter::class, LotPersistenceAdapter::class)
+@Import(R2dbcConfig::class, MockAccessScopeProvider::class, ProductPersistenceAdapter::class, LotPersistenceAdapter::class)
 class LotPersistenceAdapterTest {
 
     @Autowired

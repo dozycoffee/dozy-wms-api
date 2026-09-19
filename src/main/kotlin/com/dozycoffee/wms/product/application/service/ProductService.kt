@@ -1,5 +1,6 @@
 package com.dozycoffee.wms.product.application.service
 
+import com.dozycoffee.wms.global.security.CurrentAccessScopeProvider
 import com.dozycoffee.wms.product.application.port.`in`.ActivateProductUseCase
 import com.dozycoffee.wms.product.application.port.`in`.DeactivateProductUseCase
 import com.dozycoffee.wms.product.application.port.`in`.DeleteProductUseCase
@@ -20,7 +21,8 @@ import org.springframework.transaction.annotation.Transactional
 
 @Service
 class ProductService(
-    private val productRepository: ProductRepository
+    private val productRepository: ProductRepository,
+    private val currentAccessScopeProvider: CurrentAccessScopeProvider
 ) : RegisterProductUseCase, ActivateProductUseCase, DeactivateProductUseCase, DeleteProductUseCase, GetProductUseCase {
 
     @Transactional
@@ -55,7 +57,7 @@ class ProductService(
     @Transactional
     override suspend fun delete(productId: Long) {
         val product = findProductOrThrow(productId)
-        product.delete(DELETED_BY_SYSTEM)
+        product.delete(currentAccessScopeProvider.get().userId)
         productRepository.save(product)
     }
 
@@ -71,10 +73,5 @@ class ProductService(
 
     private suspend fun findProductOrThrow(productId: Long): Product {
         return productRepository.findById(productId) ?: throw ProductNotFoundException()
-    }
-
-    companion object {
-        // 인증 컨텍스트 도입 시 SecurityContext에서 현재 사용자로 대체 (R2dbcConfig.auditorAware()와 동일한 방식)
-        private const val DELETED_BY_SYSTEM: String = "system"
     }
 }

@@ -1,6 +1,7 @@
 package com.dozycoffee.wms.stock_audit.adapter.out.persistence
 
 import com.dozycoffee.wms.global.config.R2dbcConfig
+import com.dozycoffee.wms.global.security.MockAccessScopeProvider
 import com.dozycoffee.wms.stock_audit.domain.enumeration.StockAuditStatus
 import com.dozycoffee.wms.stock_audit.domain.model.StockAudit
 import com.dozycoffee.wms.stock_audit.fixture.StockAuditTestBuilder.Companion.stockAudit
@@ -22,6 +23,7 @@ import org.springframework.context.annotation.Import
 @DataR2dbcTest
 @Import(
     R2dbcConfig::class,
+    MockAccessScopeProvider::class,
     WarehousePersistenceAdapter::class,
     ZonePersistenceAdapter::class,
     StockAuditPersistenceAdapter::class

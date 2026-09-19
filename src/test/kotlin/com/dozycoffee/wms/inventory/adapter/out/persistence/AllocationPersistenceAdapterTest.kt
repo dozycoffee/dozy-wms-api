@@ -1,6 +1,7 @@
 package com.dozycoffee.wms.inventory.adapter.out.persistence
 
 import com.dozycoffee.wms.global.config.R2dbcConfig
+import com.dozycoffee.wms.global.security.MockAccessScopeProvider
 import com.dozycoffee.wms.inventory.domain.enumeration.AllocationReferenceType
 import com.dozycoffee.wms.inventory.domain.enumeration.AllocationStatus
 import com.dozycoffee.wms.inventory.domain.model.Allocation
@@ -34,6 +35,7 @@ import org.springframework.dao.DataIntegrityViolationException
 @DataR2dbcTest
 @Import(
     R2dbcConfig::class,
+    MockAccessScopeProvider::class,
     ProductPersistenceAdapter::class,
     LotPersistenceAdapter::class,
     InventoryPersistenceAdapter::class,
