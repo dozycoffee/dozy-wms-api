@@ -9,5 +9,5 @@ import kotlinx.coroutines.flow.Flow
  * 반환한다.
  */
 interface ZoneInventorySummaryRepository {
-    fun findAll(): Flow<ZoneInventorySummaryResult>
+    fun findAll(warehouseIds: List<Long>?): Flow<ZoneInventorySummaryResult>
 }

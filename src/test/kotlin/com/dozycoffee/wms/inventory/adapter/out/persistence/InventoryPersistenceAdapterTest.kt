@@ -88,6 +88,12 @@ class InventoryPersistenceAdapterTest {
     }
 
     private fun createLocation(): Long {
+        return createLocationInWarehouse().locationId
+    }
+
+    private data class CreatedLocation(val locationId: Long, val warehouseId: Long)
+
+    private fun createLocationInWarehouse(): CreatedLocation {
         val warehouseId: Long = requireNotNull(
             warehousePersistenceAdapter.save(warehouse().build()).map { requireNotNull(it.warehouseId) }.block()
         )
@@ -95,10 +101,11 @@ class InventoryPersistenceAdapterTest {
             zonePersistenceAdapter.save(zone().warehouseId(warehouseId).build())
                 .map { requireNotNull(it.zoneId) }.block()
         )
-        return requireNotNull(
+        val locationId: Long = requireNotNull(
             locationPersistenceAdapter.save(location().zoneId(zoneId).build())
                 .map { requireNotNull(it.locationId) }.block()
         )
+        return CreatedLocation(locationId, warehouseId)
     }
 
     @Test
@@ -155,7 +162,7 @@ class InventoryPersistenceAdapterTest {
             inventory().productId(productId).lotId(lotId).locationId(otherLocationId).build()
         )
 
-        val result = inventoryPersistenceAdapter.findAll(locationId, null, QualityStatus.NORMAL, null).toList()
+        val result = inventoryPersistenceAdapter.findAll(locationId, null, QualityStatus.NORMAL, null, null).toList()
 
         assertThat(result).hasSize(1)
         assertThat(result.first().inventoryId).isEqualTo(target.inventoryId)
@@ -173,7 +180,7 @@ class InventoryPersistenceAdapterTest {
             inventory().productId(productId).lotId(lotId).locationId(locationId).quantity(10).build()
         )
 
-        val result = inventoryPersistenceAdapter.findAll(null, productId, null, InventorySortBy.QUANTITY).toList()
+        val result = inventoryPersistenceAdapter.findAll(null, productId, null, InventorySortBy.QUANTITY, null).toList()
 
         assertThat(result.map { it.inventoryId }).containsExactly(smaller.inventoryId, larger.inventoryId)
     }
@@ -199,7 +206,7 @@ class InventoryPersistenceAdapterTest {
             inventory().productId(productId).lotId(nearLotId).locationId(locationId).build()
         )
 
-        val result = inventoryPersistenceAdapter.findAll(null, productId, null, InventorySortBy.EXPIRATION_DATE).toList()
+        val result = inventoryPersistenceAdapter.findAll(null, productId, null, InventorySortBy.EXPIRATION_DATE, null).toList()
 
         assertThat(result.map { it.inventoryId }).containsExactly(near.inventoryId, far.inventoryId)
     }
@@ -216,9 +223,48 @@ class InventoryPersistenceAdapterTest {
             inventory().productId(productId).lotId(lotId).locationId(locationId).build()
         )
 
-        val result = inventoryPersistenceAdapter.findAll(null, productId, null, InventorySortBy.INBOUND_DATE).toList()
+        val result = inventoryPersistenceAdapter.findAll(null, productId, null, InventorySortBy.INBOUND_DATE, null).toList()
 
         assertThat(result.map { it.inventoryId }).containsExactly(firstInbound.inventoryId, secondInbound.inventoryId)
+    }
+
+    @Test
+    fun `warehouseIds를 지정하면 해당 창고 소속 재고만 조회한다`() = runTest {
+        val locationInWarehouseA = createLocationInWarehouse()
+        val locationInWarehouseB = createLocationInWarehouse()
+        val productId = requireNotNull(productPersistenceAdapter.save(product().build()).productId)
+        val lotId = requireNotNull(lotPersistenceAdapter.save(lot().productId(productId).build()).lotId)
+        val target = inventoryPersistenceAdapter.save(
+            inventory().productId(productId).lotId(lotId).locationId(locationInWarehouseA.locationId).build()
+        )
+        inventoryPersistenceAdapter.save(
+            inventory().productId(productId).lotId(lotId).locationId(locationInWarehouseB.locationId).build()
+        )
+
+        val result = inventoryPersistenceAdapter
+            .findAll(null, null, null, null, listOf(locationInWarehouseA.warehouseId))
+            .toList()
+
+        assertThat(result).hasSize(1)
+        assertThat(result.first().inventoryId).isEqualTo(target.inventoryId)
+    }
+
+    @Test
+    fun `warehouseIds가 빈 리스트이면 전체 재고를 조회한다`() = runTest {
+        val locationInWarehouseA = createLocationInWarehouse()
+        val locationInWarehouseB = createLocationInWarehouse()
+        val productId = requireNotNull(productPersistenceAdapter.save(product().build()).productId)
+        val lotId = requireNotNull(lotPersistenceAdapter.save(lot().productId(productId).build()).lotId)
+        inventoryPersistenceAdapter.save(
+            inventory().productId(productId).lotId(lotId).locationId(locationInWarehouseA.locationId).build()
+        )
+        inventoryPersistenceAdapter.save(
+            inventory().productId(productId).lotId(lotId).locationId(locationInWarehouseB.locationId).build()
+        )
+
+        val result = inventoryPersistenceAdapter.findAll(null, null, null, null, emptyList()).toList()
+
+        assertThat(result).hasSize(2)
     }
 
     @Test

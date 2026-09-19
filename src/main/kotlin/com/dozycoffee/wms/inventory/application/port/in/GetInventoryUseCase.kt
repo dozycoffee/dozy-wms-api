@@ -14,6 +14,7 @@ interface GetInventoryUseCase {
         locationId: Long?,
         productId: Long?,
         qualityStatus: QualityStatus?,
-        sortBy: InventorySortBy?
+        sortBy: InventorySortBy?,
+        warehouseIds: List<Long>?
     ): Flow<InventoryResult>
 }

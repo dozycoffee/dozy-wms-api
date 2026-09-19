@@ -26,12 +26,22 @@ class ZoneInventorySummaryServiceTest {
 
     @Test
     fun `Zone별 재고 현황을 리포지토리로부터 그대로 반환한다`() = runTest {
-        val summary = ZoneInventorySummaryResult(1L, ZoneCode.A, 180, 90, mapOf(QualityStatus.NORMAL to 90))
-        whenever(zoneInventorySummaryRepository.findAll()).thenReturn(flowOf(summary))
+        val summary = ZoneInventorySummaryResult(1L, ZoneCode.A, 1L, 180, 90, mapOf(QualityStatus.NORMAL to 90))
+        whenever(zoneInventorySummaryRepository.findAll(null)).thenReturn(flowOf(summary))
 
-        val result = zoneInventorySummaryService.getAll().toList()
+        val result = zoneInventorySummaryService.getAll(null).toList()
 
         assertThat(result).hasSize(1)
         assertThat(result[0].usageRate).isEqualTo(0.5)
+    }
+
+    @Test
+    fun `warehouseIds가 주어지면 리포지토리에 그대로 전달한다`() = runTest {
+        val summary = ZoneInventorySummaryResult(1L, ZoneCode.A, 1L, 180, 90, mapOf(QualityStatus.NORMAL to 90))
+        whenever(zoneInventorySummaryRepository.findAll(listOf(1L, 2L))).thenReturn(flowOf(summary))
+
+        val result = zoneInventorySummaryService.getAll(listOf(1L, 2L)).toList()
+
+        assertThat(result).hasSize(1)
     }
 }

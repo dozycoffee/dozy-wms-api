@@ -7,6 +7,7 @@ import com.dozycoffee.wms.warehouse.domain.enumeration.ZoneCode
 data class ZoneInventorySummaryResponse(
     val zoneId: Long,
     val zoneCode: ZoneCode,
+    val warehouseId: Long,
     val maxCapacity: Int,
     val usedCapacity: Int,
     val usageRate: Double,
@@ -17,6 +18,7 @@ data class ZoneInventorySummaryResponse(
             return ZoneInventorySummaryResponse(
                 result.zoneId,
                 result.zoneCode,
+                result.warehouseId,
                 result.maxCapacity,
                 result.usedCapacity,
                 result.usageRate,

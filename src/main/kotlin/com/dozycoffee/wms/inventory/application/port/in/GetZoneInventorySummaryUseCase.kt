@@ -4,5 +4,5 @@ import com.dozycoffee.wms.inventory.application.port.`in`.result.ZoneInventorySu
 import kotlinx.coroutines.flow.Flow
 
 interface GetZoneInventorySummaryUseCase {
-    fun getAll(): Flow<ZoneInventorySummaryResult>
+    fun getAll(warehouseIds: List<Long>?): Flow<ZoneInventorySummaryResult>
 }

@@ -12,7 +12,8 @@ interface InventoryRepository {
         locationId: Long?,
         productId: Long?,
         qualityStatus: QualityStatus?,
-        sortBy: InventorySortBy?
+        sortBy: InventorySortBy?,
+        warehouseIds: List<Long>?
     ): Flow<Inventory>
 
     /** 유통기한 배치 스캔에서 만료된 Lot에 속한 재고를 찾기 위한 조회 */

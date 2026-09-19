@@ -13,7 +13,7 @@ class ZoneInventorySummaryService(
 ) : GetZoneInventorySummaryUseCase {
 
     @Transactional(readOnly = true)
-    override fun getAll(): Flow<ZoneInventorySummaryResult> {
-        return zoneInventorySummaryRepository.findAll()
+    override fun getAll(warehouseIds: List<Long>?): Flow<ZoneInventorySummaryResult> {
+        return zoneInventorySummaryRepository.findAll(warehouseIds)
     }
 }

@@ -76,9 +76,10 @@ class InventoryService(
         locationId: Long?,
         productId: Long?,
         qualityStatus: QualityStatus?,
-        sortBy: InventorySortBy?
+        sortBy: InventorySortBy?,
+        warehouseIds: List<Long>?
     ): Flow<InventoryResult> {
-        return inventoryRepository.findAll(locationId, productId, qualityStatus, sortBy)
+        return inventoryRepository.findAll(locationId, productId, qualityStatus, sortBy, warehouseIds)
             .map { InventoryResult.from(it) }
     }
 

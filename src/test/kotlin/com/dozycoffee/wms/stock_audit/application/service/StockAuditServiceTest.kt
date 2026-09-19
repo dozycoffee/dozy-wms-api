@@ -93,9 +93,9 @@ class StockAuditServiceTest {
             whenever(stockAuditRepository.save(any())).thenReturn(savedAudit)
             whenever(getLocationUseCase.getByZoneId(10L))
                 .thenReturn(Flux.just(locationResult(100L, 10L), locationResult(200L, 10L)))
-            whenever(getInventoryUseCase.getAll(100L, null, null, null))
+            whenever(getInventoryUseCase.getAll(100L, null, null, null, null))
                 .thenReturn(flowOf(inventoryResult(1L, 20, 100L)))
-            whenever(getInventoryUseCase.getAll(200L, null, null, null))
+            whenever(getInventoryUseCase.getAll(200L, null, null, null, null))
                 .thenReturn(flowOf(inventoryResult(2L, 15, 200L)))
             whenever(stockAuditItemRepository.save(any())).thenAnswer { it.getArgument(0) }
 
