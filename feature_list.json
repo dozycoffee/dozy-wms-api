@@ -11,7 +11,7 @@
   {"id": "F-010", "name": "AccessScope 소비 지점 교체 및 warehouseIds 교집합 검증", "description": "ADR-0010/0011 1단계 인증 작업 (Mock 기반)", "status": "completed", "dependencies": ["F-001", "F-004"]},
   {"id": "F-011", "name": "성능 인덱스 추가", "description": "inventory(product_id, quality_status), lot(expiration_date) 인덱스 (V22, V23)", "status": "completed", "dependencies": ["F-004"]},
   {"id": "F-012", "name": "작업 추적 파일 도입", "description": "feature_list.json, PROGRESS.md 도입", "status": "completed", "dependencies": []},
-  {"id": "F-013", "name": "RepositoryTest 레이어 도입", "description": "@DataR2dbcTest 기반 *RepositoryTest 인프라 구성 및 SQL 의존 로직 검증(FIFO 조회, 유통기한 스캔, Allocation 조건부 유니크, 마이그레이션 인덱스)", "status": "pending", "dependencies": ["F-004", "F-011"]},
+  {"id": "F-013", "name": "마이그레이션 인덱스 검증 테스트", "description": "V22/V23 인덱스(inventory(product_id, quality_status, deleted_at), lot(expiration_date))가 컬럼 순서대로 존재하는지 information_schema로 검증. 그 외 SQL 의존 로직은 기존 *PersistenceAdapterTest(@DataR2dbcTest)가 이미 커버", "status": "completed", "dependencies": ["F-011"]},
   {"id": "F-014", "name": "이벤트 전환 1단계", "description": "Inbound/ReturnRequest→Disposal, ExpirationMonitoringService→Inventory 직접 호출을 ApplicationEventPublisher + @TransactionalEventListener(AFTER_COMMIT)로 전환. 원자성 상실/유실 리스크 재검토 후 착수 (ADR-0011)", "status": "pending", "dependencies": ["F-013"]},
   {"id": "F-015", "name": "입고 검수 로직 보강", "description": "파손·유통기한·품질 상태 판단 로직 (business-rules-checklist ⚠️ 부분 구현)", "status": "pending", "dependencies": []},
   {"id": "F-016", "name": "MockAccessScopeProvider 빈 warehouseIds 의미 확인", "description": "빈 리스트가 전체 허용인지 전체 차단인지 교집합 검증과의 정합성 확인", "status": "pending", "dependencies": []},
