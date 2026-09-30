@@ -208,7 +208,7 @@ Tests are split by layer with no overlap:
 | `*EntityTest`     | none                                | none           | Pure domain logic / entity invariants |
 | `*ServiceTest`    | `@ExtendWith(MockitoExtension::class)` | none        | Service logic with mocked repository  |
 | `*ControllerTest` | `@WebFluxTest`                      | Slice          | API contract (WebTestClient)          |
-| `*RepositoryTest` | `@DataR2dbcTest`                    | Slice          | R2DBC queries against test DB         |
+| `*PersistenceAdapterTest` | `@DataR2dbcTest`         | Slice          | R2DBC queries against test DB         |
 
 **Test fixtures** live in `fixture/` packages under each domain's test folder — use `XxxTestBuilder` for entity builders
 and `XxxDtoBuilder` for DTO builders.
