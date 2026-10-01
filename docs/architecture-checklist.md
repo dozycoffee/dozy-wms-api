@@ -59,7 +59,7 @@
 
 - [ ] `Warehouse → Zone → Location` 계층 구조를 따른다
 - [ ] `WorkArea`는 Zone과 분리된, `Warehouse`에 직속된 온도 무관 공용 작업 구역으로 취급한다
-- [ ] Zone code는 `A`~`E`이며 D Zone만 `COLD`, 나머지는 `AMBIENT`다
+- [ ] Zone code는 `A`~`F`이며 D Zone만 `COLD`, 나머지는 `AMBIENT`다
 - [ ] Location code 형식은 `A-01`을 따른다
 - [ ] `usedCapacity`/`maxCapacity`는 적재/반출 즉시 갱신하고, DB `CHECK` 제약으로 초과를 이중 방지한다
 

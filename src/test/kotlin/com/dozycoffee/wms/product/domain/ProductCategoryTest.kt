@@ -13,7 +13,8 @@ class ProductCategoryTest {
         "SYRUP, B",
         "POWDER, C",
         "DAIRY, D",
-        "SUPPLY, E"
+        "SUPPLY, E",
+        "MD, F"
     )
     fun `카테고리는 창고 Zone 코드와 1대1로 매핑된다`(category: ProductCategory, expectedZoneCode: String) {
         assertThat(category.zoneCode).isEqualTo(expectedZoneCode)

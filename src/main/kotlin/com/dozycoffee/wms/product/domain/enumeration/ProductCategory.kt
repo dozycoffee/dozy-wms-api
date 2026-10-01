@@ -5,5 +5,6 @@ enum class ProductCategory(val zoneCode: String) {
     SYRUP("B"),
     POWDER("C"),
     DAIRY("D"),
-    SUPPLY("E")
+    SUPPLY("E"),
+    MD("F")
 }
