@@ -19,6 +19,11 @@ import com.dozycoffee.wms.stock_audit.domain.model.StockAuditItem
 import com.dozycoffee.wms.stock_audit.fixture.StockAuditItemTestBuilder.Companion.stockAuditItem
 import com.dozycoffee.wms.stock_audit.fixture.StockAuditTestBuilder.Companion.stockAudit
 import com.dozycoffee.wms.warehouse.application.port.`in`.GetLocationUseCase
+import com.dozycoffee.wms.warehouse.application.port.`in`.OccupyLocationUseCase
+import com.dozycoffee.wms.warehouse.application.port.`in`.ReleaseLocationUseCase
+import com.dozycoffee.wms.warehouse.application.port.`in`.command.OccupyLocationCommand
+import com.dozycoffee.wms.warehouse.application.port.`in`.command.ReleaseLocationCommand
+import com.dozycoffee.wms.warehouse.domain.exception.LocationCapacityExceededException
 import com.dozycoffee.wms.warehouse.application.port.`in`.result.LocationResult
 import com.dozycoffee.wms.warehouse.domain.enumeration.AvailabilityStatus
 import kotlinx.coroutines.flow.flowOf
@@ -37,6 +42,7 @@ import org.mockito.kotlin.argumentCaptor
 import org.mockito.kotlin.verify
 import org.mockito.kotlin.whenever
 import reactor.core.publisher.Flux
+import reactor.core.publisher.Mono
 import java.time.LocalDateTime
 
 @ExtendWith(MockitoExtension::class)
@@ -58,6 +64,12 @@ class StockAuditServiceTest {
     private lateinit var adjustInventoryQuantityUseCase: AdjustInventoryQuantityUseCase
 
     @Mock
+    private lateinit var occupyLocationUseCase: OccupyLocationUseCase
+
+    @Mock
+    private lateinit var releaseLocationUseCase: ReleaseLocationUseCase
+
+    @Mock
     private lateinit var inventoryHistoryRepository: InventoryHistoryRepository
 
     private lateinit var stockAuditService: StockAuditService
@@ -70,6 +82,8 @@ class StockAuditServiceTest {
             getLocationUseCase,
             getInventoryUseCase,
             adjustInventoryQuantityUseCase,
+            occupyLocationUseCase,
+            releaseLocationUseCase,
             inventoryHistoryRepository,
             ADJUSTMENT_APPROVAL_THRESHOLD
         )
@@ -199,6 +213,7 @@ class StockAuditServiceTest {
             whenever(stockAuditItemRepository.findAllByStockAuditId(1L)).thenReturn(flowOf(item))
             whenever(getInventoryUseCase.getById(50L)).thenReturn(inventoryResult(50L, 20, 100L))
             whenever(adjustInventoryQuantityUseCase.adjust(50L, 15, 10L)).thenReturn(inventoryResult(50L, 15, 100L))
+            whenever(releaseLocationUseCase.release(any())).thenReturn(Mono.just(locationResult(100L, 1L)))
             whenever(stockAuditRepository.save(any())).thenAnswer { it.getArgument(0) }
 
             val result = stockAuditService.close(1L, null)
@@ -206,6 +221,60 @@ class StockAuditServiceTest {
             assertThat(result.status).isEqualTo(StockAuditStatus.CLOSED)
             assertThat(result.approvedBy).isNull()
             verify(adjustInventoryQuantityUseCase).adjust(50L, 15, 10L)
+        }
+
+        @Test
+        fun `실측이 시스템 수량보다 적으면 부족분만큼 Location 사용량을 해제한다`() = runTest {
+            val existing: StockAudit = stockAudit().stockAuditId(1L).status(StockAuditStatus.COMPLETED).build()
+            val item: StockAuditItem =
+                stockAuditItem().stockAuditItemId(10L).stockAuditId(1L).inventoryId(50L).snapshotQuantity(20)
+                    .countedQuantity(15).build()
+            whenever(stockAuditRepository.findById(1L)).thenReturn(existing)
+            whenever(stockAuditItemRepository.findAllByStockAuditId(1L)).thenReturn(flowOf(item))
+            whenever(getInventoryUseCase.getById(50L)).thenReturn(inventoryResult(50L, 20, 100L))
+            whenever(adjustInventoryQuantityUseCase.adjust(50L, 15, 10L)).thenReturn(inventoryResult(50L, 15, 100L))
+            whenever(releaseLocationUseCase.release(any())).thenReturn(Mono.just(locationResult(100L, 1L)))
+            whenever(stockAuditRepository.save(any())).thenAnswer { it.getArgument(0) }
+
+            stockAuditService.close(1L, null)
+
+            verify(releaseLocationUseCase).release(ReleaseLocationCommand(100L, 5))
+            verify(occupyLocationUseCase, org.mockito.kotlin.never()).occupy(any())
+        }
+
+        @Test
+        fun `실측이 시스템 수량보다 많으면 초과분만큼 Location 사용량을 점유한다`() = runTest {
+            val existing: StockAudit = stockAudit().stockAuditId(1L).status(StockAuditStatus.COMPLETED).build()
+            val item: StockAuditItem =
+                stockAuditItem().stockAuditItemId(10L).stockAuditId(1L).inventoryId(50L).snapshotQuantity(20)
+                    .countedQuantity(24).build()
+            whenever(stockAuditRepository.findById(1L)).thenReturn(existing)
+            whenever(stockAuditItemRepository.findAllByStockAuditId(1L)).thenReturn(flowOf(item))
+            whenever(getInventoryUseCase.getById(50L)).thenReturn(inventoryResult(50L, 20, 100L))
+            whenever(adjustInventoryQuantityUseCase.adjust(50L, 24, 10L)).thenReturn(inventoryResult(50L, 24, 100L))
+            whenever(occupyLocationUseCase.occupy(any())).thenReturn(Mono.just(locationResult(100L, 1L)))
+            whenever(stockAuditRepository.save(any())).thenAnswer { it.getArgument(0) }
+
+            stockAuditService.close(1L, null)
+
+            verify(occupyLocationUseCase).occupy(OccupyLocationCommand(100L, 4))
+            verify(releaseLocationUseCase, org.mockito.kotlin.never()).release(any())
+        }
+
+        @Test
+        fun `초과분이 Location 최대 용량을 넘으면 예외가 전파된다`() = runTest {
+            val existing: StockAudit = stockAudit().stockAuditId(1L).status(StockAuditStatus.COMPLETED).build()
+            val item: StockAuditItem =
+                stockAuditItem().stockAuditItemId(10L).stockAuditId(1L).inventoryId(50L).snapshotQuantity(20)
+                    .countedQuantity(24).build()
+            whenever(stockAuditRepository.findById(1L)).thenReturn(existing)
+            whenever(stockAuditItemRepository.findAllByStockAuditId(1L)).thenReturn(flowOf(item))
+            whenever(getInventoryUseCase.getById(50L)).thenReturn(inventoryResult(50L, 20, 100L))
+            whenever(adjustInventoryQuantityUseCase.adjust(50L, 24, 10L)).thenReturn(inventoryResult(50L, 24, 100L))
+            whenever(occupyLocationUseCase.occupy(any())).thenReturn(Mono.error(LocationCapacityExceededException()))
+
+            assertThatThrownBy { runBlocking { stockAuditService.close(1L, null) } }
+                .isInstanceOf(LocationCapacityExceededException::class.java)
         }
 
         @Test
@@ -222,6 +291,8 @@ class StockAuditServiceTest {
             stockAuditService.close(1L, null)
 
             verify(adjustInventoryQuantityUseCase, org.mockito.kotlin.never()).adjust(any(), any(), any())
+            verify(occupyLocationUseCase, org.mockito.kotlin.never()).occupy(any())
+            verify(releaseLocationUseCase, org.mockito.kotlin.never()).release(any())
         }
 
         @Test
@@ -249,6 +320,7 @@ class StockAuditServiceTest {
             whenever(stockAuditItemRepository.findAllByStockAuditId(1L)).thenReturn(flowOf(item))
             whenever(getInventoryUseCase.getById(50L)).thenReturn(inventoryResult(50L, 30, 100L))
             whenever(adjustInventoryQuantityUseCase.adjust(50L, 15, 10L)).thenReturn(inventoryResult(50L, 15, 100L))
+            whenever(releaseLocationUseCase.release(any())).thenReturn(Mono.just(locationResult(100L, 1L)))
             whenever(stockAuditRepository.save(any())).thenAnswer { it.getArgument(0) }
 
             val result = stockAuditService.close(1L, "관리자A")
