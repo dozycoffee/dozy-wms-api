@@ -13,10 +13,11 @@ class LocalActorProvider : CurrentActorProvider {
 
     override suspend fun get(): Actor {
         ReactiveSecurityContextHolder.getContext().awaitSingleOrNull() ?: return SystemActor
-        return UserActor(LOCAL_PRINCIPAL_ID, emptySet())
+        return UserActor(LOCAL_PRINCIPAL_ID, LOCAL_ROLES.map { it.code }.toSet())
     }
 
     companion object {
         val LOCAL_PRINCIPAL_ID: UUID = UUID.fromString("00000000-0000-7000-8000-000000000001")
+        val LOCAL_ROLES: List<WmsRole> = WmsRole.entries
     }
 }

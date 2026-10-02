@@ -7,11 +7,13 @@ import com.dozycoffee.wms.inbound.application.port.`in`.CompleteInboundUseCase
 import com.dozycoffee.wms.inbound.application.port.`in`.GetInboundUseCase
 import com.dozycoffee.wms.inbound.application.port.`in`.RegisterInboundUseCase
 import com.dozycoffee.wms.inbound.application.port.`in`.StartInboundProcessingUseCase
+import com.dozycoffee.wms.global.security.WmsAuthorize
 import com.dozycoffee.wms.inbound.domain.enumeration.InboundStatus
 import jakarta.validation.Valid
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 import org.springframework.http.HttpStatus
+import org.springframework.security.access.prepost.PreAuthorize
 import org.springframework.web.bind.annotation.GetMapping
 import org.springframework.web.bind.annotation.PathVariable
 import org.springframework.web.bind.annotation.PatchMapping
@@ -32,27 +34,32 @@ class InboundController(
 ) {
 
     @PostMapping
+    @PreAuthorize(WmsAuthorize.INBOUND)
     @ResponseStatus(HttpStatus.CREATED)
     suspend fun register(@Valid @RequestBody request: RegisterInboundRequest): InboundResponse {
         return InboundResponse.from(registerInboundUseCase.register(request.toCommand()))
     }
 
     @GetMapping("/{inboundId}")
+    @PreAuthorize(WmsAuthorize.READ)
     suspend fun getById(@PathVariable inboundId: Long): InboundResponse {
         return InboundResponse.from(getInboundUseCase.getById(inboundId))
     }
 
     @GetMapping
+    @PreAuthorize(WmsAuthorize.READ)
     fun getAll(@RequestParam(required = false) status: InboundStatus?): Flow<InboundResponse> {
         return getInboundUseCase.getAll(status).map { InboundResponse.from(it) }
     }
 
     @PatchMapping("/{inboundId}/processing")
+    @PreAuthorize(WmsAuthorize.INBOUND)
     suspend fun startProcessing(@PathVariable inboundId: Long): InboundResponse {
         return InboundResponse.from(startInboundProcessingUseCase.startProcessing(inboundId))
     }
 
     @PatchMapping("/{inboundId}/complete")
+    @PreAuthorize(WmsAuthorize.INBOUND)
     suspend fun complete(
         @PathVariable inboundId: Long,
         @Valid @RequestBody request: CompleteInboundRequest

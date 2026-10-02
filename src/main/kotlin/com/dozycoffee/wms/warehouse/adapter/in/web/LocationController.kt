@@ -1,5 +1,6 @@
 package com.dozycoffee.wms.warehouse.adapter.`in`.web
 
+import com.dozycoffee.wms.global.security.WmsAuthorize
 import com.dozycoffee.wms.warehouse.adapter.`in`.web.request.AmountRequest
 import com.dozycoffee.wms.warehouse.adapter.`in`.web.request.RegisterLocationRequest
 import com.dozycoffee.wms.warehouse.adapter.`in`.web.response.LocationResponse
@@ -11,6 +12,7 @@ import com.dozycoffee.wms.warehouse.application.port.`in`.command.OccupyLocation
 import com.dozycoffee.wms.warehouse.application.port.`in`.command.ReleaseLocationCommand
 import jakarta.validation.Valid
 import org.springframework.http.HttpStatus
+import org.springframework.security.access.prepost.PreAuthorize
 import org.springframework.web.bind.annotation.GetMapping
 import org.springframework.web.bind.annotation.PatchMapping
 import org.springframework.web.bind.annotation.PathVariable
@@ -30,28 +32,33 @@ class LocationController(
 ) {
 
     @PostMapping("/api/zones/{zoneId}/locations")
+    @PreAuthorize(WmsAuthorize.ADMIN)
     @ResponseStatus(HttpStatus.CREATED)
     fun register(@PathVariable zoneId: Long, @Valid @RequestBody request: RegisterLocationRequest): Mono<LocationResponse> {
         return registerLocationUseCase.register(request.toCommand(zoneId)).map { LocationResponse.from(it) }
     }
 
     @GetMapping("/api/locations/{locationId}")
+    @PreAuthorize(WmsAuthorize.READ)
     fun getById(@PathVariable locationId: Long): Mono<LocationResponse> {
         return getLocationUseCase.getById(locationId).map { LocationResponse.from(it) }
     }
 
     @GetMapping("/api/zones/{zoneId}/locations")
+    @PreAuthorize(WmsAuthorize.READ)
     fun getByZoneId(@PathVariable zoneId: Long): Flux<LocationResponse> {
         return getLocationUseCase.getByZoneId(zoneId).map { LocationResponse.from(it) }
     }
 
     @PatchMapping("/api/locations/{locationId}/occupy")
+    @PreAuthorize(WmsAuthorize.ADMIN)
     fun occupy(@PathVariable locationId: Long, @Valid @RequestBody request: AmountRequest): Mono<LocationResponse> {
         return occupyLocationUseCase.occupy(OccupyLocationCommand(locationId, request.amount))
             .map { LocationResponse.from(it) }
     }
 
     @PatchMapping("/api/locations/{locationId}/release")
+    @PreAuthorize(WmsAuthorize.ADMIN)
     fun release(@PathVariable locationId: Long, @Valid @RequestBody request: AmountRequest): Mono<LocationResponse> {
         return releaseLocationUseCase.release(ReleaseLocationCommand(locationId, request.amount))
             .map { LocationResponse.from(it) }

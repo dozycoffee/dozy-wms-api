@@ -26,7 +26,7 @@ import org.springframework.test.web.reactive.server.WebTestClient
 import java.time.LocalDate
 import java.time.LocalDateTime
 
-@WithDozyPrincipal
+@WithDozyPrincipal(roles = ["wms:warehouse_admin"])
 @WebFluxTest(LotController::class)
 class LotControllerTest {
 

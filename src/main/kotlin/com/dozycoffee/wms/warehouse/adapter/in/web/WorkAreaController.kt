@@ -1,5 +1,6 @@
 package com.dozycoffee.wms.warehouse.adapter.`in`.web
 
+import com.dozycoffee.wms.global.security.WmsAuthorize
 import com.dozycoffee.wms.warehouse.adapter.`in`.web.request.AmountRequest
 import com.dozycoffee.wms.warehouse.adapter.`in`.web.request.RegisterWorkAreaRequest
 import com.dozycoffee.wms.warehouse.adapter.`in`.web.response.WorkAreaResponse
@@ -12,6 +13,7 @@ import com.dozycoffee.wms.warehouse.application.port.`in`.command.ReleaseWorkAre
 import com.dozycoffee.wms.warehouse.domain.enumeration.AreaCode
 import jakarta.validation.Valid
 import org.springframework.http.HttpStatus
+import org.springframework.security.access.prepost.PreAuthorize
 import org.springframework.web.bind.annotation.GetMapping
 import org.springframework.web.bind.annotation.PatchMapping
 import org.springframework.web.bind.annotation.PathVariable
@@ -30,6 +32,7 @@ class WorkAreaController(
 ) {
 
     @PostMapping("/api/warehouses/{warehouseId}/work-areas")
+    @PreAuthorize(WmsAuthorize.ADMIN)
     @ResponseStatus(HttpStatus.CREATED)
     fun register(
         @PathVariable warehouseId: Long,
@@ -39,11 +42,13 @@ class WorkAreaController(
     }
 
     @GetMapping("/api/work-areas/{workAreaId}")
+    @PreAuthorize(WmsAuthorize.READ)
     fun getById(@PathVariable workAreaId: Long): Mono<WorkAreaResponse> {
         return getWorkAreaUseCase.getById(workAreaId).map { WorkAreaResponse.from(it) }
     }
 
     @GetMapping("/api/warehouses/{warehouseId}/work-areas/{areaCode}")
+    @PreAuthorize(WmsAuthorize.READ)
     fun getByWarehouseIdAndAreaCode(
         @PathVariable warehouseId: Long,
         @PathVariable areaCode: AreaCode
@@ -52,12 +57,14 @@ class WorkAreaController(
     }
 
     @PatchMapping("/api/work-areas/{workAreaId}/occupy")
+    @PreAuthorize(WmsAuthorize.ADMIN)
     fun occupy(@PathVariable workAreaId: Long, @Valid @RequestBody request: AmountRequest): Mono<WorkAreaResponse> {
         return occupyWorkAreaUseCase.occupy(OccupyWorkAreaCommand(workAreaId, request.amount))
             .map { WorkAreaResponse.from(it) }
     }
 
     @PatchMapping("/api/work-areas/{workAreaId}/release")
+    @PreAuthorize(WmsAuthorize.ADMIN)
     fun release(@PathVariable workAreaId: Long, @Valid @RequestBody request: AmountRequest): Mono<WorkAreaResponse> {
         return releaseWorkAreaUseCase.release(ReleaseWorkAreaCommand(workAreaId, request.amount))
             .map { WorkAreaResponse.from(it) }

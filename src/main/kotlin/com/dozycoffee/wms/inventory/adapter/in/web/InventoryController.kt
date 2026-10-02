@@ -1,5 +1,6 @@
 package com.dozycoffee.wms.inventory.adapter.`in`.web
 
+import com.dozycoffee.wms.global.security.WmsAuthorize
 import com.dozycoffee.wms.inventory.adapter.`in`.web.request.RegisterInventoryRequest
 import com.dozycoffee.wms.inventory.adapter.`in`.web.response.InventoryDetailResponse
 import com.dozycoffee.wms.inventory.adapter.`in`.web.response.InventoryResponse
@@ -15,6 +16,7 @@ import jakarta.validation.Valid
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 import org.springframework.http.HttpStatus
+import org.springframework.security.access.prepost.PreAuthorize
 import org.springframework.web.bind.annotation.GetMapping
 import org.springframework.web.bind.annotation.PatchMapping
 import org.springframework.web.bind.annotation.PathVariable
@@ -36,12 +38,14 @@ class InventoryController(
 ) {
 
     @PostMapping
+    @PreAuthorize(WmsAuthorize.ADMIN)
     @ResponseStatus(HttpStatus.CREATED)
     suspend fun register(@Valid @RequestBody request: RegisterInventoryRequest): InventoryResponse {
         return InventoryResponse.from(registerInventoryUseCase.register(request.toCommand()))
     }
 
     @GetMapping("/zone-summary")
+    @PreAuthorize(WmsAuthorize.READ)
     fun getZoneSummary(
         @RequestParam(required = false) warehouseIds: List<Long>?
     ): Flow<ZoneInventorySummaryResponse> {
@@ -49,11 +53,13 @@ class InventoryController(
     }
 
     @GetMapping("/{inventoryId}")
+    @PreAuthorize(WmsAuthorize.READ)
     suspend fun getById(@PathVariable inventoryId: Long): InventoryDetailResponse {
         return InventoryDetailResponse.from(getInventoryUseCase.getDetailById(inventoryId))
     }
 
     @GetMapping
+    @PreAuthorize(WmsAuthorize.READ)
     fun getAll(
         @RequestParam(required = false) locationId: Long?,
         @RequestParam(required = false) productId: Long?,
@@ -66,11 +72,13 @@ class InventoryController(
     }
 
     @PatchMapping("/{inventoryId}/mark-defective")
+    @PreAuthorize(WmsAuthorize.ADMIN)
     suspend fun markDefective(@PathVariable inventoryId: Long): InventoryResponse {
         return InventoryResponse.from(markInventoryDefectiveUseCase.markDefective(inventoryId))
     }
 
     @PatchMapping("/{inventoryId}/mark-disposal-scheduled")
+    @PreAuthorize(WmsAuthorize.ADMIN)
     suspend fun markDisposalScheduled(@PathVariable inventoryId: Long): InventoryResponse {
         return InventoryResponse.from(markInventoryDisposalScheduledUseCase.markDisposalScheduled(inventoryId))
     }

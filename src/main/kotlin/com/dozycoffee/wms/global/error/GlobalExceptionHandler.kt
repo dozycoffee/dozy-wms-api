@@ -3,6 +3,8 @@ package com.dozycoffee.wms.global.error
 import org.slf4j.LoggerFactory
 import org.springframework.http.HttpStatus
 import org.springframework.http.ResponseEntity
+import org.springframework.security.access.AccessDeniedException
+import org.springframework.security.core.AuthenticationException
 import org.springframework.web.bind.annotation.ExceptionHandler
 import org.springframework.web.bind.annotation.RestControllerAdvice
 import org.springframework.web.bind.support.WebExchangeBindException
@@ -26,6 +28,12 @@ class GlobalExceptionHandler {
         }
         return ResponseEntity.badRequest()
             .body(ErrorResponseDto(CommonErrorCode.INVALID_INPUT.code, message, LocalDateTime.now()))
+    }
+
+    /** 보안 예외는 Security 필터 체인의 401/403 핸들러가 응답하도록 그대로 전파한다 */
+    @ExceptionHandler(AccessDeniedException::class, AuthenticationException::class)
+    fun handleSecurityException(e: RuntimeException) {
+        throw e
     }
 
     @ExceptionHandler(Exception::class)

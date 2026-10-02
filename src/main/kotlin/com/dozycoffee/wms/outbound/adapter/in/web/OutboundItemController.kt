@@ -1,9 +1,11 @@
 package com.dozycoffee.wms.outbound.adapter.`in`.web
 
+import com.dozycoffee.wms.global.security.WmsAuthorize
 import com.dozycoffee.wms.outbound.adapter.`in`.web.response.OutboundItemResponse
 import com.dozycoffee.wms.outbound.application.port.`in`.GetOutboundItemUseCase
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
+import org.springframework.security.access.prepost.PreAuthorize
 import org.springframework.web.bind.annotation.GetMapping
 import org.springframework.web.bind.annotation.RequestMapping
 import org.springframework.web.bind.annotation.RequestParam
@@ -16,6 +18,7 @@ class OutboundItemController(
 ) {
 
     @GetMapping
+    @PreAuthorize(WmsAuthorize.READ)
     fun getAllByOutbound(@RequestParam outboundId: Long): Flow<OutboundItemResponse> {
         return getOutboundItemUseCase.getAllByOutbound(outboundId).map { OutboundItemResponse.from(it) }
     }

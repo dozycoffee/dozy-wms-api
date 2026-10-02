@@ -8,6 +8,7 @@ import org.springframework.core.convert.converter.Converter
 import org.springframework.security.authentication.AbstractAuthenticationToken
 import org.springframework.security.config.web.server.ServerHttpSecurity
 import org.springframework.security.config.web.server.invoke
+import org.springframework.security.core.authority.SimpleGrantedAuthority
 import org.springframework.security.oauth2.jwt.Jwt
 import org.springframework.security.oauth2.jwt.ReactiveJwtDecoder
 import org.springframework.security.web.server.SecurityWebFilterChain
@@ -59,7 +60,7 @@ class SecurityConfig {
             logout { disable() }
         }
 
-    /** 로컬 개발 전용. Auth의 로그인·개발용 토큰 API가 준비되기 전까지 토큰 없이 호출할 수 있게 한다 */
+    /** 로컬 개발 전용. Auth의 로그인·개발용 토큰 API가 준비되기 전까지 토큰 없이, 모든 role을 가진 개발 사용자로 호출할 수 있게 한다 */
     @Bean
     @Profile("local")
     fun localSecurityWebFilterChain(
@@ -69,6 +70,10 @@ class SecurityConfig {
         http {
             cors { configurationSource = corsConfigurationSource }
             authorizeExchange { authorize(anyExchange, permitAll) }
+            anonymous {
+                principal = LocalActorProvider.LOCAL_PRINCIPAL_ID
+                authorities = LocalActorProvider.LOCAL_ROLES.map { SimpleGrantedAuthority("ROLE_${it.code}") }
+            }
             securityContextRepository = NoOpServerSecurityContextRepository.getInstance()
             csrf { disable() }
             httpBasic { disable() }

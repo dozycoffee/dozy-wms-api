@@ -1,5 +1,6 @@
 package com.dozycoffee.wms.warehouse.adapter.`in`.web
 
+import com.dozycoffee.wms.global.security.WmsAuthorize
 import com.dozycoffee.wms.warehouse.adapter.`in`.web.request.RegisterWarehouseRequest
 import com.dozycoffee.wms.warehouse.adapter.`in`.web.response.WarehouseResponse
 import com.dozycoffee.wms.warehouse.application.port.`in`.ActivateWarehouseUseCase
@@ -8,6 +9,7 @@ import com.dozycoffee.wms.warehouse.application.port.`in`.GetWarehouseUseCase
 import com.dozycoffee.wms.warehouse.application.port.`in`.RegisterWarehouseUseCase
 import jakarta.validation.Valid
 import org.springframework.http.HttpStatus
+import org.springframework.security.access.prepost.PreAuthorize
 import org.springframework.web.bind.annotation.GetMapping
 import org.springframework.web.bind.annotation.PatchMapping
 import org.springframework.web.bind.annotation.PathVariable
@@ -28,22 +30,26 @@ class WarehouseController(
 ) {
 
     @PostMapping
+    @PreAuthorize(WmsAuthorize.ADMIN)
     @ResponseStatus(HttpStatus.CREATED)
     fun register(@Valid @RequestBody request: RegisterWarehouseRequest): Mono<WarehouseResponse> {
         return registerWarehouseUseCase.register(request.toCommand()).map { WarehouseResponse.from(it) }
     }
 
     @GetMapping("/{warehouseId}")
+    @PreAuthorize(WmsAuthorize.READ)
     fun getById(@PathVariable warehouseId: Long): Mono<WarehouseResponse> {
         return getWarehouseUseCase.getById(warehouseId).map { WarehouseResponse.from(it) }
     }
 
     @PatchMapping("/{warehouseId}/activate")
+    @PreAuthorize(WmsAuthorize.ADMIN)
     fun activate(@PathVariable warehouseId: Long): Mono<WarehouseResponse> {
         return activateWarehouseUseCase.activate(warehouseId).map { WarehouseResponse.from(it) }
     }
 
     @PatchMapping("/{warehouseId}/deactivate")
+    @PreAuthorize(WmsAuthorize.ADMIN)
     fun deactivate(@PathVariable warehouseId: Long): Mono<WarehouseResponse> {
         return deactivateWarehouseUseCase.deactivate(warehouseId).map { WarehouseResponse.from(it) }
     }

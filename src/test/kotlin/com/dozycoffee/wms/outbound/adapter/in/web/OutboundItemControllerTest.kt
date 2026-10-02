@@ -12,7 +12,7 @@ import org.springframework.boot.webflux.test.autoconfigure.WebFluxTest
 import org.springframework.test.context.bean.override.mockito.MockitoBean
 import org.springframework.test.web.reactive.server.WebTestClient
 
-@WithDozyPrincipal
+@WithDozyPrincipal(roles = ["wms:outbound_manager"])
 @WebFluxTest(OutboundItemController::class)
 class OutboundItemControllerTest {
 

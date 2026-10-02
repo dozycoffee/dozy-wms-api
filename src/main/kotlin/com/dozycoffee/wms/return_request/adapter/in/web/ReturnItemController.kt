@@ -1,5 +1,6 @@
 package com.dozycoffee.wms.return_request.adapter.`in`.web
 
+import com.dozycoffee.wms.global.security.WmsAuthorize
 import com.dozycoffee.wms.return_request.adapter.`in`.web.request.InspectReturnItemRequest
 import com.dozycoffee.wms.return_request.adapter.`in`.web.response.ReturnItemResponse
 import com.dozycoffee.wms.return_request.application.port.`in`.GetReturnItemUseCase
@@ -7,6 +8,7 @@ import com.dozycoffee.wms.return_request.application.port.`in`.InspectReturnItem
 import jakarta.validation.Valid
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
+import org.springframework.security.access.prepost.PreAuthorize
 import org.springframework.web.bind.annotation.GetMapping
 import org.springframework.web.bind.annotation.PatchMapping
 import org.springframework.web.bind.annotation.PathVariable
@@ -23,11 +25,13 @@ class ReturnItemController(
 ) {
 
     @GetMapping
+    @PreAuthorize(WmsAuthorize.READ)
     fun getAllByReturnRequest(@RequestParam returnRequestId: Long): Flow<ReturnItemResponse> {
         return getReturnItemUseCase.getAllByReturnRequest(returnRequestId).map { ReturnItemResponse.from(it) }
     }
 
     @PatchMapping("/{returnItemId}/inspect")
+    @PreAuthorize(WmsAuthorize.RETURN)
     suspend fun inspect(
         @PathVariable returnItemId: Long,
         @Valid @RequestBody request: InspectReturnItemRequest
