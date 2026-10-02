@@ -1,7 +1,7 @@
 # ADR-0010: 인증/인가를 위한 CurrentAccessScopeProvider 포트 도입
 
 ## 상태
-Accepted
+Superseded by [ADR-0012](0012-dozy-auth-integration.md)
 
 ## 배경 (Context)
 
