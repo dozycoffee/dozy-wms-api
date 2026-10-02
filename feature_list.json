@@ -17,5 +17,7 @@
   {"id": "F-016", "name": "MockAccessScopeProvider 빈 warehouseIds 의미 확인", "description": "빈 리스트가 전체 허용인지 전체 차단인지 교집합 검증과의 정합성 확인", "status": "pending", "dependencies": []},
   {"id": "F-017", "name": "JWKS 기반 Resource Server 도입", "description": "oauth2-resource-server, Spring Profile, 401 WebExceptionHandler, auditorAware Reactor Context 전파. 인증 서비스 JWKS 준비 후 착수 (ADR-0011)", "status": "pending", "dependencies": ["F-010"]},
   {"id": "F-018", "name": "아웃박스 패턴 및 브로커 연동", "description": "outbox_event 폴링 릴레이, Kafka 등 연동. 서비스 분리 구체화 후 별도 ADR (ADR-0011)", "status": "pending", "dependencies": ["F-014"]},
-  {"id": "F-019", "name": "Redis 캐시 도입", "description": "Product/common_code/Warehouse·Zone·WorkArea 정적 구조에 한정. 재고 수량·usedCapacity는 캐싱 금지 (ADR-0011)", "status": "pending", "dependencies": []}
+  {"id": "F-019", "name": "Redis 캐시 도입", "description": "Product/common_code/Warehouse·Zone·WorkArea 정적 구조에 한정. 재고 수량·usedCapacity는 캐싱 금지 (ADR-0011)", "status": "pending", "dependencies": []},
+  {"id": "F-020", "name": "재고 실사 조정 시 Location 사용량 동기화", "description": "StockAuditService.close()가 조정량만큼 Location usedCapacity를 occupy/release하도록 수정. 이전에는 Inventory 수량만 교정해 Location 사용량과 재고 합계가 어긋났음", "status": "completed", "dependencies": ["F-009"]},
+  {"id": "F-021", "name": "개발용 목 데이터 시더", "description": "@Profile(dev) + wms.dev-seed.enabled Kotlin Seeder(UseCase 호출). 5,000 기준 창고 구성, 상품 20행, 도메인별 상태 분포, 정합성 검증 테스트", "status": "completed", "dependencies": ["F-020"]}
 ]
