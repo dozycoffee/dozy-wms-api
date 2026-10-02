@@ -1,8 +1,11 @@
 package com.dozycoffee.wms.inventory.application.service
 
 import com.dozycoffee.wms.inventory.application.port.`in`.command.RegisterInventoryCommand
-import com.dozycoffee.wms.global.security.AccessScope
-import com.dozycoffee.wms.global.security.CurrentAccessScopeProvider
+import com.dozycoffee.wms.global.security.AllWarehouses
+import com.dozycoffee.wms.global.security.CurrentActorProvider
+import com.dozycoffee.wms.global.security.CurrentWarehouseAccessProvider
+import com.dozycoffee.wms.global.security.OnlyWarehouses
+import com.dozycoffee.wms.global.security.UserActor
 import com.dozycoffee.wms.inventory.application.port.out.InventoryHistoryRepository
 import com.dozycoffee.wms.inventory.application.port.out.InventoryRepository
 import com.dozycoffee.wms.inventory.application.port.out.LotRepository
@@ -34,6 +37,7 @@ import org.mockito.kotlin.never
 import org.mockito.kotlin.verify
 import org.mockito.kotlin.whenever
 import java.time.LocalDate
+import java.util.UUID
 
 @ExtendWith(MockitoExtension::class)
 class InventoryServiceTest {
@@ -48,7 +52,10 @@ class InventoryServiceTest {
     private lateinit var inventoryHistoryRepository: InventoryHistoryRepository
 
     @Mock
-    private lateinit var currentAccessScopeProvider: CurrentAccessScopeProvider
+    private lateinit var currentActorProvider: CurrentActorProvider
+
+    @Mock
+    private lateinit var currentWarehouseAccessProvider: CurrentWarehouseAccessProvider
 
     @InjectMocks
     private lateinit var inventoryService: InventoryService
@@ -148,7 +155,7 @@ class InventoryServiceTest {
         @Test
         fun `필터 없이 조회하면 전체 재고 목록을 반환한다`() = runTest {
             val found: List<Inventory> = listOf(inventory().inventoryId(1L).build(), inventory().inventoryId(2L).build())
-            whenever(currentAccessScopeProvider.get()).thenReturn(AccessScope(userId = "tester"))
+            whenever(currentWarehouseAccessProvider.current()).thenReturn(AllWarehouses)
             whenever(inventoryRepository.findAll(null, null, null, null, null)).thenReturn(flowOf(*found.toTypedArray()))
 
             val result = inventoryService.getAll(
@@ -165,7 +172,7 @@ class InventoryServiceTest {
         @Test
         fun `정렬 기준을 지정하면 그대로 리포지토리에 전달한다`() = runTest {
             val found: Inventory = inventory().inventoryId(1L).build()
-            whenever(currentAccessScopeProvider.get()).thenReturn(AccessScope(userId = "tester"))
+            whenever(currentWarehouseAccessProvider.current()).thenReturn(AllWarehouses)
             whenever(inventoryRepository.findAll(null, null, null, InventorySortBy.EXPIRATION_DATE, null))
                 .thenReturn(flowOf(found))
 
@@ -176,9 +183,9 @@ class InventoryServiceTest {
         }
 
         @Test
-        fun `스코프에 제한이 없으면 요청한 warehouseIds를 그대로 리포지토리에 전달한다`() = runTest {
+        fun `접근 범위가 전체면 요청한 warehouseIds를 그대로 리포지토리에 전달한다`() = runTest {
             val found: Inventory = inventory().inventoryId(1L).build()
-            whenever(currentAccessScopeProvider.get()).thenReturn(AccessScope(userId = "tester"))
+            whenever(currentWarehouseAccessProvider.current()).thenReturn(AllWarehouses)
             whenever(inventoryRepository.findAll(null, null, null, null, listOf(1L, 2L)))
                 .thenReturn(flowOf(found))
 
@@ -188,9 +195,9 @@ class InventoryServiceTest {
         }
 
         @Test
-        fun `스코프가 제한적이면 요청한 warehouseIds와의 교집합만 리포지토리에 전달한다`() = runTest {
+        fun `접근 범위가 제한적이면 요청한 warehouseIds와의 교집합만 리포지토리에 전달한다`() = runTest {
             val found: Inventory = inventory().inventoryId(1L).build()
-            whenever(currentAccessScopeProvider.get()).thenReturn(AccessScope(userId = "tester", warehouseIds = listOf(2L, 3L)))
+            whenever(currentWarehouseAccessProvider.current()).thenReturn(OnlyWarehouses(setOf(2L, 3L)))
             whenever(inventoryRepository.findAll(null, null, null, null, listOf(2L)))
                 .thenReturn(flowOf(found))
 
@@ -200,8 +207,8 @@ class InventoryServiceTest {
         }
 
         @Test
-        fun `요청한 warehouseIds가 스코프와 전혀 겹치지 않으면 리포지토리를 조회하지 않고 빈 목록을 반환한다`() = runTest {
-            whenever(currentAccessScopeProvider.get()).thenReturn(AccessScope(userId = "tester", warehouseIds = listOf(2L)))
+        fun `요청한 warehouseIds가 접근 범위와 전혀 겹치지 않으면 리포지토리를 조회하지 않고 빈 목록을 반환한다`() = runTest {
+            whenever(currentWarehouseAccessProvider.current()).thenReturn(OnlyWarehouses(setOf(2L)))
 
             val result = inventoryService.getAll(null, null, null, null, listOf(1L)).toList()
 
@@ -258,13 +265,14 @@ class InventoryServiceTest {
             whenever(inventoryRepository.findById(1L)).thenReturn(found)
             whenever(inventoryRepository.save(any())).thenAnswer { it.getArgument(0) }
             whenever(inventoryHistoryRepository.save(any())).thenAnswer { it.getArgument(0) }
-            whenever(currentAccessScopeProvider.get()).thenReturn(AccessScope(userId = "tester"))
+            whenever(currentActorProvider.get()).thenReturn(UserActor(DELETER_ID, setOf("inbound_manager")))
 
             inventoryService.confirmDisposal(1L, 200L)
 
             val captor = argumentCaptor<Inventory>()
             verify(inventoryRepository).save(captor.capture())
             assertThat(captor.firstValue.isDeleted()).isTrue()
+            assertThat(captor.firstValue.deletedBy).isEqualTo(DELETER_ID.toString())
 
             val historyCaptor = argumentCaptor<InventoryHistory>()
             verify(inventoryHistoryRepository).save(historyCaptor.capture())
@@ -352,5 +360,9 @@ class InventoryServiceTest {
 
             assertThat(result).hasSize(2)
         }
+    }
+
+    companion object {
+        private val DELETER_ID: UUID = UUID.fromString("0199a3c4-7b2e-7c1a-9f3d-2b6e8a1c4d5f")
     }
 }

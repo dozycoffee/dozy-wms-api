@@ -1,6 +1,6 @@
 package com.dozycoffee.wms.global.config
 
-import com.dozycoffee.wms.global.security.CurrentAccessScopeProvider
+import com.dozycoffee.wms.global.security.CurrentActorProvider
 import kotlinx.coroutines.reactor.mono
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
@@ -10,10 +10,10 @@ import org.springframework.data.r2dbc.config.EnableR2dbcAuditing
 @Configuration
 @EnableR2dbcAuditing
 class R2dbcConfig(
-    private val currentAccessScopeProvider: CurrentAccessScopeProvider
+    private val currentActorProvider: CurrentActorProvider
 ) {
 
     @Bean
     fun auditorAware(): ReactiveAuditorAware<String> =
-        ReactiveAuditorAware { mono { currentAccessScopeProvider.get().userId } }
+        ReactiveAuditorAware { mono { currentActorProvider.get().auditName } }
 }
