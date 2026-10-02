@@ -1,5 +1,8 @@
 package com.dozycoffee.wms.stock_audit.application.service
 
+import com.dozycoffee.wms.global.security.CurrentActorProvider
+import com.dozycoffee.wms.global.security.UserActor
+import com.dozycoffee.wms.global.security.WmsRole
 import com.dozycoffee.wms.inventory.application.port.`in`.AdjustInventoryQuantityUseCase
 import com.dozycoffee.wms.inventory.application.port.`in`.GetInventoryUseCase
 import com.dozycoffee.wms.inventory.application.port.out.InventoryHistoryRepository
@@ -41,6 +44,7 @@ class StockAuditService(
     private val occupyLocationUseCase: OccupyLocationUseCase,
     private val releaseLocationUseCase: ReleaseLocationUseCase,
     private val inventoryHistoryRepository: InventoryHistoryRepository,
+    private val currentActorProvider: CurrentActorProvider,
     @param:Value("\${wms.stock-audit.adjustment-approval-threshold}")
     private val adjustmentApprovalThreshold: Int
 ) : RegisterStockAuditUseCase,
@@ -116,7 +120,7 @@ class StockAuditService(
      * 여부를 판단한 뒤, 승인 조건을 만족해야만 조정을 실제로 반영한다. 조정량만큼 Location 사용량도 함께 증감한다
      */
     @Transactional
-    override suspend fun close(stockAuditId: Long, approvedBy: String?): StockAuditResult {
+    override suspend fun close(stockAuditId: Long): StockAuditResult {
         val stockAudit = findStockAuditOrThrow(stockAuditId)
         val items = stockAuditItemRepository.findAllByStockAuditId(stockAuditId).toList()
 
@@ -128,7 +132,7 @@ class StockAuditService(
         }
 
         val requiresApproval = adjustments.any { abs(it.amount) > adjustmentApprovalThreshold }
-        stockAudit.close(requiresApproval, approvedBy)
+        stockAudit.close(requiresApproval, if (requiresApproval) resolveApprover() else null)
 
         for (adjustment in adjustments) {
             adjustInventoryQuantityUseCase.adjust(
@@ -140,6 +144,12 @@ class StockAuditService(
         }
 
         return StockAuditResult.from(stockAuditRepository.save(stockAudit))
+    }
+
+    /** 임계치 초과 조정은 상위 관리자([WmsRole.WAREHOUSE_ADMIN])만 승인할 수 있다. 자격이 없으면 승인자 없음으로 취급한다 */
+    private suspend fun resolveApprover(): String? {
+        val actor = currentActorProvider.get()
+        return (actor as? UserActor)?.takeIf { WmsRole.WAREHOUSE_ADMIN.code in it.roles }?.auditName
     }
 
     private suspend fun syncLocationUsage(adjustment: Adjustment) {

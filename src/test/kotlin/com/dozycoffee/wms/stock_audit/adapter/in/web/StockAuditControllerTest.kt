@@ -2,7 +2,6 @@ package com.dozycoffee.wms.stock_audit.adapter.`in`.web
 
 import com.dozycoffee.auth.test.WithDozyPrincipal
 import com.dozycoffee.wms.stock_audit.adapter.`in`.web.request.AssignStockAuditRequest
-import com.dozycoffee.wms.stock_audit.adapter.`in`.web.request.CloseStockAuditRequest
 import com.dozycoffee.wms.stock_audit.adapter.`in`.web.request.RegisterStockAuditRequest
 import com.dozycoffee.wms.stock_audit.application.port.`in`.AssignStockAuditUseCase
 import com.dozycoffee.wms.stock_audit.application.port.`in`.CloseStockAuditUseCase
@@ -24,7 +23,7 @@ import org.springframework.boot.webflux.test.autoconfigure.WebFluxTest
 import org.springframework.test.context.bean.override.mockito.MockitoBean
 import org.springframework.test.web.reactive.server.WebTestClient
 
-@WithDozyPrincipal
+@WithDozyPrincipal(roles = ["wms:stock_audit_manager"])
 @WebFluxTest(StockAuditController::class)
 class StockAuditControllerTest {
 
@@ -160,13 +159,12 @@ class StockAuditControllerTest {
     inner class 실사_마감 {
 
         @Test
-        fun `승인자 없이 요청하면 200과 CLOSED 상태를 반환한다`() {
+        fun `요청하면 200과 CLOSED 상태를 반환한다`() {
             runBlocking {
-                whenever(closeStockAuditUseCase.close(1L, null)).thenReturn(sampleResult(StockAuditStatus.CLOSED))
+                whenever(closeStockAuditUseCase.close(1L)).thenReturn(sampleResult(StockAuditStatus.CLOSED))
             }
 
             webTestClient.patch().uri("/api/stock-audits/{stockAuditId}/close", 1L)
-                .bodyValue(CloseStockAuditRequest(null))
                 .exchange()
                 .expectStatus().isOk
                 .expectBody()
@@ -174,14 +172,11 @@ class StockAuditControllerTest {
         }
 
         @Test
-        fun `본문 없이 요청해도 200을 반환한다`() {
-            runBlocking {
-                whenever(closeStockAuditUseCase.close(1L, null)).thenReturn(sampleResult(StockAuditStatus.CLOSED))
-            }
-
+        @WithDozyPrincipal(roles = ["wms:inbound_manager"])
+        fun `실사 담당 role이 아니면 403을 반환한다`() {
             webTestClient.patch().uri("/api/stock-audits/{stockAuditId}/close", 1L)
                 .exchange()
-                .expectStatus().isOk
+                .expectStatus().isForbidden
         }
     }
 }

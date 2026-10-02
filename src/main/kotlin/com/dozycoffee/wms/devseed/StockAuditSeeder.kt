@@ -1,5 +1,6 @@
 package com.dozycoffee.wms.devseed
 
+import com.dozycoffee.wms.global.security.LocalActorProvider
 import com.dozycoffee.wms.inventory.application.port.`in`.GetInventoryUseCase
 import com.dozycoffee.wms.outbound.application.port.`in`.CompleteOutboundUseCase
 import com.dozycoffee.wms.outbound.application.port.`in`.RegisterOutboundUseCase
@@ -18,8 +19,16 @@ import com.dozycoffee.wms.stock_audit.application.port.`in`.command.RegisterStoc
 import com.dozycoffee.wms.stock_audit.application.port.`in`.result.StockAuditItemResult
 import com.dozycoffee.wms.stock_audit.application.port.`in`.result.StockAuditResult
 import com.dozycoffee.wms.warehouse.domain.enumeration.ZoneCode
+import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.flow.toList
+import kotlinx.coroutines.reactor.ReactorContext
+import kotlinx.coroutines.withContext
+import org.springframework.security.authentication.AnonymousAuthenticationToken
+import org.springframework.security.core.authority.SimpleGrantedAuthority
+import org.springframework.security.core.context.ReactiveSecurityContextHolder
 import org.springframework.stereotype.Component
+import reactor.util.context.Context
+import reactor.util.context.ContextView
 
 /** 실사 4단계(SCHEDULED/IN_PROGRESS/COMPLETED/CLOSED)를 Zone별로 하나씩 만든다 */
 @Component
@@ -70,7 +79,7 @@ internal class StockAuditSeeder(
         completeStockAuditUseCase.complete(audit.stockAuditId)
     }
 
-    /** 임계치를 초과하는 과잉 차이(+15)와 소량 부족(-3)을 승인자와 함께 확정해 ADJUSTMENT 이력을 남긴다 */
+    /** 임계치를 초과하는 과잉 차이(+15)와 소량 부족(-3)을 확정해 ADJUSTMENT 이력을 남긴다. 승인은 모든 role을 가진 local 개발 사용자로 수행한다 */
     private suspend fun seedClosedWithAdjustment(context: SeedContext, baselineInventoryIds: Map<String, Long>) {
         val audit: StockAuditResult = register(context, ZoneCode.C)
         assignStockAuditUseCase.assign(audit.stockAuditId, "박재고")
@@ -82,7 +91,19 @@ internal class StockAuditSeeder(
             )
         )
         completeStockAuditUseCase.complete(audit.stockAuditId)
-        closeStockAuditUseCase.close(audit.stockAuditId, "관리팀장")
+        asLocalAdmin { closeStockAuditUseCase.close(audit.stockAuditId) }
+    }
+
+    /** 기존 Reactor Context(트랜잭션 등)를 유지한 채 보안 컨텍스트만 더한다 */
+    private suspend fun <T> asLocalAdmin(block: suspend () -> T): T {
+        val authentication = AnonymousAuthenticationToken(
+            "dev-seed",
+            LocalActorProvider.LOCAL_PRINCIPAL_ID,
+            LocalActorProvider.LOCAL_ROLES.map { SimpleGrantedAuthority("ROLE_${it.code}") }
+        )
+        val current: ContextView = currentCoroutineContext()[ReactorContext]?.context ?: Context.empty()
+        val withSecurity: Context = Context.of(current).putAll(ReactiveSecurityContextHolder.withAuthentication(authentication).readOnly())
+        return withContext(ReactorContext(withSecurity)) { block() }
     }
 
     private suspend fun register(context: SeedContext, zoneCode: ZoneCode): StockAuditResult =
