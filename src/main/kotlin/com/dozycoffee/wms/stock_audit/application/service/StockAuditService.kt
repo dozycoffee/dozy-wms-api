@@ -18,6 +18,10 @@ import com.dozycoffee.wms.stock_audit.domain.exception.StockAuditNotFoundExcepti
 import com.dozycoffee.wms.stock_audit.domain.model.StockAudit
 import com.dozycoffee.wms.stock_audit.domain.model.StockAuditItem
 import com.dozycoffee.wms.warehouse.application.port.`in`.GetLocationUseCase
+import com.dozycoffee.wms.warehouse.application.port.`in`.OccupyLocationUseCase
+import com.dozycoffee.wms.warehouse.application.port.`in`.ReleaseLocationUseCase
+import com.dozycoffee.wms.warehouse.application.port.`in`.command.OccupyLocationCommand
+import com.dozycoffee.wms.warehouse.application.port.`in`.command.ReleaseLocationCommand
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.toList
@@ -34,6 +38,8 @@ class StockAuditService(
     private val getLocationUseCase: GetLocationUseCase,
     private val getInventoryUseCase: GetInventoryUseCase,
     private val adjustInventoryQuantityUseCase: AdjustInventoryQuantityUseCase,
+    private val occupyLocationUseCase: OccupyLocationUseCase,
+    private val releaseLocationUseCase: ReleaseLocationUseCase,
     private val inventoryHistoryRepository: InventoryHistoryRepository,
     @param:Value("\${wms.stock-audit.adjustment-approval-threshold}")
     private val adjustmentApprovalThreshold: Int
@@ -107,7 +113,7 @@ class StockAuditService(
 
     /**
      * 조정 확정 — 항목별 조정량(실측 - 마감 시점 실시간 Inventory 수량, ADR-0009)을 계산해 임계치 초과
-     * 여부를 판단한 뒤, 승인 조건을 만족해야만 조정을 실제로 반영한다
+     * 여부를 판단한 뒤, 승인 조건을 만족해야만 조정을 실제로 반영한다. 조정량만큼 Location 사용량도 함께 증감한다
      */
     @Transactional
     override suspend fun close(stockAuditId: Long, approvedBy: String?): StockAuditResult {
@@ -118,24 +124,35 @@ class StockAuditService(
             val countedQuantity = requireNotNull(item.countedQuantity) { "완료된 실사의 항목은 카운트가 있어야 합니다." }
             val currentInventory = getInventoryUseCase.getById(item.inventoryId)
             val adjustmentAmount = countedQuantity - currentInventory.quantity
-            if (adjustmentAmount == 0) null else item to adjustmentAmount
+            if (adjustmentAmount == 0) null else Adjustment(item, adjustmentAmount, currentInventory.locationId)
         }
 
-        val requiresApproval = adjustments.any { (_, amount) -> abs(amount) > adjustmentApprovalThreshold }
+        val requiresApproval = adjustments.any { abs(it.amount) > adjustmentApprovalThreshold }
         stockAudit.close(requiresApproval, approvedBy)
 
-        for ((item, _) in adjustments) {
+        for (adjustment in adjustments) {
             adjustInventoryQuantityUseCase.adjust(
-                item.inventoryId,
-                requireNotNull(item.countedQuantity),
-                requireNotNull(item.stockAuditItemId)
+                adjustment.item.inventoryId,
+                requireNotNull(adjustment.item.countedQuantity),
+                requireNotNull(adjustment.item.stockAuditItemId)
             )
+            syncLocationUsage(adjustment)
         }
 
         return StockAuditResult.from(stockAuditRepository.save(stockAudit))
     }
 
+    private suspend fun syncLocationUsage(adjustment: Adjustment) {
+        if (adjustment.amount > 0) {
+            occupyLocationUseCase.occupy(OccupyLocationCommand(adjustment.locationId, adjustment.amount)).awaitSingle()
+        } else {
+            releaseLocationUseCase.release(ReleaseLocationCommand(adjustment.locationId, -adjustment.amount)).awaitSingle()
+        }
+    }
+
     private suspend fun findStockAuditOrThrow(stockAuditId: Long): StockAudit {
         return stockAuditRepository.findById(stockAuditId) ?: throw StockAuditNotFoundException()
     }
+
+    private data class Adjustment(val item: StockAuditItem, val amount: Int, val locationId: Long)
 }
