@@ -252,6 +252,27 @@ class InventoryPersistenceAdapterTest {
     }
 
     @Test
+    fun `warehouseIds에 창고를 2개 이상 지정하면 해당 창고들의 재고만 조회한다`() = runTest {
+        val locationInWarehouseA = createLocationInWarehouse()
+        val locationInWarehouseB = createLocationInWarehouse()
+        val locationInWarehouseC = createLocationInWarehouse()
+        val productId = requireNotNull(productPersistenceAdapter.save(product().build()).productId)
+        val lotId = requireNotNull(lotPersistenceAdapter.save(lot().productId(productId).build()).lotId)
+        listOf(locationInWarehouseA, locationInWarehouseB, locationInWarehouseC).forEach {
+            inventoryPersistenceAdapter.save(
+                inventory().productId(productId).lotId(lotId).locationId(it.locationId).build()
+            )
+        }
+
+        val result = inventoryPersistenceAdapter
+            .findAll(null, null, null, null, listOf(locationInWarehouseA.warehouseId, locationInWarehouseB.warehouseId))
+            .toList()
+
+        assertThat(result.map { it.locationId })
+            .containsExactlyInAnyOrder(locationInWarehouseA.locationId, locationInWarehouseB.locationId)
+    }
+
+    @Test
     fun `warehouseIds가 빈 리스트이면 전체 재고를 조회한다`() = runTest {
         val locationInWarehouseA = createLocationInWarehouse()
         val locationInWarehouseB = createLocationInWarehouse()

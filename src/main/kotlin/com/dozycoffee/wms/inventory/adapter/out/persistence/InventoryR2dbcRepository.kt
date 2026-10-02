@@ -9,8 +9,28 @@ interface InventoryR2dbcRepository : CoroutineCrudRepository<InventoryEntity, Lo
     @Query("SELECT * FROM inventory WHERE inventory_id = :inventoryId AND deleted_at IS NULL")
     suspend fun findActiveById(inventoryId: Long): InventoryEntity?
 
-    @Query(
-        """
+    @Query(FIND_ALL_ACTIVE_SELECT + FIND_ALL_ACTIVE_ORDER)
+    fun findAllActive(
+        locationId: Long?,
+        productId: Long?,
+        qualityStatus: String?,
+        sortBy: String?
+    ): Flow<InventoryEntity>
+
+    @Query(FIND_ALL_ACTIVE_SELECT + "          AND z.warehouse_id IN (:warehouseIds)\n" + FIND_ALL_ACTIVE_ORDER)
+    fun findAllActiveInWarehouses(
+        locationId: Long?,
+        productId: Long?,
+        qualityStatus: String?,
+        sortBy: String?,
+        warehouseIds: List<Long>
+    ): Flow<InventoryEntity>
+
+    @Query("SELECT * FROM inventory WHERE deleted_at IS NULL AND lot_id = :lotId")
+    fun findAllActiveByLotId(lotId: Long): Flow<InventoryEntity>
+}
+
+private const val FIND_ALL_ACTIVE_SELECT: String = """
         SELECT i.* FROM inventory i
         LEFT JOIN lot l ON l.lot_id = i.lot_id
         LEFT JOIN location loc ON loc.location_id = i.location_id
@@ -19,22 +39,12 @@ interface InventoryR2dbcRepository : CoroutineCrudRepository<InventoryEntity, Lo
           AND (:locationId IS NULL OR i.location_id = :locationId)
           AND (:productId IS NULL OR i.product_id = :productId)
           AND (:qualityStatus IS NULL OR i.quality_status = :qualityStatus)
-          AND (:warehouseIds IS NULL OR z.warehouse_id IN (:warehouseIds))
+"""
+
+private const val FIND_ALL_ACTIVE_ORDER: String = """
         ORDER BY
           CASE WHEN :sortBy = 'QUANTITY' THEN i.quantity END ASC,
           CASE WHEN :sortBy = 'EXPIRATION_DATE' THEN l.expiration_date END ASC,
           CASE WHEN :sortBy = 'INBOUND_DATE' THEN i.created_at END ASC,
           i.inventory_id ASC
-        """
-    )
-    fun findAllActive(
-        locationId: Long?,
-        productId: Long?,
-        qualityStatus: String?,
-        sortBy: String?,
-        warehouseIds: List<Long>?
-    ): Flow<InventoryEntity>
-
-    @Query("SELECT * FROM inventory WHERE deleted_at IS NULL AND lot_id = :lotId")
-    fun findAllActiveByLotId(lotId: Long): Flow<InventoryEntity>
-}
+"""
