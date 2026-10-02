@@ -82,7 +82,7 @@ class WorkAreaTest {
             val workArea: WorkArea = workArea().areaCode(AreaCode.INBOUND).build()
 
             assertThat(workArea.areaName).isEqualTo("입고 처리장")
-            assertThat(workArea.capacity).isEqualTo(Capacity(50))
+            assertThat(workArea.capacity).isEqualTo(Capacity(230))
         }
     }
 
@@ -100,7 +100,7 @@ class WorkAreaTest {
 
         @Test
         fun `최대 수용량을 초과하는 점유는 예외를 던진다`() {
-            val workArea: WorkArea = workArea().areaCode(AreaCode.INBOUND).usedCapacity(40).workAreaId(1L).build()
+            val workArea: WorkArea = workArea().areaCode(AreaCode.INBOUND).usedCapacity(220).workAreaId(1L).build()
 
             assertThatThrownBy { workArea.occupy(11) }
                 .isInstanceOf(WorkAreaCapacityExceededException::class.java)

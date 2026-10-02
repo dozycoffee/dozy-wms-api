@@ -86,7 +86,16 @@ class ZoneTest {
             val zone: Zone = zone().zoneCode(ZoneCode.A).build()
 
             assertThat(zone.zoneName).isEqualTo("원두")
-            assertThat(zone.capacity).isEqualTo(Capacity(180))
+            assertThat(zone.capacity).isEqualTo(Capacity(820))
+        }
+
+        @Test
+        fun `F 구역은 상온 MD 상품 구역이다`() {
+            val zone: Zone = zone().zoneCode(ZoneCode.F).build()
+
+            assertThat(zone.zoneName).isEqualTo("MD 상품")
+            assertThat(zone.temperatureType).isEqualTo(TemperatureType.AMBIENT)
+            assertThat(zone.capacity).isEqualTo(Capacity(420))
         }
     }
 }
