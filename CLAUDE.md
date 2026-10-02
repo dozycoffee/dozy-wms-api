@@ -208,10 +208,12 @@ Tests are split by layer with no overlap:
 | `*EntityTest`     | none                                | none           | Pure domain logic / entity invariants |
 | `*ServiceTest`    | `@ExtendWith(MockitoExtension::class)` | none        | Service logic with mocked repository  |
 | `*ControllerTest` | `@WebFluxTest`                      | Slice          | API contract (WebTestClient)          |
-| `*PersistenceAdapterTest` | `@DataR2dbcTest`         | Slice          | R2DBC queries against test DB         |
+| `*PersistenceAdapterTest` | `@DataR2dbcTest`         | Slice          | R2DBC queries against Testcontainers MySQL |
 
 **Test fixtures** live in `fixture/` packages under each domain's test folder — use `XxxTestBuilder` for entity builders
 and `XxxDtoBuilder` for DTO builders.
+
+**Test DB**: Spring 컨텍스트를 로드하는 테스트는 `MySqlTestContainerInitializer`(`src/test/resources/META-INF/spring.factories`로 자동 등록)가 띄운 Testcontainers MySQL 8.0에 연결한다 — 개발 DB(`dozy_wms`)와 완전히 분리되며 Docker가 필요하다. 테스트 JVM당 컨테이너 1개를 공유하므로 각 테스트는 `@AfterEach`에서 자기 데이터를 정리한다.
 
 **Controller tests**: `@WebFluxTest`로 슬라이스 컨텍스트를 로드하고 `WebTestClient`로 검증한다.
 
