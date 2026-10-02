@@ -30,8 +30,14 @@ class OutboundPersistenceAdapter(
         return outboundR2dbcRepository.findById(outboundId)?.toDomain()
     }
 
-    override fun findAll(status: OutboundStatus?): Flow<Outbound> {
+    override fun findAll(status: OutboundStatus?, warehouseIds: List<Long>?): Flow<Outbound> {
         val statusCode = status?.let { CommonCodes.toCode(STATUS_GROUP, it) }
-        return outboundR2dbcRepository.findAllOutbounds(statusCode).map { it.toDomain() }
+        val ids: List<Long>? = warehouseIds?.takeIf { it.isNotEmpty() }
+        val entities = if (ids == null) {
+            outboundR2dbcRepository.findAllOutbounds(statusCode)
+        } else {
+            outboundR2dbcRepository.findAllOutboundsInWarehouses(statusCode, ids)
+        }
+        return entities.map { it.toDomain() }
     }
 }

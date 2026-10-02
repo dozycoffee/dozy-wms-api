@@ -1,5 +1,8 @@
 package com.dozycoffee.wms.outbound.application.service
 
+import com.dozycoffee.wms.global.security.OnlyWarehouses
+import com.dozycoffee.wms.global.security.WarehouseAccessDeniedException
+import com.dozycoffee.wms.global.security.WarehouseAccessGuard
 import com.dozycoffee.wms.inventory.application.port.`in`.FulfillAllocationUseCase
 import com.dozycoffee.wms.inventory.application.port.`in`.GetAllocationUseCase
 import com.dozycoffee.wms.inventory.application.port.`in`.GetInventoryUseCase
@@ -23,6 +26,7 @@ import com.dozycoffee.wms.outbound.domain.model.Outbound
 import com.dozycoffee.wms.outbound.domain.model.OutboundItem
 import com.dozycoffee.wms.outbound.fixture.OutboundItemTestBuilder.Companion.outboundItem
 import com.dozycoffee.wms.outbound.fixture.OutboundTestBuilder.Companion.outbound
+import com.dozycoffee.wms.support.SwitchableWarehouseAccess
 import com.dozycoffee.wms.warehouse.application.port.`in`.GetWorkAreaUseCase
 import com.dozycoffee.wms.warehouse.application.port.`in`.OccupyWorkAreaUseCase
 import com.dozycoffee.wms.warehouse.application.port.`in`.ReleaseLocationUseCase
@@ -34,7 +38,9 @@ import com.dozycoffee.wms.warehouse.application.port.`in`.result.LocationResult
 import com.dozycoffee.wms.warehouse.application.port.`in`.result.WorkAreaResult
 import com.dozycoffee.wms.warehouse.domain.enumeration.AreaCode
 import com.dozycoffee.wms.warehouse.domain.enumeration.AvailabilityStatus
+import java.time.LocalDate
 import kotlinx.coroutines.flow.flowOf
+import kotlinx.coroutines.flow.toList
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.test.runTest
 import org.assertj.core.api.Assertions.assertThat
@@ -44,14 +50,15 @@ import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.extension.ExtendWith
 import org.mockito.InjectMocks
 import org.mockito.Mock
+import org.mockito.Spy
 import org.mockito.junit.jupiter.MockitoExtension
 import org.mockito.kotlin.any
 import org.mockito.kotlin.argumentCaptor
+import org.mockito.kotlin.never
 import org.mockito.kotlin.times
 import org.mockito.kotlin.verify
 import org.mockito.kotlin.whenever
 import reactor.core.publisher.Mono
-import java.time.LocalDate
 
 @ExtendWith(MockitoExtension::class)
 class OutboundServiceTest {
@@ -88,6 +95,11 @@ class OutboundServiceTest {
 
     @Mock
     private lateinit var releaseLocationUseCase: ReleaseLocationUseCase
+
+    private val warehouseAccess = SwitchableWarehouseAccess()
+
+    @Spy
+    private var warehouseAccessGuard: WarehouseAccessGuard = WarehouseAccessGuard(warehouseAccess)
 
     @InjectMocks
     private lateinit var outboundService: OutboundService
@@ -146,7 +158,7 @@ class OutboundServiceTest {
                     lotResult(10L, LocalDate.of(2026, 1, 1))
                 )
             )
-            whenever(getInventoryUseCase.getAll(null, 100L, QualityStatus.NORMAL, null, null)).thenReturn(
+            whenever(getInventoryUseCase.getAll(null, 100L, QualityStatus.NORMAL, null, listOf(1L))).thenReturn(
                 flowOf(
                     inventoryResult(2L, 20L, 200L, 20),
                     inventoryResult(1L, 10L, 100L, 5)
@@ -179,7 +191,7 @@ class OutboundServiceTest {
             whenever(outboundRepository.findById(1L)).thenReturn(existingOutbound)
             whenever(outboundItemRepository.findAllByOutboundId(1L)).thenReturn(flowOf(item))
             whenever(getLotUseCase.getAllByProduct(100L)).thenReturn(flowOf(lotResult(10L, LocalDate.of(2026, 1, 1))))
-            whenever(getInventoryUseCase.getAll(null, 100L, QualityStatus.NORMAL, null, null)).thenReturn(flowOf(inventoryResult(1L, 10L, 100L, 10)))
+            whenever(getInventoryUseCase.getAll(null, 100L, QualityStatus.NORMAL, null, listOf(1L))).thenReturn(flowOf(inventoryResult(1L, 10L, 100L, 10)))
             whenever(holdInventoryUseCase.hold(any())).thenReturn(allocationResult(900L, 1L, 10))
             whenever(getWorkAreaUseCase.getByWarehouseIdAndAreaCode(1L, AreaCode.OUTBOUND)).thenReturn(Mono.just(workAreaResult(0)))
             whenever(occupyWorkAreaUseCase.occupy(any())).thenReturn(Mono.just(workAreaResult(10)))
@@ -268,6 +280,57 @@ class OutboundServiceTest {
 
             assertThatThrownBy { runBlocking { outboundService.getById(999L) } }
                 .isInstanceOf(OutboundNotFoundException::class.java)
+        }
+    }
+
+    @Nested
+    inner class 창고_접근 {
+
+        @Test
+        fun `접근할 수 없는 창고에는 등록할 수 없다`() = runTest {
+            warehouseAccess.access = OnlyWarehouses(setOf(2L))
+
+            assertThatThrownBy { runBlocking { outboundService.register(RegisterOutboundCommand(1L, listOf(RegisterOutboundItemCommand(100L, 15)))) } }
+                .isInstanceOf(WarehouseAccessDeniedException::class.java)
+            verify(outboundRepository, never()).save(any())
+        }
+
+        @Test
+        fun `접근할 수 없는 창고의 문서는 단건 조회할 수 없다`() = runTest {
+            warehouseAccess.access = OnlyWarehouses(setOf(2L))
+            whenever(outboundRepository.findById(1L)).thenReturn(outbound().outboundId(1L).warehouseId(1L).build())
+
+            assertThatThrownBy { runBlocking { outboundService.getById(1L) } }
+                .isInstanceOf(WarehouseAccessDeniedException::class.java)
+        }
+
+        @Test
+        fun `목록은 접근 가능한 창고로 좁혀 조회한다`() = runTest {
+            warehouseAccess.access = OnlyWarehouses(setOf(1L, 3L))
+            whenever(outboundRepository.findAll(null, listOf(1L, 3L))).thenReturn(flowOf())
+
+            outboundService.getAll(null).toList()
+
+            verify(outboundRepository).findAll(null, listOf(1L, 3L))
+        }
+
+        @Test
+        fun `접근 가능한 창고가 없으면 저장소를 조회하지 않고 빈 목록을 반환한다`() = runTest {
+            warehouseAccess.access = OnlyWarehouses(emptySet())
+
+            val result = outboundService.getAll(null).toList()
+
+            assertThat(result).isEmpty()
+            verify(outboundRepository, never()).findAll(any(), any())
+        }
+
+        @Test
+        fun `전체 창고 접근이면 창고 조건 없이 조회한다`() = runTest {
+            whenever(outboundRepository.findAll(null, null)).thenReturn(flowOf())
+
+            outboundService.getAll(null).toList()
+
+            verify(outboundRepository).findAll(null, null)
         }
     }
 }

@@ -2,15 +2,18 @@ package com.dozycoffee.wms.stock_audit.application.service
 
 import com.dozycoffee.wms.global.security.Actor
 import com.dozycoffee.wms.global.security.CurrentActorProvider
+import com.dozycoffee.wms.global.security.OnlyWarehouses
 import com.dozycoffee.wms.global.security.SystemActor
 import com.dozycoffee.wms.global.security.UserActor
+import com.dozycoffee.wms.global.security.WarehouseAccessDeniedException
+import com.dozycoffee.wms.global.security.WarehouseAccessGuard
 import com.dozycoffee.wms.inventory.application.port.`in`.AdjustInventoryQuantityUseCase
 import com.dozycoffee.wms.inventory.application.port.`in`.GetInventoryUseCase
 import com.dozycoffee.wms.inventory.application.port.`in`.result.InventoryResult
 import com.dozycoffee.wms.inventory.application.port.out.InventoryHistoryRepository
+import com.dozycoffee.wms.inventory.domain.enumeration.InventoryHistoryType
 import com.dozycoffee.wms.inventory.domain.enumeration.QualityStatus
 import com.dozycoffee.wms.inventory.domain.model.InventoryHistory
-import com.dozycoffee.wms.inventory.domain.enumeration.InventoryHistoryType
 import com.dozycoffee.wms.stock_audit.application.port.`in`.command.RegisterStockAuditCommand
 import com.dozycoffee.wms.stock_audit.application.port.out.StockAuditItemRepository
 import com.dozycoffee.wms.stock_audit.application.port.out.StockAuditRepository
@@ -22,15 +25,19 @@ import com.dozycoffee.wms.stock_audit.domain.model.StockAudit
 import com.dozycoffee.wms.stock_audit.domain.model.StockAuditItem
 import com.dozycoffee.wms.stock_audit.fixture.StockAuditItemTestBuilder.Companion.stockAuditItem
 import com.dozycoffee.wms.stock_audit.fixture.StockAuditTestBuilder.Companion.stockAudit
+import com.dozycoffee.wms.support.SwitchableWarehouseAccess
 import com.dozycoffee.wms.warehouse.application.port.`in`.GetLocationUseCase
 import com.dozycoffee.wms.warehouse.application.port.`in`.OccupyLocationUseCase
 import com.dozycoffee.wms.warehouse.application.port.`in`.ReleaseLocationUseCase
 import com.dozycoffee.wms.warehouse.application.port.`in`.command.OccupyLocationCommand
 import com.dozycoffee.wms.warehouse.application.port.`in`.command.ReleaseLocationCommand
-import com.dozycoffee.wms.warehouse.domain.exception.LocationCapacityExceededException
 import com.dozycoffee.wms.warehouse.application.port.`in`.result.LocationResult
 import com.dozycoffee.wms.warehouse.domain.enumeration.AvailabilityStatus
+import com.dozycoffee.wms.warehouse.domain.exception.LocationCapacityExceededException
+import java.time.LocalDateTime
+import java.util.UUID
 import kotlinx.coroutines.flow.flowOf
+import kotlinx.coroutines.flow.toList
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.test.runTest
 import org.assertj.core.api.Assertions.assertThat
@@ -47,8 +54,6 @@ import org.mockito.kotlin.verify
 import org.mockito.kotlin.whenever
 import reactor.core.publisher.Flux
 import reactor.core.publisher.Mono
-import java.time.LocalDateTime
-import java.util.UUID
 
 @ExtendWith(MockitoExtension::class)
 class StockAuditServiceTest {
@@ -77,6 +82,8 @@ class StockAuditServiceTest {
     @Mock
     private lateinit var inventoryHistoryRepository: InventoryHistoryRepository
 
+    private val warehouseAccess = SwitchableWarehouseAccess()
+
     private var actor: Actor = SystemActor
 
     private val currentActorProvider: CurrentActorProvider = object : CurrentActorProvider {
@@ -88,6 +95,7 @@ class StockAuditServiceTest {
     @BeforeEach
     fun setUp() {
         stockAuditService = StockAuditService(
+            WarehouseAccessGuard(warehouseAccess),
             stockAuditRepository,
             stockAuditItemRepository,
             getLocationUseCase,
@@ -391,5 +399,57 @@ class StockAuditServiceTest {
     companion object {
         private const val ADJUSTMENT_APPROVAL_THRESHOLD = 5
         private val ADMIN_ID: UUID = UUID.fromString("0199a3c4-7b2e-7c1a-9f3d-2b6e8a1c4d5f")
+    }
+
+    @Nested
+    inner class 창고_접근 {
+
+        @Test
+        fun `접근할 수 없는 창고에는 실사를 등록할 수 없다`() = runTest {
+            warehouseAccess.access = OnlyWarehouses(setOf(2L))
+
+            assertThatThrownBy { runBlocking { stockAuditService.register(RegisterStockAuditCommand(1L, 10L)) } }
+                .isInstanceOf(WarehouseAccessDeniedException::class.java)
+            verify(stockAuditRepository, org.mockito.kotlin.never()).save(any())
+        }
+
+        @Test
+        fun `접근할 수 없는 창고의 실사는 단건 조회할 수 없다`() = runTest {
+            warehouseAccess.access = OnlyWarehouses(setOf(2L))
+            whenever(stockAuditRepository.findById(1L)).thenReturn(stockAudit().stockAuditId(1L).warehouseId(1L).build())
+
+            assertThatThrownBy { runBlocking { stockAuditService.getById(1L) } }
+                .isInstanceOf(WarehouseAccessDeniedException::class.java)
+        }
+
+        @Test
+        fun `접근할 수 없는 창고의 실사는 마감할 수 없다`() = runTest {
+            warehouseAccess.access = OnlyWarehouses(setOf(2L))
+            whenever(stockAuditRepository.findById(1L)).thenReturn(stockAudit().stockAuditId(1L).warehouseId(1L).build())
+
+            assertThatThrownBy { runBlocking { stockAuditService.close(1L) } }
+                .isInstanceOf(WarehouseAccessDeniedException::class.java)
+            verify(adjustInventoryQuantityUseCase, org.mockito.kotlin.never()).adjust(any(), any(), any())
+        }
+
+        @Test
+        fun `요청한 창고가 접근 범위 밖이면 저장소를 조회하지 않고 빈 목록을 반환한다`() = runTest {
+            warehouseAccess.access = OnlyWarehouses(setOf(2L))
+
+            val result = stockAuditService.getAll(1L, null).toList()
+
+            assertThat(result).isEmpty()
+            verify(stockAuditRepository, org.mockito.kotlin.never()).findAll(any(), any())
+        }
+
+        @Test
+        fun `창고를 지정하지 않으면 접근 가능한 창고로 좁혀 조회한다`() = runTest {
+            warehouseAccess.access = OnlyWarehouses(setOf(1L, 3L))
+            whenever(stockAuditRepository.findAll(listOf(1L, 3L), null)).thenReturn(flowOf())
+
+            stockAuditService.getAll(null, null).toList()
+
+            verify(stockAuditRepository).findAll(listOf(1L, 3L), null)
+        }
     }
 }

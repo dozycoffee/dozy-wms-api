@@ -14,6 +14,7 @@ import com.dozycoffee.wms.disposal.domain.exception.DisposalQuantityMismatchExce
 import com.dozycoffee.wms.disposal.domain.exception.InventoryNotDisposableException
 import com.dozycoffee.wms.disposal.domain.model.Disposal
 import com.dozycoffee.wms.disposal.domain.model.DisposalItem
+import com.dozycoffee.wms.global.security.WarehouseAccessGuard
 import com.dozycoffee.wms.inventory.application.port.`in`.ConfirmInventoryDisposalUseCase
 import com.dozycoffee.wms.inventory.application.port.`in`.GetInventoryUseCase
 import com.dozycoffee.wms.inventory.application.port.`in`.result.InventoryResult
@@ -35,6 +36,7 @@ import org.springframework.transaction.annotation.Transactional
 
 @Service
 class DisposalService(
+    private val warehouseAccessGuard: WarehouseAccessGuard,
     private val disposalRepository: DisposalRepository,
     private val disposalItemRepository: DisposalItemRepository,
     private val getInventoryUseCase: GetInventoryUseCase,
@@ -51,6 +53,7 @@ class DisposalService(
     /** 대상 재고가 DEFECTIVE/DISPOSAL_SCHEDULED이고 수량이 일치하는 경우에만 폐기 등록을 허용한다 */
     @Transactional
     override suspend fun register(command: RegisterDisposalCommand): DisposalResult {
+        warehouseAccessGuard.require(command.warehouseId)
         val disposal = Disposal.create(command.warehouseId)
         val savedDisposal = disposalRepository.save(disposal)
 
@@ -68,7 +71,7 @@ class DisposalService(
     /** 폐기 승인 — 대상 재고를 폐기 처리장으로 물리 이동시키고 사용량을 갱신한다 */
     @Transactional
     override suspend fun approve(disposalId: Long): DisposalResult {
-        val disposal = findDisposalOrThrow(disposalId)
+        val disposal = findAccessibleDisposalOrThrow(disposalId)
         val totalQuantity = disposalItemRepository.findAllByDisposalId(disposalId).toList().sumOf { it.quantity }
 
         val workArea = getWorkAreaUseCase.getByWarehouseIdAndAreaCode(disposal.warehouseId, AreaCode.DISPOSAL).awaitSingle()
@@ -81,7 +84,7 @@ class DisposalService(
     /** 폐기 확정 — 대상 재고를 완전히 제외(soft delete)하고 Location/폐기 처리장 점유를 해제한다 */
     @Transactional
     override suspend fun complete(disposalId: Long): DisposalResult {
-        val disposal = findDisposalOrThrow(disposalId)
+        val disposal = findAccessibleDisposalOrThrow(disposalId)
         val items = disposalItemRepository.findAllByDisposalId(disposalId).toList()
 
         var totalQuantity = 0
@@ -101,12 +104,13 @@ class DisposalService(
 
     @Transactional(readOnly = true)
     override suspend fun getById(disposalId: Long): DisposalResult {
-        return DisposalResult.from(findDisposalOrThrow(disposalId))
+        return DisposalResult.from(findAccessibleDisposalOrThrow(disposalId))
     }
 
     @Transactional(readOnly = true)
     override fun getAll(status: DisposalStatus?): Flow<DisposalResult> {
-        return disposalRepository.findAll(status).map { DisposalResult.from(it) }
+        return warehouseAccessGuard.scoped { warehouseIds -> disposalRepository.findAll(status, warehouseIds) }
+            .map { DisposalResult.from(it) }
     }
 
     private fun validateDisposable(inventory: InventoryResult, quantity: Int) {
@@ -118,7 +122,9 @@ class DisposalService(
         }
     }
 
-    private suspend fun findDisposalOrThrow(disposalId: Long): Disposal {
-        return disposalRepository.findById(disposalId) ?: throw DisposalNotFoundException()
+    private suspend fun findAccessibleDisposalOrThrow(disposalId: Long): Disposal {
+        val disposal = disposalRepository.findById(disposalId) ?: throw DisposalNotFoundException()
+        warehouseAccessGuard.require(disposal.warehouseId)
+        return disposal
     }
 }

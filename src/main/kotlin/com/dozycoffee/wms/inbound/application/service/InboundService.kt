@@ -4,6 +4,7 @@ import com.dozycoffee.wms.disposal.application.port.`in`.RegisterDisposalUseCase
 import com.dozycoffee.wms.disposal.application.port.`in`.command.RegisterDisposalCommand
 import com.dozycoffee.wms.disposal.application.port.`in`.command.RegisterDisposalItemCommand
 import com.dozycoffee.wms.disposal.domain.enumeration.DisposalReason
+import com.dozycoffee.wms.global.security.WarehouseAccessGuard
 import com.dozycoffee.wms.inbound.application.port.`in`.CompleteInboundUseCase
 import com.dozycoffee.wms.inbound.application.port.`in`.GetInboundUseCase
 import com.dozycoffee.wms.inbound.application.port.`in`.RegisterInboundUseCase
@@ -51,6 +52,7 @@ import org.springframework.transaction.annotation.Transactional
 
 @Service
 class InboundService(
+    private val warehouseAccessGuard: WarehouseAccessGuard,
     private val inboundRepository: InboundRepository,
     private val inboundItemRepository: InboundItemRepository,
     private val getProductUseCase: GetProductUseCase,
@@ -73,6 +75,7 @@ class InboundService(
      */
     @Transactional
     override suspend fun register(command: RegisterInboundCommand): InboundResult {
+        warehouseAccessGuard.require(command.warehouseId)
         val zoneCodeByItem = command.items.associateWith {
             val product = getProductUseCase.getById(it.productId)
             ZoneCode.valueOf(product.category.zoneCode)
@@ -108,7 +111,7 @@ class InboundService(
 
     @Transactional
     override suspend fun startProcessing(inboundId: Long): InboundResult {
-        val inbound = findInboundOrThrow(inboundId)
+        val inbound = findAccessibleInboundOrThrow(inboundId)
         val totalExpectedQuantity = inboundItemRepository.findAllByInboundId(inboundId).toList()
             .sumOf { it.expectedQuantity }
 
@@ -126,7 +129,7 @@ class InboundService(
      */
     @Transactional
     override suspend fun complete(command: CompleteInboundCommand): InboundResult {
-        val inbound = findInboundOrThrow(command.inboundId)
+        val inbound = findAccessibleInboundOrThrow(command.inboundId)
         val items = inboundItemRepository.findAllByInboundId(command.inboundId).toList()
 
         if (items.any { it.inspectionResult == InspectionResult.PENDING }) {
@@ -164,12 +167,13 @@ class InboundService(
 
     @Transactional(readOnly = true)
     override suspend fun getById(inboundId: Long): InboundResult {
-        return InboundResult.from(findInboundOrThrow(inboundId))
+        return InboundResult.from(findAccessibleInboundOrThrow(inboundId))
     }
 
     @Transactional(readOnly = true)
     override fun getAll(status: InboundStatus?): Flow<InboundResult> {
-        return inboundRepository.findAll(status).map { InboundResult.from(it) }
+        return warehouseAccessGuard.scoped { warehouseIds -> inboundRepository.findAll(status, warehouseIds) }
+            .map { InboundResult.from(it) }
     }
 
     private suspend fun resolveLot(productId: Long, assignment: LotAssignmentCommand): LotResult {
@@ -211,7 +215,9 @@ class InboundService(
         return registeredInventories
     }
 
-    private suspend fun findInboundOrThrow(inboundId: Long): Inbound {
-        return inboundRepository.findById(inboundId) ?: throw InboundNotFoundException()
+    private suspend fun findAccessibleInboundOrThrow(inboundId: Long): Inbound {
+        val inbound = inboundRepository.findById(inboundId) ?: throw InboundNotFoundException()
+        warehouseAccessGuard.require(inbound.warehouseId)
+        return inbound
     }
 }

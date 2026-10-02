@@ -7,5 +7,5 @@ import kotlinx.coroutines.flow.Flow
 interface ReturnRequestRepository {
     suspend fun save(returnRequest: ReturnRequest): ReturnRequest
     suspend fun findById(returnRequestId: Long): ReturnRequest?
-    fun findAll(status: ReturnRequestStatus?): Flow<ReturnRequest>
+    fun findAll(status: ReturnRequestStatus?, warehouseIds: List<Long>?): Flow<ReturnRequest>
 }

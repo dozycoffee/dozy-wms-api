@@ -2,6 +2,7 @@ package com.dozycoffee.wms.stock_audit.application.service
 
 import com.dozycoffee.wms.global.security.CurrentActorProvider
 import com.dozycoffee.wms.global.security.UserActor
+import com.dozycoffee.wms.global.security.WarehouseAccessGuard
 import com.dozycoffee.wms.global.security.WmsRole
 import com.dozycoffee.wms.inventory.application.port.`in`.AdjustInventoryQuantityUseCase
 import com.dozycoffee.wms.inventory.application.port.`in`.GetInventoryUseCase
@@ -25,6 +26,7 @@ import com.dozycoffee.wms.warehouse.application.port.`in`.OccupyLocationUseCase
 import com.dozycoffee.wms.warehouse.application.port.`in`.ReleaseLocationUseCase
 import com.dozycoffee.wms.warehouse.application.port.`in`.command.OccupyLocationCommand
 import com.dozycoffee.wms.warehouse.application.port.`in`.command.ReleaseLocationCommand
+import kotlin.math.abs
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.toList
@@ -32,10 +34,10 @@ import kotlinx.coroutines.reactive.awaitSingle
 import org.springframework.beans.factory.annotation.Value
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
-import kotlin.math.abs
 
 @Service
 class StockAuditService(
+    private val warehouseAccessGuard: WarehouseAccessGuard,
     private val stockAuditRepository: StockAuditRepository,
     private val stockAuditItemRepository: StockAuditItemRepository,
     private val getLocationUseCase: GetLocationUseCase,
@@ -56,6 +58,7 @@ class StockAuditService(
     /** 실사 등록 — 대상 Zone의 모든 Location에 속한 Inventory를 스냅샷으로 남긴다(품질상태 무관, 물리적 실재 수량 기준) */
     @Transactional
     override suspend fun register(command: RegisterStockAuditCommand): StockAuditResult {
+        warehouseAccessGuard.require(command.warehouseId)
         val stockAudit = StockAudit.create(command.warehouseId, command.zoneId)
         val saved = stockAuditRepository.save(stockAudit)
         val stockAuditId: Long = requireNotNull(saved.stockAuditId)
@@ -75,17 +78,19 @@ class StockAuditService(
 
     @Transactional(readOnly = true)
     override suspend fun getById(stockAuditId: Long): StockAuditResult {
-        return StockAuditResult.from(findStockAuditOrThrow(stockAuditId))
+        return StockAuditResult.from(findAccessibleStockAuditOrThrow(stockAuditId))
     }
 
     @Transactional(readOnly = true)
     override fun getAll(warehouseId: Long?, status: StockAuditStatus?): Flow<StockAuditResult> {
-        return stockAuditRepository.findAll(warehouseId, status).map { StockAuditResult.from(it) }
+        return warehouseAccessGuard.scoped(warehouseId?.let { listOf(it) }) { warehouseIds ->
+            stockAuditRepository.findAll(warehouseIds, status)
+        }.map { StockAuditResult.from(it) }
     }
 
     @Transactional
     override suspend fun assign(stockAuditId: Long, assignee: String): StockAuditResult {
-        val stockAudit = findStockAuditOrThrow(stockAuditId)
+        val stockAudit = findAccessibleStockAuditOrThrow(stockAuditId)
         stockAudit.assign(assignee)
         return StockAuditResult.from(stockAuditRepository.save(stockAudit))
     }
@@ -93,7 +98,7 @@ class StockAuditService(
     /** 실사 완료 — 전 항목 카운트 여부를 확인하고, 스냅샷 이후 미반영 입출고 이력이 있는 항목을 표시한다 */
     @Transactional
     override suspend fun complete(stockAuditId: Long): StockAuditResult {
-        val stockAudit = findStockAuditOrThrow(stockAuditId)
+        val stockAudit = findAccessibleStockAuditOrThrow(stockAuditId)
         val items = stockAuditItemRepository.findAllByStockAuditId(stockAuditId).toList()
 
         if (items.any { !it.isCounted }) {
@@ -121,7 +126,7 @@ class StockAuditService(
      */
     @Transactional
     override suspend fun close(stockAuditId: Long): StockAuditResult {
-        val stockAudit = findStockAuditOrThrow(stockAuditId)
+        val stockAudit = findAccessibleStockAuditOrThrow(stockAuditId)
         val items = stockAuditItemRepository.findAllByStockAuditId(stockAuditId).toList()
 
         val adjustments = items.mapNotNull { item ->
@@ -160,8 +165,10 @@ class StockAuditService(
         }
     }
 
-    private suspend fun findStockAuditOrThrow(stockAuditId: Long): StockAudit {
-        return stockAuditRepository.findById(stockAuditId) ?: throw StockAuditNotFoundException()
+    private suspend fun findAccessibleStockAuditOrThrow(stockAuditId: Long): StockAudit {
+        val stockAudit = stockAuditRepository.findById(stockAuditId) ?: throw StockAuditNotFoundException()
+        warehouseAccessGuard.require(stockAudit.warehouseId)
+        return stockAudit
     }
 
     private data class Adjustment(val item: StockAuditItem, val amount: Int, val locationId: Long)

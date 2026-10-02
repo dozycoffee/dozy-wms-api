@@ -7,5 +7,5 @@ import kotlinx.coroutines.flow.Flow
 interface StockAuditRepository {
     suspend fun save(stockAudit: StockAudit): StockAudit
     suspend fun findById(stockAuditId: Long): StockAudit?
-    fun findAll(warehouseId: Long?, status: StockAuditStatus?): Flow<StockAudit>
+    fun findAll(warehouseIds: List<Long>?, status: StockAuditStatus?): Flow<StockAudit>
 }

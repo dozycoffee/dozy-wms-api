@@ -30,8 +30,14 @@ class ReturnRequestPersistenceAdapter(
         return returnRequestR2dbcRepository.findById(returnRequestId)?.toDomain()
     }
 
-    override fun findAll(status: ReturnRequestStatus?): Flow<ReturnRequest> {
+    override fun findAll(status: ReturnRequestStatus?, warehouseIds: List<Long>?): Flow<ReturnRequest> {
         val statusCode = status?.let { CommonCodes.toCode(STATUS_GROUP, it) }
-        return returnRequestR2dbcRepository.findAllReturnRequests(statusCode).map { it.toDomain() }
+        val ids: List<Long>? = warehouseIds?.takeIf { it.isNotEmpty() }
+        val entities = if (ids == null) {
+            returnRequestR2dbcRepository.findAllReturnRequests(statusCode)
+        } else {
+            returnRequestR2dbcRepository.findAllReturnRequestsInWarehouses(statusCode, ids)
+        }
+        return entities.map { it.toDomain() }
     }
 }

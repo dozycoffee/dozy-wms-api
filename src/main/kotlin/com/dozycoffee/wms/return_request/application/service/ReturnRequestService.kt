@@ -4,6 +4,7 @@ import com.dozycoffee.wms.disposal.application.port.`in`.RegisterDisposalUseCase
 import com.dozycoffee.wms.disposal.application.port.`in`.command.RegisterDisposalCommand
 import com.dozycoffee.wms.disposal.application.port.`in`.command.RegisterDisposalItemCommand
 import com.dozycoffee.wms.disposal.domain.enumeration.DisposalReason
+import com.dozycoffee.wms.global.security.WarehouseAccessGuard
 import com.dozycoffee.wms.inventory.application.port.`in`.GetLotUseCase
 import com.dozycoffee.wms.inventory.application.port.`in`.MarkInventoryDefectiveUseCase
 import com.dozycoffee.wms.inventory.application.port.`in`.RegisterInventoryUseCase
@@ -51,6 +52,7 @@ import org.springframework.transaction.annotation.Transactional
 
 @Service
 class ReturnRequestService(
+    private val warehouseAccessGuard: WarehouseAccessGuard,
     private val returnRequestRepository: ReturnRequestRepository,
     private val returnItemRepository: ReturnItemRepository,
     private val getProductUseCase: GetProductUseCase,
@@ -72,6 +74,7 @@ class ReturnRequestService(
 
     @Transactional
     override suspend fun register(command: RegisterReturnRequestCommand): ReturnRequestResult {
+        warehouseAccessGuard.require(command.warehouseId)
         val returnRequest = ReturnRequest.create(command.warehouseId)
         val savedReturnRequest = returnRequestRepository.save(returnRequest)
 
@@ -88,7 +91,7 @@ class ReturnRequestService(
     /** 반품 상품이 반품 처리장에 도착해 검수를 시작할 때 신고 수량만큼 반품 처리장을 점유한다 */
     @Transactional
     override suspend fun startInspecting(returnRequestId: Long): ReturnRequestResult {
-        val returnRequest = findReturnRequestOrThrow(returnRequestId)
+        val returnRequest = findAccessibleReturnRequestOrThrow(returnRequestId)
         val totalExpectedQuantity = returnItemRepository.findAllByReturnRequestId(returnRequestId).toList()
             .sumOf { it.expectedQuantity }
 
@@ -107,7 +110,7 @@ class ReturnRequestService(
      */
     @Transactional
     override suspend fun complete(command: CompleteReturnRequestCommand): ReturnRequestResult {
-        val returnRequest = findReturnRequestOrThrow(command.returnRequestId)
+        val returnRequest = findAccessibleReturnRequestOrThrow(command.returnRequestId)
         val items = returnItemRepository.findAllByReturnRequestId(command.returnRequestId).toList()
 
         if (items.any { it.inspectionResult == ReturnInspectionResult.PENDING }) {
@@ -145,12 +148,13 @@ class ReturnRequestService(
 
     @Transactional(readOnly = true)
     override suspend fun getById(returnRequestId: Long): ReturnRequestResult {
-        return ReturnRequestResult.from(findReturnRequestOrThrow(returnRequestId))
+        return ReturnRequestResult.from(findAccessibleReturnRequestOrThrow(returnRequestId))
     }
 
     @Transactional(readOnly = true)
     override fun getAll(status: ReturnRequestStatus?): Flow<ReturnRequestResult> {
-        return returnRequestRepository.findAll(status).map { ReturnRequestResult.from(it) }
+        return warehouseAccessGuard.scoped { warehouseIds -> returnRequestRepository.findAll(status, warehouseIds) }
+            .map { ReturnRequestResult.from(it) }
     }
 
     private suspend fun resolveLot(productId: Long, assignment: ReturnItemLotAssignmentCommand): LotResult {
@@ -199,7 +203,9 @@ class ReturnRequestService(
         return registeredInventories
     }
 
-    private suspend fun findReturnRequestOrThrow(returnRequestId: Long): ReturnRequest {
-        return returnRequestRepository.findById(returnRequestId) ?: throw ReturnRequestNotFoundException()
+    private suspend fun findAccessibleReturnRequestOrThrow(returnRequestId: Long): ReturnRequest {
+        val returnRequest = returnRequestRepository.findById(returnRequestId) ?: throw ReturnRequestNotFoundException()
+        warehouseAccessGuard.require(returnRequest.warehouseId)
+        return returnRequest
     }
 }

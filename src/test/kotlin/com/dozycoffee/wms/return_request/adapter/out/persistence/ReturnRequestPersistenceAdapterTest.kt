@@ -73,9 +73,25 @@ class ReturnRequestPersistenceAdapterTest {
         inspecting.startInspecting()
         returnRequestPersistenceAdapter.save(inspecting)
 
-        val result = returnRequestPersistenceAdapter.findAll(ReturnRequestStatus.RECEIVED).toList()
+        val result = returnRequestPersistenceAdapter.findAll(ReturnRequestStatus.RECEIVED, null).toList()
 
         assertThat(result).hasSize(1)
         assertThat(result.first().returnRequestId).isEqualTo(savedReceived.returnRequestId)
+    }
+
+    @Test
+    fun `창고 ID 목록으로 목록을 필터링한다`() = runTest {
+        val warehouseA = createWarehouseId()
+        val warehouseB = createWarehouseId()
+        returnRequestPersistenceAdapter.save(returnRequest().warehouseId(warehouseA).build())
+        returnRequestPersistenceAdapter.save(returnRequest().warehouseId(warehouseB).build())
+
+        val onlyA = returnRequestPersistenceAdapter.findAll(null, listOf(warehouseA)).toList()
+        val both = returnRequestPersistenceAdapter.findAll(null, listOf(warehouseA, warehouseB)).toList()
+        val unfiltered = returnRequestPersistenceAdapter.findAll(null, null).toList()
+
+        assertThat(onlyA.map { it.warehouseId }).containsExactly(warehouseA)
+        assertThat(both.map { it.warehouseId }).containsExactlyInAnyOrder(warehouseA, warehouseB)
+        assertThat(unfiltered).hasSize(2)
     }
 }
