@@ -13,6 +13,12 @@
 
 ### 2026-10-02
 
+- F-023(진행 중): WMS role 7개(`WmsRole`: inbound/outbound/return/disposal/stock_audit_manager, inventory_viewer, warehouse_admin)를
+  정의하고 전 컨트롤러 엔드포인트에 `@PreAuthorize`를 적용했다(조회=모든 WMS role, 쓰기=도메인 담당 role + warehouse_admin,
+  마스터·재고 쓰기=warehouse_admin). `local` 필터 체인은 모든 role을 가진 개발 사용자를 주입한다.
+  `GlobalExceptionHandler`가 `AccessDeniedException`을 500으로 바꾸던 문제를 보안 예외 재전파로 고쳤다(403 Problem Details).
+- 실사 마감의 `approvedBy` 요청 필드를 제거하고 토큰 principal로 대체했다. 임계치 초과 조정은 `warehouse_admin`만 승인할 수
+  있으며, 아니면 `StockAuditApprovalRequiredException`이다. `devseed`는 local 개발 사용자로 승인한다.
 - 코드 분석으로 dozy-auth 연동 모델을 정리했다(ADR-0012). 토큰에는 `principalId`와 `roles`만 있고 창고 범위가 없어,
   창고 접근은 WMS 자체 데이터(사용자-창고 매핑)로 관리하는 것으로 결정했다. 노션 "서비스 연동 가이드"는 워크스페이스에서
   찾지 못해 dozy-auth 저장소의 명세(`docs/`)를 기준으로 삼았다.
@@ -45,7 +51,7 @@
 ## 다음 세션에서 할 일
 
 1. 개발 DB에 시드 적재(`SPRING_PROFILES_ACTIVE=local WMS_DEV_SEED_ENABLED=true ./gradlew bootRun`) 후 UI/API로 확인
-2. F-023: WMS role 정의·Auth 등록과 `@PreAuthorize` 적용 (local 프로필 개발 사용자의 role 확장 포함)
+2. F-023 마무리: dozy-auth admin에 `wms:` role 7개 등록(배포 전 필수), 실사 `assignee`를 principal 기반으로 바꿀지 결정
 3. F-022: 창고를 2개 이상으로 늘리기 전에 사용자-창고 매핑과 가드 도입
 4. F-014: 이벤트 전환 1단계 착수 여부 재검토 (원자성 상실, AFTER_COMMIT 유실 리스크)
 5. F-015: 입고 검수 로직 보강

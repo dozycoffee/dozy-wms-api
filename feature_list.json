@@ -21,5 +21,5 @@
   {"id": "F-020", "name": "재고 실사 조정 시 Location 사용량 동기화", "description": "StockAuditService.close()가 조정량만큼 Location usedCapacity를 occupy/release하도록 수정. 이전에는 Inventory 수량만 교정해 Location 사용량과 재고 합계가 어긋났음", "status": "completed", "dependencies": ["F-009"]},
   {"id": "F-021", "name": "개발용 목 데이터 시더", "description": "@Profile(dev) + wms.dev-seed.enabled Kotlin Seeder(UseCase 호출). 5,000 기준 창고 구성, 상품 20행, 도메인별 상태 분포, 정합성 검증 테스트", "status": "completed", "dependencies": ["F-020"]},
   {"id": "F-022", "name": "사용자-창고 접근 매핑과 가드", "description": "WMS 자체 warehouse_member 테이블과 배정 관리 API, OnlyWarehouses 연결, 입고·출고·반품·폐기·실사 등록/조회에 서비스 계층 가드 적용. 창고를 2개 이상으로 늘리기 전에 반드시 선행 (ADR-0012)", "status": "pending", "dependencies": ["F-017"]},
-  {"id": "F-023", "name": "WMS role 정의·Auth 등록과 @PreAuthorize 적용", "description": "기능별 role 목록 정의 및 Auth 등록(dozy-auth ADR-0017), 컨트롤러 @PreAuthorize, 실사 approvedBy/assignee를 토큰 principal 기반으로 전환. local 프로필은 @PreAuthorize를 통과하도록 모든 role을 가진 고정 개발 사용자로 확장 필요", "status": "pending", "dependencies": ["F-017"]}
+  {"id": "F-023", "name": "WMS role 정의·Auth 등록과 @PreAuthorize 적용", "description": "기능별 role 목록 정의 및 Auth 등록(dozy-auth ADR-0017), 컨트롤러 @PreAuthorize, 실사 approvedBy/assignee를 토큰 principal 기반으로 전환. local 프로필은 @PreAuthorize를 통과하도록 모든 role을 가진 고정 개발 사용자로 확장 필요", "status": "in_progress", "dependencies": ["F-017"]}
 ]
