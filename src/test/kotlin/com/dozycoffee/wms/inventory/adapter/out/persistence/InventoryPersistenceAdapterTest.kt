@@ -1,7 +1,7 @@
 package com.dozycoffee.wms.inventory.adapter.out.persistence
 
 import com.dozycoffee.wms.global.config.R2dbcConfig
-import com.dozycoffee.wms.global.security.SystemActorProvider
+import com.dozycoffee.wms.support.SystemActorProvider
 import com.dozycoffee.wms.inventory.application.port.`in`.InventorySortBy
 import com.dozycoffee.wms.inventory.domain.enumeration.QualityStatus
 import com.dozycoffee.wms.inventory.fixture.InventoryTestBuilder.Companion.inventory

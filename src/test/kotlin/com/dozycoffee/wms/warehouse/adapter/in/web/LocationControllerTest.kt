@@ -1,5 +1,6 @@
 package com.dozycoffee.wms.warehouse.adapter.`in`.web
 
+import com.dozycoffee.auth.test.WithDozyPrincipal
 import com.dozycoffee.wms.warehouse.adapter.`in`.web.request.AmountRequest
 import com.dozycoffee.wms.warehouse.adapter.`in`.web.request.RegisterLocationRequest
 import com.dozycoffee.wms.warehouse.application.port.`in`.GetLocationUseCase
@@ -22,6 +23,7 @@ import org.mockito.kotlin.any
 import org.mockito.kotlin.eq
 import org.mockito.Mockito.`when`
 
+@WithDozyPrincipal
 @WebFluxTest(LocationController::class)
 class LocationControllerTest {
 

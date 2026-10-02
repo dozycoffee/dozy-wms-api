@@ -24,7 +24,19 @@ kotlin {
 
 repositories {
 	mavenCentral()
+	maven {
+		url = uri('https://maven.pkg.github.com/dozycoffee/dozy-auth')
+		credentials {
+			username = providers.gradleProperty('gpr.user').orNull ?: System.getenv('GPR_USER')
+			password = providers.gradleProperty('gpr.token').orNull ?: System.getenv('GPR_TOKEN')
+		}
+		content {
+			includeGroup('com.dozycoffee.auth')
+		}
+	}
 }
+
+def dozyAuthVersion = '0.1.0'
 
 dependencies {
 	implementation 'org.springframework.boot:spring-boot-starter-data-r2dbc'
@@ -34,6 +46,7 @@ dependencies {
 	implementation 'org.flywaydb:flyway-mysql'
 	implementation 'org.jetbrains.kotlin:kotlin-reflect'
 	implementation 'org.jetbrains.kotlinx:kotlinx-coroutines-reactor'
+	implementation "com.dozycoffee.auth:auth-spring-boot-starter:${dozyAuthVersion}"
 	runtimeOnly 'com.mysql:mysql-connector-j'
 	runtimeOnly 'io.asyncer:r2dbc-mysql'
 	testImplementation 'org.springframework.boot:spring-boot-starter-test'
@@ -43,6 +56,7 @@ dependencies {
 	testImplementation 'org.springframework.boot:spring-boot-starter-webflux-test'
 	testImplementation 'org.jetbrains.kotlinx:kotlinx-coroutines-test'
 	testImplementation 'org.testcontainers:testcontainers-mysql'
+	testImplementation "com.dozycoffee.auth:auth-test:${dozyAuthVersion}"
 	testImplementation 'org.mockito.kotlin:mockito-kotlin:5.4.0'
 	testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
 }

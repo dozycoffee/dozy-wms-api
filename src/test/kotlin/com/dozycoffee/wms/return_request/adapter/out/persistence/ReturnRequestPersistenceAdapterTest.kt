@@ -1,7 +1,7 @@
 package com.dozycoffee.wms.return_request.adapter.out.persistence
 
 import com.dozycoffee.wms.global.config.R2dbcConfig
-import com.dozycoffee.wms.global.security.SystemActorProvider
+import com.dozycoffee.wms.support.SystemActorProvider
 import com.dozycoffee.wms.return_request.domain.enumeration.ReturnRequestStatus
 import com.dozycoffee.wms.return_request.domain.model.ReturnRequest
 import com.dozycoffee.wms.return_request.fixture.ReturnRequestTestBuilder.Companion.returnRequest

@@ -1,7 +1,7 @@
 package com.dozycoffee.wms.inbound.adapter.out.persistence
 
 import com.dozycoffee.wms.global.config.R2dbcConfig
-import com.dozycoffee.wms.global.security.SystemActorProvider
+import com.dozycoffee.wms.support.SystemActorProvider
 import com.dozycoffee.wms.inbound.domain.enumeration.InspectionResult
 import com.dozycoffee.wms.inbound.fixture.InboundItemTestBuilder.Companion.inboundItem
 import com.dozycoffee.wms.inbound.fixture.InboundTestBuilder.Companion.inbound

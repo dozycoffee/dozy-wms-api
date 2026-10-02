@@ -1,6 +1,6 @@
 package com.dozycoffee.wms.inventory.adapter.out.persistence
 
-import com.dozycoffee.wms.global.security.SystemActorProvider
+import com.dozycoffee.wms.support.SystemActorProvider
 import kotlinx.coroutines.flow.toList
 import kotlinx.coroutines.reactive.asFlow
 import kotlinx.coroutines.runBlocking

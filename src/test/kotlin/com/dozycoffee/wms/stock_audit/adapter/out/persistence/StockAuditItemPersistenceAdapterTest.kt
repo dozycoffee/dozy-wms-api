@@ -1,7 +1,7 @@
 package com.dozycoffee.wms.stock_audit.adapter.out.persistence
 
 import com.dozycoffee.wms.global.config.R2dbcConfig
-import com.dozycoffee.wms.global.security.SystemActorProvider
+import com.dozycoffee.wms.support.SystemActorProvider
 import com.dozycoffee.wms.inventory.adapter.out.persistence.InventoryPersistenceAdapter
 import com.dozycoffee.wms.inventory.adapter.out.persistence.InventoryR2dbcRepository
 import com.dozycoffee.wms.inventory.adapter.out.persistence.LotPersistenceAdapter

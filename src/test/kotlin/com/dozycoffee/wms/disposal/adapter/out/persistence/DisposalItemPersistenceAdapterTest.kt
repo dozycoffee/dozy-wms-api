@@ -4,7 +4,7 @@ import com.dozycoffee.wms.disposal.domain.enumeration.DisposalReason
 import com.dozycoffee.wms.disposal.fixture.DisposalItemTestBuilder.Companion.disposalItem
 import com.dozycoffee.wms.disposal.fixture.DisposalTestBuilder.Companion.disposal
 import com.dozycoffee.wms.global.config.R2dbcConfig
-import com.dozycoffee.wms.global.security.SystemActorProvider
+import com.dozycoffee.wms.support.SystemActorProvider
 import com.dozycoffee.wms.inventory.adapter.out.persistence.InventoryPersistenceAdapter
 import com.dozycoffee.wms.inventory.adapter.out.persistence.InventoryR2dbcRepository
 import com.dozycoffee.wms.inventory.adapter.out.persistence.LotPersistenceAdapter

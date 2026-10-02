@@ -1,5 +1,6 @@
 package com.dozycoffee.wms.warehouse.adapter.`in`.web
 
+import com.dozycoffee.auth.test.WithDozyPrincipal
 import com.dozycoffee.wms.warehouse.adapter.`in`.web.request.AmountRequest
 import com.dozycoffee.wms.warehouse.adapter.`in`.web.request.RegisterWorkAreaRequest
 import com.dozycoffee.wms.warehouse.application.port.`in`.GetWorkAreaUseCase
@@ -20,6 +21,7 @@ import reactor.core.publisher.Mono
 import org.mockito.kotlin.any
 import org.mockito.Mockito.`when`
 
+@WithDozyPrincipal
 @WebFluxTest(WorkAreaController::class)
 class WorkAreaControllerTest {
 

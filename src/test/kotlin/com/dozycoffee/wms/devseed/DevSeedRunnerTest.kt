@@ -18,7 +18,7 @@ import org.springframework.r2dbc.core.DatabaseClient
 import org.springframework.test.context.ActiveProfiles
 
 @SpringBootTest(properties = ["wms.dev-seed.enabled=true"])
-@ActiveProfiles("dev")
+@ActiveProfiles("local")
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
 class DevSeedRunnerTest {
 

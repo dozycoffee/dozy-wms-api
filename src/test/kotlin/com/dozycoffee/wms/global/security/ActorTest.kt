@@ -24,9 +24,4 @@ class ActorTest {
     fun `전체 창고 접근 제공자는 항상 전체 창고를 허용한다`() = runTest {
         assertThat(AllWarehousesAccessProvider().current()).isEqualTo(AllWarehouses)
     }
-
-    @Test
-    fun `시스템 행위자 제공자는 시스템 행위자를 반환한다`() = runTest {
-        assertThat(SystemActorProvider().get()).isEqualTo(SystemActor)
-    }
 }

@@ -1,5 +1,6 @@
 package com.dozycoffee.wms.inventory.adapter.`in`.web
 
+import com.dozycoffee.auth.test.WithDozyPrincipal
 import com.dozycoffee.wms.inventory.adapter.`in`.web.request.RegisterLotRequest
 import com.dozycoffee.wms.inventory.application.port.`in`.GetLotUseCase
 import com.dozycoffee.wms.inventory.application.port.`in`.GetOutboundRecommendationUseCase
@@ -25,6 +26,7 @@ import org.springframework.test.web.reactive.server.WebTestClient
 import java.time.LocalDate
 import java.time.LocalDateTime
 
+@WithDozyPrincipal
 @WebFluxTest(LotController::class)
 class LotControllerTest {
 
