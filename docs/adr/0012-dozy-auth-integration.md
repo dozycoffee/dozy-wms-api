@@ -42,10 +42,14 @@ Auth 모델과 맞지 않는다. 또한 `warehouseIds`가 빈 리스트면 "제�
 - `WarehouseAccess`는 `AllWarehouses`와 `OnlyWarehouses(ids)`로 나눈다. 조회 조건은
   `WarehouseFilter`(`Unfiltered` / `In(ids)` / `None`)로 반환해, "전체"와 "없음"을 빈 리스트로 구분하던
   모호성을 없앤다. 접근 가능한 창고가 없으면(`OnlyWarehouses(empty)`) 요청과 무관하게 `None`이다.
-- 사용자-창고 매핑(WMS 자체 테이블)은 **창고가 2개 이상으로 늘기 전에** 도입한다. 그 전까지
-  `AllWarehousesAccessProvider`가 모든 행위자에게 `AllWarehouses`를 반환한다.
-- 매핑 도입 시 서비스 계층의 가드(`require(warehouseId)`)를 입고·출고·반품·폐기·실사의 등록과 조회에
-  함께 적용한다. 호출부가 없는 가드를 미리 만들지 않기 위해 지금은 가드를 만들지 않는다.
+- 사용자-창고 매핑은 WMS 자체 테이블 `warehouse_member`(`principalId` ↔ 창고)로 관리한다. 배정 관리 API는
+  `warehouse_admin` 전용이다. `WarehouseMemberAccessProvider`가 행위자별 범위를 결정한다 — 시스템 작업과
+  `warehouse_admin`은 `AllWarehouses`, 그 외는 배정된 창고만의 `OnlyWarehouses`이며 배정이 없으면 접근할 수 없다(fail-closed).
+- 서비스 계층의 `WarehouseAccessGuard`가 입고·출고·반품·폐기·실사의 등록(`require`)과 단건·상태 변경(문서의
+  `warehouseId` 검사), 목록(`scoped`로 SQL `IN` 조건)을 제한한다. 항목(Item) 조회·처리는 상위 문서의 창고로 검사한다.
+- 접근 불가는 `COMMON_WAREHOUSE_ACCESS_DENIED`(403)다. 다른 창고 문서의 존재 여부를 숨기지는 않는다(ID가 순차 정수라
+  404로 바꿔도 실익이 작다).
+- 요청마다 배정을 조회한다(캐시 없음). 호출량이 늘면 요청 단위 캐시를 검토한다.
 
 ### 4. 로컬 실행은 `local` 프로필에서만 인증을 우회한다
 
@@ -68,8 +72,7 @@ Auth 모델과 맞지 않는다. 또한 `warehouseIds`가 빈 리스트면 "제�
 
 - 감사 컬럼의 값이 `"system"`에서 사용자별 `principalId`로 바뀐다. 요청 컨텍스트 밖의 작업은 계속
   `"system"`이다. 기존 데이터는 변경하지 않는다.
-- 창고가 1개인 동안 창고 접근은 실질적으로 제한되지 않는다. **창고를 추가하기 전에 매핑 도입이 선행
-  조건**이다(이 문서가 감사 포인트).
+- 매핑이 없는 일반 담당자는 어떤 창고에도 접근하지 못한다. 담당자를 추가할 때 `warehouse_admin`이 창고를 배정해야 한다.
 - WMS의 role은 코드에서 쓰기 전에 Auth에 등록해야 한다(`dozy-auth` ADR-0017).
 - 아직 검증이 필요한 항목: `suspend` 서비스 안에서 Reactor Context의 보안 컨텍스트가 실제로 읽히는지,
   스타터 기본 필터 체인에 CORS 설정이 없어 사전 요청(OPTIONS)이 막히지 않는지.
