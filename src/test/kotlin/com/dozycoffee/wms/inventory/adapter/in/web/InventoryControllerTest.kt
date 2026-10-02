@@ -1,5 +1,6 @@
 package com.dozycoffee.wms.inventory.adapter.`in`.web
 
+import com.dozycoffee.auth.test.WithDozyPrincipal
 import com.dozycoffee.wms.inventory.adapter.`in`.web.request.RegisterInventoryRequest
 import com.dozycoffee.wms.inventory.application.port.`in`.GetInventoryUseCase
 import com.dozycoffee.wms.inventory.application.port.`in`.GetZoneInventorySummaryUseCase
@@ -27,6 +28,7 @@ import org.springframework.boot.webflux.test.autoconfigure.WebFluxTest
 import org.springframework.test.context.bean.override.mockito.MockitoBean
 import org.springframework.test.web.reactive.server.WebTestClient
 
+@WithDozyPrincipal
 @WebFluxTest(InventoryController::class)
 class InventoryControllerTest {
 

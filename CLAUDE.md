@@ -33,8 +33,11 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 # Run a single test method
 ./gradlew test --tests "com.dozycoffee.wms.domain.product.ProductServiceTest.상품_등록_성공"
 
-# 개발용 목 데이터 적재 (dev 프로파일 + 시드 플래그가 모두 필요, 이미 데이터가 있으면 건너뜀)
-SPRING_PROFILES_ACTIVE=dev WMS_DEV_SEED_ENABLED=true ./gradlew bootRun
+# 로컬 실행 (local 프로파일은 인증을 우회한다 — 아래 Authentication 참고)
+SPRING_PROFILES_ACTIVE=local ./gradlew bootRun
+
+# 개발용 목 데이터 적재 (local 프로파일 + 시드 플래그가 모두 필요, 이미 데이터가 있으면 건너뜀)
+SPRING_PROFILES_ACTIVE=local WMS_DEV_SEED_ENABLED=true ./gradlew bootRun
 
 # 개발 DB 초기화 (삭제 후 재생성, 확인 프롬프트 있음)
 ./scripts/reset-dev-db.sh
@@ -63,7 +66,7 @@ src
 │   │   ├── outbound                          // 출고(Outbound) · 출고 상품(OutboundItem)
 │   │   ├── disposal                          // 폐기(Disposal) · 폐기 상품(DisposalItem)
 │   │   ├── return_request                    // 반품(ReturnRequest) · 반품 상품(ReturnItem)
-│   │   └── devseed                           // dev 프로파일 전용 목 데이터 시더 (운영 코드와 분리)
+│   │   └── devseed                           // local 프로파일 전용 목 데이터 시더 (운영 코드와 분리)
 │   │
 │   │   # 각 도메인의 내부 구조
 │   │   └── {domain}
@@ -133,6 +136,16 @@ src
 - `Allocation` 상태는 `HELD → RELEASED`, `HELD → FULFILLED`만 허용하는 완전 종단 전이이며, `quantity`는 생성 후 불변이다
 - `Inventory.hold()`/`releaseHold()`/`fulfillHold()`가 `Allocation`의 상태 전이에 대응해 `allocatedQuantity`(및 `fulfillHold`의 경우 `quantity`)를 갱신한다 — `qualityStatus != NORMAL`이면 `hold()` 불가, `allocatedQuantity > 0`이면 `markDefective()`/`markDisposalScheduled()` 불가
 - `(inventoryId, referenceType, referenceId)`는 `status = HELD`인 레코드에만 조건부 유니크 — 이벤트 기반(비동기) 처리에서의 멱등성 보장 목적, 자세한 배경은 ADR-0008 참고
+
+**Authentication & Authorization** (ADR-0012)
+
+- 인증 서비스는 `dozy-auth`다 — 토큰(JWT, RS256) 검증은 `auth-spring-boot-starter`(GitHub Packages)가 처리하고, 설정은 `dozy.auth.*`(`audience: wms`, `accepted-realms: [internal]`, `issuer-base-uri`는 `AUTH_ISSUER_BASE_URI`)다
+- 의존성을 받으려면 GitHub Packages 읽기 권한이 필요하다 — `~/.gradle/gradle.properties`의 `gpr.user`/`gpr.token`(`read:packages`) 또는 환경변수 `GPR_USER`/`GPR_TOKEN`. CI는 `GITHUB_TOKEN`을 쓰므로 `dozy-auth` 패키지 설정에서 이 저장소의 읽기 접근이 허용돼 있어야 한다
+- 책임은 셋으로 나눈다: **누구인가**(`Actor`: `UserActor`/`SystemActor`, `CurrentActorProvider`), **어떤 기능을 쓸 수 있나**(Auth 토큰의 `roles`, `@PreAuthorize`), **어느 창고를 볼 수 있나**(`WarehouseAccess`: `AllWarehouses`/`OnlyWarehouses`, WMS 자체 데이터)
+- 감사 컬럼에는 `Actor.auditName`을 기록한다 — 사용자는 `principalId` UUID, 요청 밖 작업(스케줄러·시더)은 `"system"`
+- 보안 필터 체인은 스타터 빈(디코더, 권한 변환기, 401/403 핸들러)을 쓰되 CORS 때문에 `SecurityConfig`에서 직접 정의한다. CORS는 필터 체인 안에서(`CorsConfig`의 `CorsConfigurationSource`) 처리한다
+- `local` 프로파일만 인증을 우회한다(고정 개발 사용자). `prod` 프로파일과 함께 켜지면 기동에 실패한다
+- 컨트롤러 테스트(`@WebFluxTest`)는 `@WithDozyPrincipal`, 통합 테스트는 `DozyTestTokens`(`auth-test`)로 인증한다
 
 **Warehouse Domain Structure**
 

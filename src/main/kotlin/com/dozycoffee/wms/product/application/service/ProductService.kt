@@ -1,6 +1,6 @@
 package com.dozycoffee.wms.product.application.service
 
-import com.dozycoffee.wms.global.security.CurrentAccessScopeProvider
+import com.dozycoffee.wms.global.security.CurrentActorProvider
 import com.dozycoffee.wms.product.application.port.`in`.ActivateProductUseCase
 import com.dozycoffee.wms.product.application.port.`in`.DeactivateProductUseCase
 import com.dozycoffee.wms.product.application.port.`in`.DeleteProductUseCase
@@ -22,7 +22,7 @@ import org.springframework.transaction.annotation.Transactional
 @Service
 class ProductService(
     private val productRepository: ProductRepository,
-    private val currentAccessScopeProvider: CurrentAccessScopeProvider
+    private val currentActorProvider: CurrentActorProvider
 ) : RegisterProductUseCase, ActivateProductUseCase, DeactivateProductUseCase, DeleteProductUseCase, GetProductUseCase {
 
     @Transactional
@@ -57,7 +57,7 @@ class ProductService(
     @Transactional
     override suspend fun delete(productId: Long) {
         val product = findProductOrThrow(productId)
-        product.delete(currentAccessScopeProvider.get().userId)
+        product.delete(currentActorProvider.get().auditName)
         productRepository.save(product)
     }
 

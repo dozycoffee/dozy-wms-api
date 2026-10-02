@@ -1,6 +1,8 @@
 package com.dozycoffee.wms.inventory.application.service
 
-import com.dozycoffee.wms.global.security.CurrentAccessScopeProvider
+import com.dozycoffee.wms.global.security.CurrentActorProvider
+import com.dozycoffee.wms.global.security.CurrentWarehouseAccessProvider
+import com.dozycoffee.wms.global.security.WarehouseFilter
 import com.dozycoffee.wms.inventory.application.port.`in`.AdjustInventoryQuantityUseCase
 import com.dozycoffee.wms.inventory.application.port.`in`.ConfirmInventoryDisposalUseCase
 import com.dozycoffee.wms.inventory.application.port.`in`.GetInventoryHistoryUseCase
@@ -37,7 +39,8 @@ class InventoryService(
     private val inventoryRepository: InventoryRepository,
     private val lotRepository: LotRepository,
     private val inventoryHistoryRepository: InventoryHistoryRepository,
-    private val currentAccessScopeProvider: CurrentAccessScopeProvider
+    private val currentActorProvider: CurrentActorProvider,
+    private val currentWarehouseAccessProvider: CurrentWarehouseAccessProvider
 ) : RegisterInventoryUseCase,
     GetInventoryUseCase,
     MarkInventoryDefectiveUseCase,
@@ -83,8 +86,11 @@ class InventoryService(
         sortBy: InventorySortBy?,
         warehouseIds: List<Long>?
     ): Flow<InventoryResult> = flow {
-        val effectiveWarehouseIds = currentAccessScopeProvider.get().narrowWarehouseIds(warehouseIds)
-        if (effectiveWarehouseIds != null && effectiveWarehouseIds.isEmpty()) return@flow
+        val effectiveWarehouseIds: List<Long>? = when (val filter = currentWarehouseAccessProvider.current().narrow(warehouseIds)) {
+            WarehouseFilter.None -> return@flow
+            WarehouseFilter.Unfiltered -> null
+            is WarehouseFilter.In -> filter.warehouseIds
+        }
         emitAll(
             inventoryRepository.findAll(locationId, productId, qualityStatus, sortBy, effectiveWarehouseIds)
                 .map { InventoryResult.from(it) }
@@ -110,7 +116,7 @@ class InventoryService(
     override suspend fun confirmDisposal(inventoryId: Long, referenceId: Long): InventoryResult {
         val inventory = findInventoryOrThrow(inventoryId)
         val disposedQuantity = inventory.quantity
-        inventory.delete(currentAccessScopeProvider.get().userId)
+        inventory.delete(currentActorProvider.get().auditName)
         val saved = inventoryRepository.save(inventory)
         recordHistory(saved.inventoryId, InventoryHistoryType.DISPOSAL, -disposedQuantity, referenceId)
         return InventoryResult.from(saved)

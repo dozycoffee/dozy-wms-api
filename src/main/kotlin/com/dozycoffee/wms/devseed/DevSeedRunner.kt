@@ -14,11 +14,11 @@ import org.springframework.transaction.reactive.executeAndAwait
 import java.time.LocalDate
 
 /**
- * 개발 DB에 시나리오 기반 목 데이터를 적재한다. `dev` 프로파일과 `wms.dev-seed.enabled=true`가 모두 필요하며,
+ * 개발 DB에 시나리오 기반 목 데이터를 적재한다. `local` 프로파일과 `wms.dev-seed.enabled=true`가 모두 필요하며,
  * 한 트랜잭션으로 실행되어 중간에 실패하면 전체가 롤백된다.
  */
 @Component
-@Profile("dev")
+@Profile("local")
 @ConditionalOnProperty(prefix = "wms.dev-seed", name = ["enabled"], havingValue = "true")
 internal class DevSeedRunner(
     private val databaseClient: DatabaseClient,

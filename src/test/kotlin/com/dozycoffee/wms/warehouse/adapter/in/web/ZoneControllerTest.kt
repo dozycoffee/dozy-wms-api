@@ -1,5 +1,6 @@
 package com.dozycoffee.wms.warehouse.adapter.`in`.web
 
+import com.dozycoffee.auth.test.WithDozyPrincipal
 import com.dozycoffee.wms.warehouse.adapter.`in`.web.request.RegisterZoneRequest
 import com.dozycoffee.wms.warehouse.application.port.`in`.GetZoneUseCase
 import com.dozycoffee.wms.warehouse.application.port.`in`.RegisterZoneUseCase
@@ -19,6 +20,7 @@ import org.mockito.kotlin.any
 import org.mockito.kotlin.eq
 import org.mockito.Mockito.`when`
 
+@WithDozyPrincipal
 @WebFluxTest(ZoneController::class)
 class ZoneControllerTest {
 

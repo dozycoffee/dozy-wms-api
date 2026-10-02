@@ -1,6 +1,6 @@
 package com.dozycoffee.wms.inventory.adapter.out.persistence
 
-import com.dozycoffee.wms.global.security.MockAccessScopeProvider
+import com.dozycoffee.wms.support.SystemActorProvider
 import kotlinx.coroutines.flow.toList
 import kotlinx.coroutines.reactive.asFlow
 import kotlinx.coroutines.runBlocking
@@ -12,7 +12,7 @@ import org.springframework.context.annotation.Import
 import org.springframework.r2dbc.core.DatabaseClient
 
 @DataR2dbcTest
-@Import(MockAccessScopeProvider::class)
+@Import(SystemActorProvider::class)
 class InventoryIndexMigrationTest {
 
     @Autowired

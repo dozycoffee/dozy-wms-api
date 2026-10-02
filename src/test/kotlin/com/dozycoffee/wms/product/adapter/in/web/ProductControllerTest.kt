@@ -1,5 +1,6 @@
 package com.dozycoffee.wms.product.adapter.`in`.web
 
+import com.dozycoffee.auth.test.WithDozyPrincipal
 import com.dozycoffee.wms.product.adapter.`in`.web.request.RegisterProductRequest
 import com.dozycoffee.wms.product.application.port.`in`.ActivateProductUseCase
 import com.dozycoffee.wms.product.application.port.`in`.DeactivateProductUseCase
@@ -22,6 +23,7 @@ import org.springframework.boot.webflux.test.autoconfigure.WebFluxTest
 import org.springframework.test.context.bean.override.mockito.MockitoBean
 import org.springframework.test.web.reactive.server.WebTestClient
 
+@WithDozyPrincipal
 @WebFluxTest(ProductController::class)
 class ProductControllerTest {
 

@@ -1,5 +1,6 @@
 package com.dozycoffee.wms.disposal.adapter.`in`.web
 
+import com.dozycoffee.auth.test.WithDozyPrincipal
 import com.dozycoffee.wms.disposal.application.port.`in`.GetDisposalItemUseCase
 import com.dozycoffee.wms.disposal.application.port.`in`.result.DisposalItemResult
 import com.dozycoffee.wms.disposal.domain.enumeration.DisposalReason
@@ -12,6 +13,7 @@ import org.springframework.boot.webflux.test.autoconfigure.WebFluxTest
 import org.springframework.test.context.bean.override.mockito.MockitoBean
 import org.springframework.test.web.reactive.server.WebTestClient
 
+@WithDozyPrincipal
 @WebFluxTest(DisposalItemController::class)
 class DisposalItemControllerTest {
 

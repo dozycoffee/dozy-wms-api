@@ -1,5 +1,6 @@
 package com.dozycoffee.wms.inventory.adapter.`in`.web
 
+import com.dozycoffee.auth.test.WithDozyPrincipal
 import com.dozycoffee.wms.inventory.application.port.`in`.GetInventoryHistoryUseCase
 import com.dozycoffee.wms.inventory.application.port.`in`.result.InventoryHistoryResult
 import com.dozycoffee.wms.inventory.domain.enumeration.InventoryHistoryType
@@ -15,6 +16,7 @@ import org.springframework.test.web.reactive.server.WebTestClient
 import java.time.LocalDate
 import java.time.LocalDateTime
 
+@WithDozyPrincipal
 @WebFluxTest(InventoryHistoryController::class)
 class InventoryHistoryControllerTest {
 

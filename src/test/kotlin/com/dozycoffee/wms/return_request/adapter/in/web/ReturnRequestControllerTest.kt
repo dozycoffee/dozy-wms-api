@@ -1,5 +1,6 @@
 package com.dozycoffee.wms.return_request.adapter.`in`.web
 
+import com.dozycoffee.auth.test.WithDozyPrincipal
 import com.dozycoffee.wms.return_request.adapter.`in`.web.request.CompleteReturnRequestRequest
 import com.dozycoffee.wms.return_request.adapter.`in`.web.request.RegisterReturnItemRequest
 import com.dozycoffee.wms.return_request.adapter.`in`.web.request.RegisterReturnRequestRequest
@@ -23,6 +24,7 @@ import org.springframework.boot.webflux.test.autoconfigure.WebFluxTest
 import org.springframework.test.context.bean.override.mockito.MockitoBean
 import org.springframework.test.web.reactive.server.WebTestClient
 
+@WithDozyPrincipal
 @WebFluxTest(ReturnRequestController::class)
 class ReturnRequestControllerTest {
 

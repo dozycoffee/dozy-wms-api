@@ -1,7 +1,7 @@
 package com.dozycoffee.wms.inventory.adapter.out.persistence
 
 import com.dozycoffee.wms.global.config.R2dbcConfig
-import com.dozycoffee.wms.global.security.MockAccessScopeProvider
+import com.dozycoffee.wms.support.SystemActorProvider
 import com.dozycoffee.wms.inventory.fixture.InventoryTestBuilder.Companion.inventory
 import com.dozycoffee.wms.inventory.fixture.LotTestBuilder.Companion.lot
 import com.dozycoffee.wms.product.adapter.out.persistence.ProductPersistenceAdapter
@@ -29,7 +29,7 @@ import org.springframework.context.annotation.Import
 @DataR2dbcTest
 @Import(
     R2dbcConfig::class,
-    MockAccessScopeProvider::class,
+    SystemActorProvider::class,
     ProductPersistenceAdapter::class,
     LotPersistenceAdapter::class,
     InventoryPersistenceAdapter::class,

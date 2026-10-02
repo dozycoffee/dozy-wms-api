@@ -1,5 +1,6 @@
 package com.dozycoffee.wms.stock_audit.adapter.`in`.web
 
+import com.dozycoffee.auth.test.WithDozyPrincipal
 import com.dozycoffee.wms.stock_audit.adapter.`in`.web.request.CountStockAuditItemRequest
 import com.dozycoffee.wms.stock_audit.application.port.`in`.CountStockAuditItemUseCase
 import com.dozycoffee.wms.stock_audit.application.port.`in`.GetStockAuditItemUseCase
@@ -15,6 +16,7 @@ import org.springframework.boot.webflux.test.autoconfigure.WebFluxTest
 import org.springframework.test.context.bean.override.mockito.MockitoBean
 import org.springframework.test.web.reactive.server.WebTestClient
 
+@WithDozyPrincipal
 @WebFluxTest(StockAuditItemController::class)
 class StockAuditItemControllerTest {
 

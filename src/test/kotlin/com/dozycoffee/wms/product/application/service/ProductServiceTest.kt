@@ -1,7 +1,7 @@
 package com.dozycoffee.wms.product.application.service
 
-import com.dozycoffee.wms.global.security.AccessScope
-import com.dozycoffee.wms.global.security.CurrentAccessScopeProvider
+import com.dozycoffee.wms.global.security.CurrentActorProvider
+import com.dozycoffee.wms.global.security.UserActor
 import com.dozycoffee.wms.product.application.port.`in`.command.RegisterProductCommand
 import com.dozycoffee.wms.product.application.port.out.ProductRepository
 import com.dozycoffee.wms.product.domain.enumeration.ProductCategory
@@ -26,6 +26,7 @@ import org.mockito.kotlin.any
 import org.mockito.kotlin.argumentCaptor
 import org.mockito.kotlin.verify
 import org.mockito.kotlin.whenever
+import java.util.UUID
 
 @ExtendWith(MockitoExtension::class)
 class ProductServiceTest {
@@ -34,7 +35,7 @@ class ProductServiceTest {
     private lateinit var productRepository: ProductRepository
 
     @Mock
-    private lateinit var currentAccessScopeProvider: CurrentAccessScopeProvider
+    private lateinit var currentActorProvider: CurrentActorProvider
 
     @InjectMocks
     private lateinit var productService: ProductService
@@ -174,13 +175,14 @@ class ProductServiceTest {
             val existing: Product = product().productId(1L).build()
             whenever(productRepository.findById(1L)).thenReturn(existing)
             whenever(productRepository.save(any())).thenAnswer { invocation -> invocation.getArgument(0) }
-            whenever(currentAccessScopeProvider.get()).thenReturn(AccessScope(userId = "tester"))
+            whenever(currentActorProvider.get()).thenReturn(UserActor(DELETER_ID, setOf("product_manager")))
 
             productService.delete(1L)
 
             val captor = argumentCaptor<Product>()
             verify(productRepository).save(captor.capture())
             assertThat(captor.firstValue.isDeleted()).isTrue()
+            assertThat(captor.firstValue.deletedBy).isEqualTo(DELETER_ID.toString())
         }
 
         @Test
@@ -190,5 +192,9 @@ class ProductServiceTest {
             assertThatThrownBy { runBlocking { productService.delete(1L) } }
                 .isInstanceOf(ProductNotFoundException::class.java)
         }
+    }
+
+    companion object {
+        private val DELETER_ID: UUID = UUID.fromString("0199a3c4-7b2e-7c1a-9f3d-2b6e8a1c4d5f")
     }
 }

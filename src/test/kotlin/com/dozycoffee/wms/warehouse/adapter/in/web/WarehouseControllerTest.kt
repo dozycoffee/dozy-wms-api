@@ -1,5 +1,6 @@
 package com.dozycoffee.wms.warehouse.adapter.`in`.web
 
+import com.dozycoffee.auth.test.WithDozyPrincipal
 import com.dozycoffee.wms.warehouse.adapter.`in`.web.request.RegisterWarehouseRequest
 import com.dozycoffee.wms.warehouse.application.port.`in`.ActivateWarehouseUseCase
 import com.dozycoffee.wms.warehouse.application.port.`in`.DeactivateWarehouseUseCase
@@ -20,6 +21,7 @@ import org.mockito.kotlin.any
 import org.mockito.kotlin.eq
 import org.mockito.Mockito.`when`
 
+@WithDozyPrincipal
 @WebFluxTest(WarehouseController::class)
 class WarehouseControllerTest {
 

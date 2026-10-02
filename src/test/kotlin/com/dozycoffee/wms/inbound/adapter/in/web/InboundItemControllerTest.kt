@@ -1,5 +1,6 @@
 package com.dozycoffee.wms.inbound.adapter.`in`.web
 
+import com.dozycoffee.auth.test.WithDozyPrincipal
 import com.dozycoffee.wms.inbound.adapter.`in`.web.request.InspectInboundItemRequest
 import com.dozycoffee.wms.inbound.application.port.`in`.GetInboundItemUseCase
 import com.dozycoffee.wms.inbound.application.port.`in`.InspectInboundItemUseCase
@@ -17,6 +18,7 @@ import org.springframework.boot.webflux.test.autoconfigure.WebFluxTest
 import org.springframework.test.context.bean.override.mockito.MockitoBean
 import org.springframework.test.web.reactive.server.WebTestClient
 
+@WithDozyPrincipal
 @WebFluxTest(InboundItemController::class)
 class InboundItemControllerTest {
 

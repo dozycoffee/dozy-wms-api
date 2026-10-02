@@ -1,5 +1,6 @@
 package com.dozycoffee.wms.inbound.adapter.`in`.web
 
+import com.dozycoffee.auth.test.WithDozyPrincipal
 import com.dozycoffee.wms.inbound.adapter.`in`.web.request.CompleteInboundRequest
 import com.dozycoffee.wms.inbound.adapter.`in`.web.request.LotAssignmentRequest
 import com.dozycoffee.wms.inbound.adapter.`in`.web.request.RegisterInboundItemRequest
@@ -25,6 +26,7 @@ import org.springframework.test.context.bean.override.mockito.MockitoBean
 import org.springframework.test.web.reactive.server.WebTestClient
 import java.time.LocalDate
 
+@WithDozyPrincipal
 @WebFluxTest(InboundController::class)
 class InboundControllerTest {
 
