@@ -55,7 +55,7 @@ internal class StockAuditSeeder(
 
     private suspend fun seedInProgress(context: SeedContext) {
         val audit: StockAuditResult = register(context, ZoneCode.B)
-        assignStockAuditUseCase.assign(audit.stockAuditId, "김창고")
+        asLocalAdmin { assignStockAuditUseCase.assign(audit.stockAuditId) }
         val first: StockAuditItemResult = items(audit).first()
         countStockAuditItemUseCase.count(CountStockAuditItemCommand(first.stockAuditItemId, first.snapshotQuantity))
     }
@@ -63,7 +63,7 @@ internal class StockAuditSeeder(
     /** 스냅샷 이후 출고가 발생한 재고가 `hasUncommittedMovement`로 표시되는 사례 */
     private suspend fun seedCompletedWithMovement(context: SeedContext, baselineInventoryIds: Map<String, Long>) {
         val audit: StockAuditResult = register(context, ZoneCode.A)
-        assignStockAuditUseCase.assign(audit.stockAuditId, "이재고")
+        asLocalAdmin { assignStockAuditUseCase.assign(audit.stockAuditId) }
 
         val outbound = registerOutboundUseCase.register(
             RegisterOutboundCommand(
@@ -82,7 +82,7 @@ internal class StockAuditSeeder(
     /** 임계치를 초과하는 과잉 차이(+15)와 소량 부족(-3)을 확정해 ADJUSTMENT 이력을 남긴다. 승인은 모든 role을 가진 local 개발 사용자로 수행한다 */
     private suspend fun seedClosedWithAdjustment(context: SeedContext, baselineInventoryIds: Map<String, Long>) {
         val audit: StockAuditResult = register(context, ZoneCode.C)
-        assignStockAuditUseCase.assign(audit.stockAuditId, "박재고")
+        asLocalAdmin { assignStockAuditUseCase.assign(audit.stockAuditId) }
         countAll(
             audit,
             mapOf(

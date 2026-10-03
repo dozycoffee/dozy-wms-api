@@ -1,7 +1,6 @@
 package com.dozycoffee.wms.stock_audit.adapter.`in`.web
 
 import com.dozycoffee.auth.test.WithDozyPrincipal
-import com.dozycoffee.wms.stock_audit.adapter.`in`.web.request.AssignStockAuditRequest
 import com.dozycoffee.wms.stock_audit.adapter.`in`.web.request.RegisterStockAuditRequest
 import com.dozycoffee.wms.stock_audit.application.port.`in`.AssignStockAuditUseCase
 import com.dozycoffee.wms.stock_audit.application.port.`in`.CloseStockAuditUseCase
@@ -117,25 +116,17 @@ class StockAuditControllerTest {
         @Test
         fun `요청이 유효하면 200과 IN_PROGRESS 상태를 반환한다`() {
             runBlocking {
-                whenever(assignStockAuditUseCase.assign(1L, "담당자A"))
+                whenever(assignStockAuditUseCase.assign(1L))
                     .thenReturn(sampleResult(StockAuditStatus.IN_PROGRESS))
             }
 
             webTestClient.patch().uri("/api/stock-audits/{stockAuditId}/assign", 1L)
-                .bodyValue(AssignStockAuditRequest("담당자A"))
                 .exchange()
                 .expectStatus().isOk
                 .expectBody()
                 .jsonPath("$.status").isEqualTo("IN_PROGRESS")
         }
 
-        @Test
-        fun `담당자가 비어있으면 400을 반환한다`() {
-            webTestClient.patch().uri("/api/stock-audits/{stockAuditId}/assign", 1L)
-                .bodyValue(AssignStockAuditRequest(""))
-                .exchange()
-                .expectStatus().isBadRequest
-        }
     }
 
     @Nested

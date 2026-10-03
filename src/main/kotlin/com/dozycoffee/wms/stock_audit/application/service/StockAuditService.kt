@@ -89,9 +89,9 @@ class StockAuditService(
     }
 
     @Transactional
-    override suspend fun assign(stockAuditId: Long, assignee: String): StockAuditResult {
+    override suspend fun assign(stockAuditId: Long): StockAuditResult {
         val stockAudit = findAccessibleStockAuditOrThrow(stockAuditId)
-        stockAudit.assign(assignee)
+        stockAudit.assign((currentActorProvider.get() as? UserActor)?.auditName)
         return StockAuditResult.from(stockAuditRepository.save(stockAudit))
     }
 

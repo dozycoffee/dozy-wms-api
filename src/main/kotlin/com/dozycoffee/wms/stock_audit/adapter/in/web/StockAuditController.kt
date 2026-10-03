@@ -1,7 +1,6 @@
 package com.dozycoffee.wms.stock_audit.adapter.`in`.web
 
 import com.dozycoffee.wms.global.security.WmsAuthorize
-import com.dozycoffee.wms.stock_audit.adapter.`in`.web.request.AssignStockAuditRequest
 import com.dozycoffee.wms.stock_audit.adapter.`in`.web.request.RegisterStockAuditRequest
 import com.dozycoffee.wms.stock_audit.adapter.`in`.web.response.StockAuditResponse
 import com.dozycoffee.wms.stock_audit.application.port.`in`.AssignStockAuditUseCase
@@ -60,10 +59,9 @@ class StockAuditController(
     @PatchMapping("/{stockAuditId}/assign")
     @PreAuthorize(WmsAuthorize.STOCK_AUDIT)
     suspend fun assign(
-        @PathVariable stockAuditId: Long,
-        @Valid @RequestBody request: AssignStockAuditRequest
+        @PathVariable stockAuditId: Long
     ): StockAuditResponse {
-        return StockAuditResponse.from(assignStockAuditUseCase.assign(stockAuditId, requireNotNull(request.assignee)))
+        return StockAuditResponse.from(assignStockAuditUseCase.assign(stockAuditId))
     }
 
     @PatchMapping("/{stockAuditId}/complete")

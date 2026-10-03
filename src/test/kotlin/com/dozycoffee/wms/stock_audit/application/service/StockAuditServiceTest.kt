@@ -1,5 +1,6 @@
 package com.dozycoffee.wms.stock_audit.application.service
 
+import com.dozycoffee.wms.global.error.InvalidDomainValueException
 import com.dozycoffee.wms.global.security.Actor
 import com.dozycoffee.wms.global.security.CurrentActorProvider
 import com.dozycoffee.wms.global.security.OnlyWarehouses
@@ -152,18 +153,29 @@ class StockAuditServiceTest {
             val existing: StockAudit = stockAudit().stockAuditId(1L).status(StockAuditStatus.SCHEDULED).build()
             whenever(stockAuditRepository.findById(1L)).thenReturn(existing)
             whenever(stockAuditRepository.save(any())).thenAnswer { it.getArgument(0) }
+            actor = UserActor(ADMIN_ID, setOf("stock_audit_manager"))
 
-            val result = stockAuditService.assign(1L, "담당자A")
+            val result = stockAuditService.assign(1L)
 
             assertThat(result.status).isEqualTo(StockAuditStatus.IN_PROGRESS)
-            assertThat(result.assignee).isEqualTo("담당자A")
+            assertThat(result.assignee).isEqualTo(ADMIN_ID.toString())
+        }
+
+        @Test
+        fun `사용자가 아닌 행위자가 배정하면 담당자 예외를 던진다`() = runTest {
+            val existing: StockAudit = stockAudit().stockAuditId(1L).status(StockAuditStatus.SCHEDULED).build()
+            whenever(stockAuditRepository.findById(1L)).thenReturn(existing)
+            actor = SystemActor
+
+            assertThatThrownBy { runBlocking { stockAuditService.assign(1L) } }
+                .isInstanceOf(InvalidDomainValueException::class.java)
         }
 
         @Test
         fun `존재하지 않는 실사에 배정하면 예외를 던진다`() = runTest {
             whenever(stockAuditRepository.findById(1L)).thenReturn(null)
 
-            assertThatThrownBy { runBlocking { stockAuditService.assign(1L, "담당자A") } }
+            assertThatThrownBy { runBlocking { stockAuditService.assign(1L) } }
                 .isInstanceOf(StockAuditNotFoundException::class.java)
         }
     }
