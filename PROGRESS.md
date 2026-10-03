@@ -28,6 +28,8 @@
 - F-023 마무리: 실사 `assignee`를 요청 바디 대신 토큰 principal로 기록하도록 바꿨다(`PATCH /assign`은 바디 없음, 사용자가 아닌
   행위자는 `INVALID_ASSIGNEE`). role Auth 등록은 코드 완료 조건에서 빼고 배포 체크리스트로 분리했다(ADR-0012에 role 계약 명시).
   한 사용자는 role을 여러 개 가질 수 있음을 확인했다(`roles` 집합 + `hasAnyRole`).
+- `stock_audit.register`에서 대상 Zone이 요청 창고 소속인지 검증한다(`STOCK_AUDIT_ZONE_WAREHOUSE_MISMATCH`, 400).
+  다른 창고 Zone을 지정해 접근 가드를 우회하던 경로를 막았다.
 - 코드 분석으로 dozy-auth 연동 모델을 정리했다(ADR-0012). 토큰에는 `principalId`와 `roles`만 있고 창고 범위가 없어,
   창고 접근은 WMS 자체 데이터(사용자-창고 매핑)로 관리하는 것으로 결정했다. 노션 "서비스 연동 가이드"는 워크스페이스에서
   찾지 못해 dozy-auth 저장소의 명세(`docs/`)를 기준으로 삼았다.
@@ -61,7 +63,7 @@
 
 1. 개발 DB에 시드 적재(`SPRING_PROFILES_ACTIVE=local WMS_DEV_SEED_ENABLED=true ./gradlew bootRun`) 후 UI/API로 확인
 2. 배포 체크리스트: dozy-auth admin에 `wms:` role 7개 등록 (코드 작업 아님)
-3. (신규) 창고 배정 변경 시 요청마다 조회하는 비용 점검, `stock_audit.register`의 Zone이 요청 창고 소속인지 검증 여부 결정
+3. (신규) 창고 배정 변경 시 요청마다 조회하는 비용 점검
 4. F-014: 이벤트 전환 1단계 착수 여부 재검토 (원자성 상실, AFTER_COMMIT 유실 리스크)
 5. F-015: 입고 검수 로직 보강
 6. F-018~F-019: 선행 조건(서비스 분리, 실측 병목) 충족 시 착수

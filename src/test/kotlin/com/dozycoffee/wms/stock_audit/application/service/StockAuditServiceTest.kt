@@ -20,6 +20,7 @@ import com.dozycoffee.wms.stock_audit.application.port.out.StockAuditItemReposit
 import com.dozycoffee.wms.stock_audit.application.port.out.StockAuditRepository
 import com.dozycoffee.wms.stock_audit.domain.enumeration.StockAuditStatus
 import com.dozycoffee.wms.stock_audit.domain.exception.StockAuditApprovalRequiredException
+import com.dozycoffee.wms.stock_audit.domain.exception.StockAuditZoneWarehouseMismatchException
 import com.dozycoffee.wms.stock_audit.domain.exception.StockAuditItemsNotFullyCountedException
 import com.dozycoffee.wms.stock_audit.domain.exception.StockAuditNotFoundException
 import com.dozycoffee.wms.stock_audit.domain.model.StockAudit
@@ -28,6 +29,10 @@ import com.dozycoffee.wms.stock_audit.fixture.StockAuditItemTestBuilder.Companio
 import com.dozycoffee.wms.stock_audit.fixture.StockAuditTestBuilder.Companion.stockAudit
 import com.dozycoffee.wms.support.SwitchableWarehouseAccess
 import com.dozycoffee.wms.warehouse.application.port.`in`.GetLocationUseCase
+import com.dozycoffee.wms.warehouse.application.port.`in`.GetZoneUseCase
+import com.dozycoffee.wms.warehouse.application.port.`in`.result.ZoneResult
+import com.dozycoffee.wms.warehouse.domain.enumeration.TemperatureType
+import com.dozycoffee.wms.warehouse.domain.enumeration.ZoneCode
 import com.dozycoffee.wms.warehouse.application.port.`in`.OccupyLocationUseCase
 import com.dozycoffee.wms.warehouse.application.port.`in`.ReleaseLocationUseCase
 import com.dozycoffee.wms.warehouse.application.port.`in`.command.OccupyLocationCommand
@@ -66,6 +71,9 @@ class StockAuditServiceTest {
     private lateinit var stockAuditItemRepository: StockAuditItemRepository
 
     @Mock
+    private lateinit var getZoneUseCase: GetZoneUseCase
+
+    @Mock
     private lateinit var getLocationUseCase: GetLocationUseCase
 
     @Mock
@@ -99,6 +107,7 @@ class StockAuditServiceTest {
             WarehouseAccessGuard(warehouseAccess),
             stockAuditRepository,
             stockAuditItemRepository,
+            getZoneUseCase,
             getLocationUseCase,
             getInventoryUseCase,
             adjustInventoryQuantityUseCase,
@@ -114,6 +123,10 @@ class StockAuditServiceTest {
         return LocationResult(locationId, zoneId, "A-0$locationId", 70, 30, AvailabilityStatus.AVAILABLE)
     }
 
+    private fun zoneResult(zoneId: Long, warehouseId: Long): ZoneResult {
+        return ZoneResult(zoneId, warehouseId, ZoneCode.A, "A Zone", TemperatureType.AMBIENT, 820, AvailabilityStatus.AVAILABLE)
+    }
+
     private fun inventoryResult(inventoryId: Long, quantity: Int, locationId: Long): InventoryResult {
         return InventoryResult(inventoryId, 100L, 1L, locationId, quantity, 0, quantity, QualityStatus.NORMAL)
     }
@@ -122,8 +135,18 @@ class StockAuditServiceTest {
     inner class 실사_등록 {
 
         @Test
+        fun `Zone이 요청한 창고에 속하지 않으면 예외를 던지고 저장하지 않는다`() = runTest {
+            whenever(getZoneUseCase.getById(10L)).thenReturn(Mono.just(zoneResult(10L, 2L)))
+
+            assertThatThrownBy { runBlocking { stockAuditService.register(RegisterStockAuditCommand(1L, 10L)) } }
+                .isInstanceOf(StockAuditZoneWarehouseMismatchException::class.java)
+            verify(stockAuditRepository, org.mockito.kotlin.never()).save(any())
+        }
+
+        @Test
         fun `대상 Zone의 모든 Location에 속한 재고를 스냅샷으로 등록한다`() = runTest {
             val command = RegisterStockAuditCommand(1L, 10L)
+            whenever(getZoneUseCase.getById(10L)).thenReturn(Mono.just(zoneResult(10L, 1L)))
             val savedAudit: StockAudit = stockAudit().stockAuditId(1L).warehouseId(1L).zoneId(10L).build()
             whenever(stockAuditRepository.save(any())).thenReturn(savedAudit)
             whenever(getLocationUseCase.getByZoneId(10L))

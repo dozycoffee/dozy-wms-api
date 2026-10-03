@@ -19,9 +19,11 @@ import com.dozycoffee.wms.stock_audit.application.port.out.StockAuditRepository
 import com.dozycoffee.wms.stock_audit.domain.enumeration.StockAuditStatus
 import com.dozycoffee.wms.stock_audit.domain.exception.StockAuditItemsNotFullyCountedException
 import com.dozycoffee.wms.stock_audit.domain.exception.StockAuditNotFoundException
+import com.dozycoffee.wms.stock_audit.domain.exception.StockAuditZoneWarehouseMismatchException
 import com.dozycoffee.wms.stock_audit.domain.model.StockAudit
 import com.dozycoffee.wms.stock_audit.domain.model.StockAuditItem
 import com.dozycoffee.wms.warehouse.application.port.`in`.GetLocationUseCase
+import com.dozycoffee.wms.warehouse.application.port.`in`.GetZoneUseCase
 import com.dozycoffee.wms.warehouse.application.port.`in`.OccupyLocationUseCase
 import com.dozycoffee.wms.warehouse.application.port.`in`.ReleaseLocationUseCase
 import com.dozycoffee.wms.warehouse.application.port.`in`.command.OccupyLocationCommand
@@ -40,6 +42,7 @@ class StockAuditService(
     private val warehouseAccessGuard: WarehouseAccessGuard,
     private val stockAuditRepository: StockAuditRepository,
     private val stockAuditItemRepository: StockAuditItemRepository,
+    private val getZoneUseCase: GetZoneUseCase,
     private val getLocationUseCase: GetLocationUseCase,
     private val getInventoryUseCase: GetInventoryUseCase,
     private val adjustInventoryQuantityUseCase: AdjustInventoryQuantityUseCase,
@@ -59,6 +62,8 @@ class StockAuditService(
     @Transactional
     override suspend fun register(command: RegisterStockAuditCommand): StockAuditResult {
         warehouseAccessGuard.require(command.warehouseId)
+        val zone = getZoneUseCase.getById(command.zoneId).awaitSingle()
+        if (zone.warehouseId != command.warehouseId) throw StockAuditZoneWarehouseMismatchException()
         val stockAudit = StockAudit.create(command.warehouseId, command.zoneId)
         val saved = stockAuditRepository.save(stockAudit)
         val stockAuditId: Long = requireNotNull(saved.stockAuditId)
