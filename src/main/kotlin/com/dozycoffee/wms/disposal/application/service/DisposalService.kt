@@ -30,7 +30,6 @@ import com.dozycoffee.wms.warehouse.domain.enumeration.AreaCode
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.toList
-import kotlinx.coroutines.reactive.awaitSingle
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
 
@@ -74,8 +73,8 @@ class DisposalService(
         val disposal = findAccessibleDisposalOrThrow(disposalId)
         val totalQuantity = disposalItemRepository.findAllByDisposalId(disposalId).toList().sumOf { it.quantity }
 
-        val workArea = getWorkAreaUseCase.getByWarehouseIdAndAreaCode(disposal.warehouseId, AreaCode.DISPOSAL).awaitSingle()
-        occupyWorkAreaUseCase.occupy(OccupyWorkAreaCommand(workArea.workAreaId, totalQuantity)).awaitSingle()
+        val workArea = getWorkAreaUseCase.getByWarehouseIdAndAreaCode(disposal.warehouseId, AreaCode.DISPOSAL)
+        occupyWorkAreaUseCase.occupy(OccupyWorkAreaCommand(workArea.workAreaId, totalQuantity))
 
         disposal.approve()
         return DisposalResult.from(disposalRepository.save(disposal))
@@ -90,13 +89,13 @@ class DisposalService(
         var totalQuantity = 0
         for (item in items) {
             val inventory = getInventoryUseCase.getById(item.inventoryId)
-            releaseLocationUseCase.release(ReleaseLocationCommand(inventory.locationId, item.quantity)).awaitSingle()
+            releaseLocationUseCase.release(ReleaseLocationCommand(inventory.locationId, item.quantity))
             confirmInventoryDisposalUseCase.confirmDisposal(item.inventoryId, requireNotNull(item.disposalItemId))
             totalQuantity += item.quantity
         }
 
-        val workArea = getWorkAreaUseCase.getByWarehouseIdAndAreaCode(disposal.warehouseId, AreaCode.DISPOSAL).awaitSingle()
-        releaseWorkAreaUseCase.release(ReleaseWorkAreaCommand(workArea.workAreaId, totalQuantity)).awaitSingle()
+        val workArea = getWorkAreaUseCase.getByWarehouseIdAndAreaCode(disposal.warehouseId, AreaCode.DISPOSAL)
+        releaseWorkAreaUseCase.release(ReleaseWorkAreaCommand(workArea.workAreaId, totalQuantity))
 
         disposal.complete()
         return DisposalResult.from(disposalRepository.save(disposal))

@@ -86,36 +86,29 @@ class ZoneInventorySummaryPersistenceAdapterTest {
             inventoryR2dbcRepository.deleteAll()
             lotR2dbcRepository.deleteAll()
             productR2dbcRepository.deleteAll()
+            locationR2dbcRepository.deleteAll()
+            zoneR2dbcRepository.deleteAll()
+            warehouseR2dbcRepository.deleteAll()
         }
-        locationR2dbcRepository.deleteAll().block()
-        zoneR2dbcRepository.deleteAll().block()
-        warehouseR2dbcRepository.deleteAll().block()
     }
 
     private data class CreatedZone(val zoneId: Long, val warehouseId: Long)
 
-    private fun createZone(zoneCode: ZoneCode): CreatedZone {
-        val warehouseId: Long = requireNotNull(
-            warehousePersistenceAdapter.save(warehouse().build()).map { requireNotNull(it.warehouseId) }.block()
-        )
-        val zoneId: Long = requireNotNull(
-            zonePersistenceAdapter.save(zone().warehouseId(warehouseId).zoneCode(zoneCode).build())
-                .map { requireNotNull(it.zoneId) }.block()
-        )
+    private suspend fun createZone(zoneCode: ZoneCode): CreatedZone {
+        val warehouseId: Long = requireNotNull(warehousePersistenceAdapter.save(warehouse().build()).warehouseId)
+        val zoneId: Long = requireNotNull(zonePersistenceAdapter.save(zone().warehouseId(warehouseId).zoneCode(zoneCode).build()).zoneId)
         return CreatedZone(zoneId, warehouseId)
     }
 
-    private fun createLocation(zoneId: Long, locationCode: String, maxCapacity: Int, usedCapacity: Int): Long {
-        val locationId: Long = requireNotNull(
-            locationPersistenceAdapter.save(
+    private suspend fun createLocation(zoneId: Long, locationCode: String, maxCapacity: Int, usedCapacity: Int): Long {
+        val locationId: Long = requireNotNull(locationPersistenceAdapter.save(
                 location().zoneId(zoneId).locationCode(locationCode).maxCapacity(maxCapacity).build()
-            ).map { requireNotNull(it.locationId) }.block()
-        )
+            ).locationId)
         if (usedCapacity > 0) {
             locationPersistenceAdapter.save(
                 location().locationId(locationId).zoneId(zoneId).locationCode(locationCode)
                     .maxCapacity(maxCapacity).usedCapacity(usedCapacity).build()
-            ).block()
+            )
         }
         return locationId
     }

@@ -49,7 +49,6 @@ import org.mockito.kotlin.any
 import org.mockito.kotlin.never
 import org.mockito.kotlin.verify
 import org.mockito.kotlin.whenever
-import reactor.core.publisher.Mono
 
 @ExtendWith(MockitoExtension::class)
 class DisposalServiceTest {
@@ -152,8 +151,8 @@ class DisposalServiceTest {
             val item: DisposalItem = disposalItem().disposalItemId(1L).disposalId(1L).inventoryId(10L).quantity(5).build()
             whenever(disposalRepository.findById(1L)).thenReturn(existingDisposal)
             whenever(disposalItemRepository.findAllByDisposalId(1L)).thenReturn(flowOf(item))
-            whenever(getWorkAreaUseCase.getByWarehouseIdAndAreaCode(1L, AreaCode.DISPOSAL)).thenReturn(Mono.just(workAreaResult(0)))
-            whenever(occupyWorkAreaUseCase.occupy(any())).thenReturn(Mono.just(workAreaResult(5)))
+            whenever(getWorkAreaUseCase.getByWarehouseIdAndAreaCode(1L, AreaCode.DISPOSAL)).thenReturn(workAreaResult(0))
+            whenever(occupyWorkAreaUseCase.occupy(any())).thenReturn(workAreaResult(5))
             whenever(disposalRepository.save(any())).thenAnswer { it.getArgument(0) }
 
             val result = disposalService.approve(1L)
@@ -181,10 +180,10 @@ class DisposalServiceTest {
             whenever(disposalRepository.findById(1L)).thenReturn(existingDisposal)
             whenever(disposalItemRepository.findAllByDisposalId(1L)).thenReturn(flowOf(item))
             whenever(getInventoryUseCase.getById(10L)).thenReturn(inventoryResult(10L, 5, 200L))
-            whenever(releaseLocationUseCase.release(any())).thenReturn(Mono.just(locationResult(200L)))
+            whenever(releaseLocationUseCase.release(any())).thenReturn(locationResult(200L))
             whenever(confirmInventoryDisposalUseCase.confirmDisposal(10L, 1L)).thenReturn(inventoryResult(10L, 0))
-            whenever(getWorkAreaUseCase.getByWarehouseIdAndAreaCode(1L, AreaCode.DISPOSAL)).thenReturn(Mono.just(workAreaResult(5)))
-            whenever(releaseWorkAreaUseCase.release(any())).thenReturn(Mono.just(workAreaResult(0)))
+            whenever(getWorkAreaUseCase.getByWarehouseIdAndAreaCode(1L, AreaCode.DISPOSAL)).thenReturn(workAreaResult(5))
+            whenever(releaseWorkAreaUseCase.release(any())).thenReturn(workAreaResult(0))
             whenever(disposalRepository.save(any())).thenAnswer { it.getArgument(0) }
 
             val result = disposalService.complete(1L)

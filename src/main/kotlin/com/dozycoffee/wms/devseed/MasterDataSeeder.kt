@@ -14,7 +14,6 @@ import com.dozycoffee.wms.warehouse.application.port.`in`.command.RegisterWorkAr
 import com.dozycoffee.wms.warehouse.application.port.`in`.command.RegisterZoneCommand
 import com.dozycoffee.wms.warehouse.domain.enumeration.AreaCode
 import com.dozycoffee.wms.warehouse.domain.enumeration.ZoneCode
-import kotlinx.coroutines.reactive.awaitSingle
 import org.springframework.stereotype.Component
 import java.math.BigDecimal
 
@@ -37,22 +36,22 @@ internal class MasterDataSeeder(
                 BigDecimal("37.279200"),
                 BigDecimal("127.442500")
             )
-        ).awaitSingle()
+        )
         val warehouseId: Long = warehouse.warehouseId
 
         AreaCode.entries.forEach { areaCode ->
-            registerWorkAreaUseCase.register(RegisterWorkAreaCommand(warehouseId, areaCode)).awaitSingle()
+            registerWorkAreaUseCase.register(RegisterWorkAreaCommand(warehouseId, areaCode))
         }
 
         val zoneIdByCode: Map<ZoneCode, Long> = ZoneCode.entries.associateWith { zoneCode ->
-            registerZoneUseCase.register(RegisterZoneCommand(warehouseId, zoneCode)).awaitSingle().zoneId
+            registerZoneUseCase.register(RegisterZoneCommand(warehouseId, zoneCode)).zoneId
         }
 
         val locationIdByCode: Map<String, Long> = SeedData.LOCATIONS.associate { spec ->
             val zoneId: Long = zoneIdByCode.getValue(spec.zoneCode)
             val location = registerLocationUseCase.register(
                 RegisterLocationCommand(zoneId, spec.locationCode, spec.maxCapacity)
-            ).awaitSingle()
+            )
             spec.locationCode to location.locationId
         }
 

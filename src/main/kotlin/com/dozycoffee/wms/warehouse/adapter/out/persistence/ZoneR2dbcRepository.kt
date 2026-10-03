@@ -1,8 +1,7 @@
 package com.dozycoffee.wms.warehouse.adapter.out.persistence
 
-import org.springframework.data.repository.reactive.ReactiveCrudRepository
-import reactor.core.publisher.Mono
+import org.springframework.data.repository.kotlin.CoroutineCrudRepository
 
-interface ZoneR2dbcRepository : ReactiveCrudRepository<ZoneEntity, Long> {
-    fun findByWarehouseIdAndZoneCode(warehouseId: Long, zoneCode: String): Mono<ZoneEntity>
+interface ZoneR2dbcRepository : CoroutineCrudRepository<ZoneEntity, Long> {
+    suspend fun findByWarehouseIdAndZoneCode(warehouseId: Long, zoneCode: String): ZoneEntity?
 }

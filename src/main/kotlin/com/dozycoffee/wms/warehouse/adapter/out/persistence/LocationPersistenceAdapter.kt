@@ -2,34 +2,33 @@ package com.dozycoffee.wms.warehouse.adapter.out.persistence
 
 import com.dozycoffee.wms.warehouse.application.port.out.LocationRepository
 import com.dozycoffee.wms.warehouse.domain.model.Location
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.map
 import org.springframework.stereotype.Component
-import reactor.core.publisher.Flux
-import reactor.core.publisher.Mono
 
 @Component
 class LocationPersistenceAdapter(
     private val locationR2dbcRepository: LocationR2dbcRepository
 ) : LocationRepository {
 
-    override fun save(location: Location): Mono<Location> {
+    override suspend fun save(location: Location): Location {
         val entity = LocationEntity.from(location)
         val locationId = location.locationId
-            ?: return locationR2dbcRepository.save(entity).map { it.toDomain() }
-        return locationR2dbcRepository.findById(locationId)
-            .doOnNext { entity.copyAuditFieldsFrom(it) }
-            .then(locationR2dbcRepository.save(entity))
-            .map { it.toDomain() }
+        if (locationId != null) {
+            locationR2dbcRepository.findById(locationId)?.let { entity.copyAuditFieldsFrom(it) }
+        }
+        return locationR2dbcRepository.save(entity).toDomain()
     }
 
-    override fun findById(locationId: Long): Mono<Location> {
-        return locationR2dbcRepository.findById(locationId).map { it.toDomain() }
+    override suspend fun findById(locationId: Long): Location? {
+        return locationR2dbcRepository.findById(locationId)?.toDomain()
     }
 
-    override fun findByZoneId(zoneId: Long): Flux<Location> {
+    override fun findByZoneId(zoneId: Long): Flow<Location> {
         return locationR2dbcRepository.findByZoneId(zoneId).map { it.toDomain() }
     }
 
-    override fun delete(location: Location): Mono<Void> {
-        return locationR2dbcRepository.delete(LocationEntity.from(location))
+    override suspend fun delete(location: Location) {
+        locationR2dbcRepository.delete(LocationEntity.from(location))
     }
 }

@@ -60,14 +60,12 @@ class OutboundItemPersistenceAdapterTest {
             outboundItemR2dbcRepository.deleteAll()
             outboundR2dbcRepository.deleteAll()
             productR2dbcRepository.deleteAll()
+            warehouseR2dbcRepository.deleteAll()
         }
-        warehouseR2dbcRepository.deleteAll().block()
     }
 
-    private fun createWarehouseId(): Long {
-        return requireNotNull(
-            warehousePersistenceAdapter.save(warehouse().build()).map { requireNotNull(it.warehouseId) }.block()
-        )
+    private suspend fun createWarehouseId(): Long {
+        return requireNotNull(warehousePersistenceAdapter.save(warehouse().build()).warehouseId)
     }
 
     private suspend fun createProductId(): Long {

@@ -32,7 +32,6 @@ import kotlin.math.abs
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.toList
-import kotlinx.coroutines.reactive.awaitSingle
 import org.springframework.beans.factory.annotation.Value
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
@@ -62,13 +61,13 @@ class StockAuditService(
     @Transactional
     override suspend fun register(command: RegisterStockAuditCommand): StockAuditResult {
         warehouseAccessGuard.require(command.warehouseId)
-        val zone = getZoneUseCase.getById(command.zoneId).awaitSingle()
+        val zone = getZoneUseCase.getById(command.zoneId)
         if (zone.warehouseId != command.warehouseId) throw StockAuditZoneWarehouseMismatchException()
         val stockAudit = StockAudit.create(command.warehouseId, command.zoneId)
         val saved = stockAuditRepository.save(stockAudit)
         val stockAuditId: Long = requireNotNull(saved.stockAuditId)
 
-        val locations = getLocationUseCase.getByZoneId(command.zoneId).collectList().awaitSingle()
+        val locations = getLocationUseCase.getByZoneId(command.zoneId).toList()
         for (location in locations) {
             val inventories = getInventoryUseCase.getAll(location.locationId, null, null, null, null).toList()
             for (inventory in inventories) {
@@ -164,9 +163,9 @@ class StockAuditService(
 
     private suspend fun syncLocationUsage(adjustment: Adjustment) {
         if (adjustment.amount > 0) {
-            occupyLocationUseCase.occupy(OccupyLocationCommand(adjustment.locationId, adjustment.amount)).awaitSingle()
+            occupyLocationUseCase.occupy(OccupyLocationCommand(adjustment.locationId, adjustment.amount))
         } else {
-            releaseLocationUseCase.release(ReleaseLocationCommand(adjustment.locationId, -adjustment.amount)).awaitSingle()
+            releaseLocationUseCase.release(ReleaseLocationCommand(adjustment.locationId, -adjustment.amount))
         }
     }
 

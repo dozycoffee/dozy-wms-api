@@ -18,7 +18,6 @@ import org.springframework.web.bind.annotation.RequestBody
 import org.springframework.web.bind.annotation.RequestMapping
 import org.springframework.web.bind.annotation.ResponseStatus
 import org.springframework.web.bind.annotation.RestController
-import reactor.core.publisher.Mono
 
 @RestController
 @RequestMapping("/api/warehouses")
@@ -32,25 +31,25 @@ class WarehouseController(
     @PostMapping
     @PreAuthorize(WmsAuthorize.ADMIN)
     @ResponseStatus(HttpStatus.CREATED)
-    fun register(@Valid @RequestBody request: RegisterWarehouseRequest): Mono<WarehouseResponse> {
-        return registerWarehouseUseCase.register(request.toCommand()).map { WarehouseResponse.from(it) }
+    suspend fun register(@Valid @RequestBody request: RegisterWarehouseRequest): WarehouseResponse {
+        return WarehouseResponse.from(registerWarehouseUseCase.register(request.toCommand()))
     }
 
     @GetMapping("/{warehouseId}")
     @PreAuthorize(WmsAuthorize.READ)
-    fun getById(@PathVariable warehouseId: Long): Mono<WarehouseResponse> {
-        return getWarehouseUseCase.getById(warehouseId).map { WarehouseResponse.from(it) }
+    suspend fun getById(@PathVariable warehouseId: Long): WarehouseResponse {
+        return WarehouseResponse.from(getWarehouseUseCase.getById(warehouseId))
     }
 
     @PatchMapping("/{warehouseId}/activate")
     @PreAuthorize(WmsAuthorize.ADMIN)
-    fun activate(@PathVariable warehouseId: Long): Mono<WarehouseResponse> {
-        return activateWarehouseUseCase.activate(warehouseId).map { WarehouseResponse.from(it) }
+    suspend fun activate(@PathVariable warehouseId: Long): WarehouseResponse {
+        return WarehouseResponse.from(activateWarehouseUseCase.activate(warehouseId))
     }
 
     @PatchMapping("/{warehouseId}/deactivate")
     @PreAuthorize(WmsAuthorize.ADMIN)
-    fun deactivate(@PathVariable warehouseId: Long): Mono<WarehouseResponse> {
-        return deactivateWarehouseUseCase.deactivate(warehouseId).map { WarehouseResponse.from(it) }
+    suspend fun deactivate(@PathVariable warehouseId: Long): WarehouseResponse {
+        return WarehouseResponse.from(deactivateWarehouseUseCase.deactivate(warehouseId))
     }
 }

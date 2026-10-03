@@ -61,8 +61,8 @@ class ReturnItemPersistenceAdapterTest {
             returnItemR2dbcRepository.deleteAll()
             returnRequestR2dbcRepository.deleteAll()
             productR2dbcRepository.deleteAll()
+            warehouseR2dbcRepository.deleteAll()
         }
-        warehouseR2dbcRepository.deleteAll().block()
     }
 
     private var productSequence = 0
@@ -72,10 +72,8 @@ class ReturnItemPersistenceAdapterTest {
         return requireNotNull(productPersistenceAdapter.save(product().productCode(productCode).build()).productId)
     }
 
-    private fun createWarehouseId(): Long {
-        return requireNotNull(
-            warehousePersistenceAdapter.save(warehouse().build()).map { requireNotNull(it.warehouseId) }.block()
-        )
+    private suspend fun createWarehouseId(): Long {
+        return requireNotNull(warehousePersistenceAdapter.save(warehouse().build()).warehouseId)
     }
 
     private suspend fun createReturnRequestId(warehouseId: Long): Long {

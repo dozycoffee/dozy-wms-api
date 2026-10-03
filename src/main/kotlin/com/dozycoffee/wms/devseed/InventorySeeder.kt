@@ -43,7 +43,7 @@ internal class InventorySeeder(
                 )
             )
             val locationId: Long = context.locationIdByCode.getValue(spec.locationCode)
-            occupyLocationUseCase.occupy(OccupyLocationCommand(locationId, spec.quantity)).awaitSingle()
+            occupyLocationUseCase.occupy(OccupyLocationCommand(locationId, spec.quantity))
             val inventory = registerInventoryUseCase.register(
                 RegisterInventoryCommand(lot.lotId, locationId, spec.quantity, INITIAL_REFERENCE_ID)
             )
