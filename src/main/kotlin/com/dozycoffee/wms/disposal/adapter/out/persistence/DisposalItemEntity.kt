@@ -3,7 +3,6 @@ package com.dozycoffee.wms.disposal.adapter.out.persistence
 import com.dozycoffee.wms.disposal.domain.enumeration.DisposalReason
 import com.dozycoffee.wms.disposal.domain.model.DisposalItem
 import com.dozycoffee.wms.global.common.BaseEntity
-import com.dozycoffee.wms.global.persistence.CommonCodes
 import org.springframework.data.annotation.Id
 import org.springframework.data.relational.core.mapping.Table
 
@@ -32,20 +31,18 @@ class DisposalItemEntity private constructor() : BaseEntity() {
             requireNotNull(disposalId),
             requireNotNull(inventoryId),
             quantity,
-            CommonCodes.fromCode(DisposalReason::class.java, requireNotNull(reason))
+            DisposalReason.valueOf(requireNotNull(reason))
         )
     }
 
     companion object {
-        private const val REASON_GROUP = "DISPOSAL_REASON"
-
         fun from(domain: DisposalItem): DisposalItemEntity {
             val entity = DisposalItemEntity()
             entity.disposalItemId = domain.disposalItemId
             entity.disposalId = domain.disposalId
             entity.inventoryId = domain.inventoryId
             entity.quantity = domain.quantity
-            entity.reason = CommonCodes.toCode(REASON_GROUP, domain.reason)
+            entity.reason = domain.reason.name
             return entity
         }
     }

@@ -1,7 +1,6 @@
 package com.dozycoffee.wms.warehouse.adapter.out.persistence
 
 import com.dozycoffee.wms.global.common.SoftDeletableEntity
-import com.dozycoffee.wms.global.persistence.CommonCodes
 import com.dozycoffee.wms.warehouse.domain.enumeration.AvailabilityStatus
 import com.dozycoffee.wms.warehouse.domain.model.Warehouse
 import com.dozycoffee.wms.warehouse.domain.valueobject.Address
@@ -38,13 +37,11 @@ class WarehouseEntity private constructor() : SoftDeletableEntity() {
             requireNotNull(warehouseName),
             Address.of(address),
             Coordinate.of(latitude, longitude),
-            CommonCodes.fromCode(AvailabilityStatus::class.java, requireNotNull(warehouseStatus))
+            AvailabilityStatus.valueOf(requireNotNull(warehouseStatus))
         )
     }
 
     companion object {
-        private const val STATUS_GROUP = "WAREHOUSE_STATUS"
-
         fun from(domain: Warehouse): WarehouseEntity {
             val entity = WarehouseEntity()
             entity.warehouseId = domain.warehouseId
@@ -52,7 +49,7 @@ class WarehouseEntity private constructor() : SoftDeletableEntity() {
             entity.address = domain.address.value
             entity.latitude = domain.coordinate.latitude
             entity.longitude = domain.coordinate.longitude
-            entity.warehouseStatus = CommonCodes.toCode(STATUS_GROUP, domain.warehouseStatus)
+            entity.warehouseStatus = domain.warehouseStatus.name
             return entity
         }
     }

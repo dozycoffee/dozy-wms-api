@@ -1,7 +1,6 @@
 package com.dozycoffee.wms.stock_audit.adapter.out.persistence
 
 import com.dozycoffee.wms.global.common.BaseEntity
-import com.dozycoffee.wms.global.persistence.CommonCodes
 import com.dozycoffee.wms.stock_audit.domain.enumeration.StockAuditStatus
 import com.dozycoffee.wms.stock_audit.domain.model.StockAudit
 import org.springframework.data.annotation.Id
@@ -34,21 +33,19 @@ class StockAuditEntity private constructor() : BaseEntity() {
             requireNotNull(stockAuditId),
             requireNotNull(warehouseId),
             requireNotNull(zoneId),
-            CommonCodes.fromCode(StockAuditStatus::class.java, requireNotNull(status)),
+            StockAuditStatus.valueOf(requireNotNull(status)),
             assignee,
             approvedBy
         )
     }
 
     companion object {
-        private const val STATUS_GROUP = "STOCK_AUDIT_STATUS"
-
         fun from(domain: StockAudit): StockAuditEntity {
             val entity = StockAuditEntity()
             entity.stockAuditId = domain.stockAuditId
             entity.warehouseId = domain.warehouseId
             entity.zoneId = domain.zoneId
-            entity.status = CommonCodes.toCode(STATUS_GROUP, domain.status)
+            entity.status = domain.status.name
             entity.assignee = domain.assignee
             entity.approvedBy = domain.approvedBy
             return entity

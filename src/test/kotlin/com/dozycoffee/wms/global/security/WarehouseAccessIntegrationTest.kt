@@ -62,7 +62,7 @@ class WarehouseAccessIntegrationTest {
         execute(
             "INSERT INTO warehouse (warehouse_name, address, latitude, longitude, warehouse_status, " +
                 "created_at, created_by, updated_at, updated_by) VALUES ('$name', '주소', 37.5, 127.0, " +
-                "'WAREHOUSE_STATUS_AVAILABLE', NOW(6), 'test', NOW(6), 'test')"
+                "'AVAILABLE', NOW(6), 'test', NOW(6), 'test')"
         )
         return lastInsertId()
     }
@@ -70,7 +70,7 @@ class WarehouseAccessIntegrationTest {
     private suspend fun insertInbound(warehouseId: Long): Long {
         execute(
             "INSERT INTO inbound (warehouse_id, expected_arrival_date, status, created_at, created_by, updated_at, updated_by) " +
-                "VALUES ($warehouseId, '2026-01-01', 'INBOUND_STATUS_WAITING', NOW(6), 'test', NOW(6), 'test')"
+                "VALUES ($warehouseId, '2026-01-01', 'WAITING', NOW(6), 'test', NOW(6), 'test')"
         )
         return lastInsertId()
     }

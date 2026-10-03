@@ -71,7 +71,7 @@ class DevSeedRunnerTest {
                 """
                 SELECT i.inventory_id AS id
                 FROM inventory i
-                LEFT JOIN allocation a ON a.inventory_id = i.inventory_id AND a.status = 'ALLOCATION_STATUS_HELD'
+                LEFT JOIN allocation a ON a.inventory_id = i.inventory_id AND a.status = 'HELD'
                 GROUP BY i.inventory_id, i.allocated_quantity
                 HAVING i.allocated_quantity <> COALESCE(SUM(a.quantity), 0)
                 """.trimIndent()
@@ -86,10 +86,10 @@ class DevSeedRunnerTest {
                 requireNotNull(row.get("code", String::class.java)) to requireNotNull(row.get("used", Number::class.java)).toInt()
             }.toMap()
 
-            assertThat(used).containsEntry("WORK_AREA_TYPE_${AreaCode.INBOUND.name}", 120)
-                .containsEntry("WORK_AREA_TYPE_${AreaCode.OUTBOUND.name}", 140)
-                .containsEntry("WORK_AREA_TYPE_${AreaCode.RETURN.name}", 40)
-                .containsEntry("WORK_AREA_TYPE_${AreaCode.DISPOSAL.name}", 40)
+            assertThat(used).containsEntry(AreaCode.INBOUND.name, 120)
+                .containsEntry(AreaCode.OUTBOUND.name, 140)
+                .containsEntry(AreaCode.RETURN.name, 40)
+                .containsEntry(AreaCode.DISPOSAL.name, 40)
         }
 
         @Test
@@ -116,48 +116,48 @@ class DevSeedRunnerTest {
 
         @Test
         fun `입고는 대기 2, 진행 1, 완료 2건이다`() {
-            assertThat(countByStatus("inbound")).containsEntry("INBOUND_STATUS_WAITING", 2L)
-                .containsEntry("INBOUND_STATUS_PROCESSING", 1L)
-                .containsEntry("INBOUND_STATUS_COMPLETED", 2L)
-                .doesNotContainKey("INBOUND_STATUS_EXPECTED")
+            assertThat(countByStatus("inbound")).containsEntry("WAITING", 2L)
+                .containsEntry("PROCESSING", 1L)
+                .containsEntry("COMPLETED", 2L)
+                .doesNotContainKey("EXPECTED")
         }
 
         @Test
         fun `출고는 요청 1, 피킹 1, 검수 1, 완료 3건이다(실사 시나리오용 1건 포함)`() {
-            assertThat(countByStatus("outbound")).containsEntry("OUTBOUND_STATUS_REQUESTED", 1L)
-                .containsEntry("OUTBOUND_STATUS_PICKING", 1L)
-                .containsEntry("OUTBOUND_STATUS_INSPECTING", 1L)
-                .containsEntry("OUTBOUND_STATUS_COMPLETED", 3L)
+            assertThat(countByStatus("outbound")).containsEntry("REQUESTED", 1L)
+                .containsEntry("PICKING", 1L)
+                .containsEntry("INSPECTING", 1L)
+                .containsEntry("COMPLETED", 3L)
         }
 
         @Test
         fun `반품은 접수 1, 검수 1, 완료 1건이다`() {
-            assertThat(countByStatus("return_request")).containsEntry("RETURN_STATUS_RECEIVED", 1L)
-                .containsEntry("RETURN_STATUS_INSPECTING", 1L)
-                .containsEntry("RETURN_STATUS_COMPLETED", 1L)
+            assertThat(countByStatus("return_request")).containsEntry("RECEIVED", 1L)
+                .containsEntry("INSPECTING", 1L)
+                .containsEntry("COMPLETED", 1L)
         }
 
         @Test
         fun `폐기는 요청 2, 승인 1, 완료 1건이며 사유 4종이 모두 존재한다`() {
-            assertThat(countByStatus("disposal")).containsEntry("DISPOSAL_STATUS_REQUESTED", 2L)
-                .containsEntry("DISPOSAL_STATUS_APPROVED", 1L)
-                .containsEntry("DISPOSAL_STATUS_COMPLETED", 1L)
+            assertThat(countByStatus("disposal")).containsEntry("REQUESTED", 2L)
+                .containsEntry("APPROVED", 1L)
+                .containsEntry("COMPLETED", 1L)
             assertThat(countByStatus("disposal_item", "reason").keys).containsExactlyInAnyOrder(
-                "DISPOSAL_REASON_EXPIRED",
-                "DISPOSAL_REASON_INSPECTION_DEFECT",
-                "DISPOSAL_REASON_RETURN_DEFECT",
-                "DISPOSAL_REASON_OTHER"
+                "EXPIRED",
+                "INSPECTION_DEFECT",
+                "RETURN_DEFECT",
+                "OTHER"
             )
         }
 
         @Test
         fun `실사는 네 단계가 하나씩 있고 마감 건에는 승인자가 있다`() {
-            assertThat(countByStatus("stock_audit")).containsEntry("STOCK_AUDIT_STATUS_SCHEDULED", 1L)
-                .containsEntry("STOCK_AUDIT_STATUS_IN_PROGRESS", 1L)
-                .containsEntry("STOCK_AUDIT_STATUS_COMPLETED", 1L)
-                .containsEntry("STOCK_AUDIT_STATUS_CLOSED", 1L)
+            assertThat(countByStatus("stock_audit")).containsEntry("SCHEDULED", 1L)
+                .containsEntry("IN_PROGRESS", 1L)
+                .containsEntry("COMPLETED", 1L)
+                .containsEntry("CLOSED", 1L)
             assertThat(
-                count("SELECT COUNT(*) FROM stock_audit WHERE status = 'STOCK_AUDIT_STATUS_CLOSED' AND approved_by IS NOT NULL")
+                count("SELECT COUNT(*) FROM stock_audit WHERE status = 'CLOSED' AND approved_by IS NOT NULL")
             ).isEqualTo(1L)
             assertThat(count("SELECT COUNT(*) FROM stock_audit_item WHERE has_uncommitted_movement = 1")).isGreaterThanOrEqualTo(1L)
         }
@@ -168,8 +168,8 @@ class DevSeedRunnerTest {
 
         @Test
         fun `Lot은 임박 5건, 경과 2건이다`() {
-            assertThat(countByStatus("lot", "lot_status")).containsEntry("LOT_STATUS_EXPIRING_SOON", 5L)
-                .containsEntry("LOT_STATUS_EXPIRED", 2L)
+            assertThat(countByStatus("lot", "lot_status")).containsEntry("EXPIRING_SOON", 5L)
+                .containsEntry("EXPIRED", 2L)
         }
 
         @Test
@@ -177,11 +177,11 @@ class DevSeedRunnerTest {
             val heldExpired: Long = count(
                 """
                 SELECT COUNT(*) FROM inventory i JOIN lot l ON l.lot_id = i.lot_id
-                WHERE l.lot_status = 'LOT_STATUS_EXPIRED' AND i.quality_status = 'QUALITY_STATUS_NORMAL' AND i.allocated_quantity > 0
+                WHERE l.lot_status = 'EXPIRED' AND i.quality_status = 'NORMAL' AND i.allocated_quantity > 0
                 """.trimIndent()
             )
             val scheduled: Long = count(
-                "SELECT COUNT(*) FROM inventory WHERE quality_status = 'QUALITY_STATUS_DISPOSAL_SCHEDULED' AND deleted_at IS NULL"
+                "SELECT COUNT(*) FROM inventory WHERE quality_status = 'DISPOSAL_SCHEDULED' AND deleted_at IS NULL"
             )
 
             assertThat(heldExpired).isEqualTo(1L)
@@ -191,19 +191,19 @@ class DevSeedRunnerTest {
         @Test
         fun `Allocation은 HELD, RELEASED, FULFILLED가 모두 존재한다`() {
             assertThat(countByStatus("allocation", "status").keys).contains(
-                "ALLOCATION_STATUS_HELD",
-                "ALLOCATION_STATUS_RELEASED",
-                "ALLOCATION_STATUS_FULFILLED"
+                "HELD",
+                "RELEASED",
+                "FULFILLED"
             )
         }
 
         @Test
         fun `재고 이력은 입고 출고 폐기 조정이 모두 있고 과거로 분산돼 있다`() {
             assertThat(countByStatus("inventory_history", "history_type").keys).contains(
-                "INVENTORY_HISTORY_TYPE_INBOUND",
-                "INVENTORY_HISTORY_TYPE_OUTBOUND",
-                "INVENTORY_HISTORY_TYPE_DISPOSAL",
-                "INVENTORY_HISTORY_TYPE_ADJUSTMENT"
+                "INBOUND",
+                "OUTBOUND",
+                "DISPOSAL",
+                "ADJUSTMENT"
             )
             assertThat(count("SELECT COUNT(*) FROM inventory_history WHERE created_at < NOW(6) - INTERVAL 7 DAY"))
                 .isGreaterThan(0L)
@@ -212,7 +212,7 @@ class DevSeedRunnerTest {
         @Test
         fun `상품은 20행이며 비활성 1건과 소프트 삭제 1건을 포함한다`() {
             assertThat(count("SELECT COUNT(*) FROM product")).isEqualTo(20L)
-            assertThat(count("SELECT COUNT(*) FROM product WHERE product_status = 'PRODUCT_STATUS_INACTIVE'")).isEqualTo(1L)
+            assertThat(count("SELECT COUNT(*) FROM product WHERE product_status = 'INACTIVE'")).isEqualTo(1L)
             assertThat(count("SELECT COUNT(*) FROM product WHERE deleted_at IS NOT NULL")).isEqualTo(1L)
         }
     }

@@ -1,7 +1,6 @@
 package com.dozycoffee.wms.inventory.adapter.out.persistence
 
 import com.dozycoffee.wms.global.common.BaseEntity
-import com.dozycoffee.wms.global.persistence.CommonCodes
 import com.dozycoffee.wms.inventory.domain.enumeration.InventoryHistoryType
 import com.dozycoffee.wms.inventory.domain.model.InventoryHistory
 import org.springframework.data.annotation.Id
@@ -30,7 +29,7 @@ class InventoryHistoryEntity private constructor() : BaseEntity() {
         val domain = InventoryHistory.reconstitute(
             requireNotNull(inventoryHistoryId),
             requireNotNull(inventoryId),
-            CommonCodes.fromCode(InventoryHistoryType::class.java, requireNotNull(historyType)),
+            InventoryHistoryType.valueOf(requireNotNull(historyType)),
             requireNotNull(quantityChange),
             requireNotNull(referenceId)
         )
@@ -39,13 +38,11 @@ class InventoryHistoryEntity private constructor() : BaseEntity() {
     }
 
     companion object {
-        private const val HISTORY_TYPE_GROUP = "INVENTORY_HISTORY_TYPE"
-
         fun from(domain: InventoryHistory): InventoryHistoryEntity {
             val entity = InventoryHistoryEntity()
             entity.inventoryHistoryId = domain.inventoryHistoryId
             entity.inventoryId = domain.inventoryId
-            entity.historyType = CommonCodes.toCode(HISTORY_TYPE_GROUP, domain.historyType)
+            entity.historyType = domain.historyType.name
             entity.quantityChange = domain.quantityChange
             entity.referenceId = domain.referenceId
             return entity

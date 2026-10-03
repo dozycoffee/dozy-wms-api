@@ -1,6 +1,5 @@
 package com.dozycoffee.wms.outbound.adapter.out.persistence
 
-import com.dozycoffee.wms.global.persistence.CommonCodes
 import com.dozycoffee.wms.outbound.application.port.out.OutboundRepository
 import com.dozycoffee.wms.outbound.domain.enumeration.OutboundStatus
 import com.dozycoffee.wms.outbound.domain.model.Outbound
@@ -12,10 +11,6 @@ import org.springframework.stereotype.Component
 class OutboundPersistenceAdapter(
     private val outboundR2dbcRepository: OutboundR2dbcRepository
 ) : OutboundRepository {
-
-    companion object {
-        private const val STATUS_GROUP = "OUTBOUND_STATUS"
-    }
 
     override suspend fun save(outbound: Outbound): Outbound {
         val entity = OutboundEntity.from(outbound)
@@ -31,7 +26,7 @@ class OutboundPersistenceAdapter(
     }
 
     override fun findAll(status: OutboundStatus?, warehouseIds: List<Long>?): Flow<Outbound> {
-        val statusCode = status?.let { CommonCodes.toCode(STATUS_GROUP, it) }
+        val statusCode = status?.name
         val ids: List<Long>? = warehouseIds?.takeIf { it.isNotEmpty() }
         val entities = if (ids == null) {
             outboundR2dbcRepository.findAllOutbounds(statusCode)

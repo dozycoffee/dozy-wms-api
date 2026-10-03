@@ -1,7 +1,6 @@
 package com.dozycoffee.wms.outbound.adapter.out.persistence
 
 import com.dozycoffee.wms.global.common.BaseEntity
-import com.dozycoffee.wms.global.persistence.CommonCodes
 import com.dozycoffee.wms.outbound.domain.enumeration.OutboundStatus
 import com.dozycoffee.wms.outbound.domain.model.Outbound
 import org.springframework.data.annotation.Id
@@ -24,18 +23,16 @@ class OutboundEntity private constructor() : BaseEntity() {
         return Outbound.reconstitute(
             requireNotNull(outboundId),
             requireNotNull(warehouseId),
-            CommonCodes.fromCode(OutboundStatus::class.java, requireNotNull(status))
+            OutboundStatus.valueOf(requireNotNull(status))
         )
     }
 
     companion object {
-        private const val STATUS_GROUP = "OUTBOUND_STATUS"
-
         fun from(domain: Outbound): OutboundEntity {
             val entity = OutboundEntity()
             entity.outboundId = domain.outboundId
             entity.warehouseId = domain.warehouseId
-            entity.status = CommonCodes.toCode(STATUS_GROUP, domain.status)
+            entity.status = domain.status.name
             return entity
         }
     }

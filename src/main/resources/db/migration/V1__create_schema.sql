@@ -15,7 +15,7 @@ CREATE TABLE warehouse
     deleted_at DATETIME(6) DEFAULT NULL,
     deleted_by VARCHAR(100) DEFAULT NULL,
     PRIMARY KEY (warehouse_id),
-    CONSTRAINT ck_warehouse_status CHECK (warehouse_status IN ('WAREHOUSE_STATUS_AVAILABLE', 'WAREHOUSE_STATUS_UNAVAILABLE'))
+    CONSTRAINT ck_warehouse_status CHECK (warehouse_status IN ('AVAILABLE', 'UNAVAILABLE'))
 ) ENGINE = InnoDB
   DEFAULT CHARSET = utf8mb4;
 
@@ -31,7 +31,7 @@ CREATE TABLE zone
     updated_by VARCHAR(100) NOT NULL,
     PRIMARY KEY (zone_id),
     CONSTRAINT uq_zone_warehouse_code UNIQUE (warehouse_id, zone_code),
-    CONSTRAINT ck_zone_status CHECK (zone_status IN ('ZONE_STATUS_AVAILABLE', 'ZONE_STATUS_UNAVAILABLE'))
+    CONSTRAINT ck_zone_status CHECK (zone_status IN ('AVAILABLE', 'UNAVAILABLE'))
 ) ENGINE = InnoDB
   DEFAULT CHARSET = utf8mb4;
 
@@ -49,7 +49,7 @@ CREATE TABLE work_area
     PRIMARY KEY (work_area_id),
     CONSTRAINT uq_work_area_warehouse_code UNIQUE (warehouse_id, area_code),
     CONSTRAINT chk_work_area_used_capacity CHECK (used_capacity >= 0),
-    CONSTRAINT ck_work_area_status CHECK (work_area_status IN ('WORK_AREA_STATUS_AVAILABLE', 'WORK_AREA_STATUS_UNAVAILABLE'))
+    CONSTRAINT ck_work_area_status CHECK (work_area_status IN ('AVAILABLE', 'UNAVAILABLE'))
 ) ENGINE = InnoDB
   DEFAULT CHARSET = utf8mb4;
 
@@ -68,7 +68,7 @@ CREATE TABLE location
     PRIMARY KEY (location_id),
     CONSTRAINT uq_location_zone_code UNIQUE (zone_id, location_code),
     CONSTRAINT chk_location_capacity CHECK ((used_capacity >= 0) AND (used_capacity <= max_capacity)),
-    CONSTRAINT ck_location_status CHECK (location_status IN ('LOCATION_STATUS_AVAILABLE', 'LOCATION_STATUS_UNAVAILABLE'))
+    CONSTRAINT ck_location_status CHECK (location_status IN ('AVAILABLE', 'UNAVAILABLE'))
 ) ENGINE = InnoDB
   DEFAULT CHARSET = utf8mb4;
 
@@ -90,8 +90,8 @@ CREATE TABLE product
     PRIMARY KEY (product_id),
     CONSTRAINT uq_product_code UNIQUE (product_code),
     CONSTRAINT chk_product_shelf_life_days CHECK ((shelf_life_days IS NULL) OR (shelf_life_days >= 0)),
-    CONSTRAINT ck_product_category CHECK (category IN ('PRODUCT_CATEGORY_BEAN', 'PRODUCT_CATEGORY_SYRUP', 'PRODUCT_CATEGORY_POWDER', 'PRODUCT_CATEGORY_DAIRY', 'PRODUCT_CATEGORY_SUPPLY', 'PRODUCT_CATEGORY_MD')),
-    CONSTRAINT ck_product_status CHECK (product_status IN ('PRODUCT_STATUS_ACTIVE', 'PRODUCT_STATUS_INACTIVE'))
+    CONSTRAINT ck_product_category CHECK (category IN ('BEAN', 'SYRUP', 'POWDER', 'DAIRY', 'SUPPLY', 'MD')),
+    CONSTRAINT ck_product_status CHECK (product_status IN ('ACTIVE', 'INACTIVE'))
 ) ENGINE = InnoDB
   DEFAULT CHARSET = utf8mb4;
 
@@ -111,7 +111,7 @@ CREATE TABLE lot
     CONSTRAINT uq_lot_product_number UNIQUE (product_id, lot_number),
     INDEX idx_lot_expiration_date (expiration_date),
     CONSTRAINT chk_lot_expiration_date CHECK ((manufacture_date IS NULL) OR (expiration_date IS NULL) OR (expiration_date >= manufacture_date)),
-    CONSTRAINT ck_lot_status CHECK (lot_status IN ('LOT_STATUS_NORMAL', 'LOT_STATUS_EXPIRING_SOON', 'LOT_STATUS_EXPIRED'))
+    CONSTRAINT ck_lot_status CHECK (lot_status IN ('NORMAL', 'EXPIRING_SOON', 'EXPIRED'))
 ) ENGINE = InnoDB
   DEFAULT CHARSET = utf8mb4;
 
@@ -134,7 +134,7 @@ CREATE TABLE inventory
     INDEX idx_inventory_product_id_quality_status_deleted_at (product_id, quality_status, deleted_at),
     CONSTRAINT chk_inventory_allocated_quantity CHECK ((allocated_quantity >= 0) AND (allocated_quantity <= quantity)),
     CONSTRAINT chk_inventory_quantity CHECK (quantity >= 0),
-    CONSTRAINT ck_inventory_quality_status CHECK (quality_status IN ('QUALITY_STATUS_NORMAL', 'QUALITY_STATUS_DEFECTIVE', 'QUALITY_STATUS_DISPOSAL_SCHEDULED'))
+    CONSTRAINT ck_inventory_quality_status CHECK (quality_status IN ('NORMAL', 'DEFECTIVE', 'DISPOSAL_SCHEDULED'))
 ) ENGINE = InnoDB
   DEFAULT CHARSET = utf8mb4;
 
@@ -151,7 +151,7 @@ CREATE TABLE allocation
     status VARCHAR(50) NOT NULL,
     idempotency_key VARCHAR(150) AS (
         CASE
-            WHEN status = 'ALLOCATION_STATUS_HELD'
+            WHEN status = 'HELD'
                 THEN CONCAT(inventory_id, ':', reference_type, ':', reference_id)
             END
         ) STORED,
@@ -162,8 +162,8 @@ CREATE TABLE allocation
     PRIMARY KEY (allocation_id),
     CONSTRAINT uq_allocation_held UNIQUE (idempotency_key),
     CONSTRAINT chk_allocation_quantity CHECK (quantity > 0),
-    CONSTRAINT ck_allocation_reference_type CHECK (reference_type = 'ALLOCATION_REFERENCE_TYPE_OUTBOUND'),
-    CONSTRAINT ck_allocation_status CHECK (status IN ('ALLOCATION_STATUS_HELD', 'ALLOCATION_STATUS_RELEASED', 'ALLOCATION_STATUS_FULFILLED'))
+    CONSTRAINT ck_allocation_reference_type CHECK (reference_type = 'OUTBOUND'),
+    CONSTRAINT ck_allocation_status CHECK (status IN ('HELD', 'RELEASED', 'FULFILLED'))
 ) ENGINE = InnoDB
   DEFAULT CHARSET = utf8mb4;
 
@@ -178,7 +178,7 @@ CREATE TABLE inbound
     updated_at DATETIME(6) NOT NULL,
     updated_by VARCHAR(100) NOT NULL,
     PRIMARY KEY (inbound_id),
-    CONSTRAINT ck_inbound_status CHECK (status IN ('INBOUND_STATUS_EXPECTED', 'INBOUND_STATUS_WAITING', 'INBOUND_STATUS_PROCESSING', 'INBOUND_STATUS_COMPLETED'))
+    CONSTRAINT ck_inbound_status CHECK (status IN ('EXPECTED', 'WAITING', 'PROCESSING', 'COMPLETED'))
 ) ENGINE = InnoDB
   DEFAULT CHARSET = utf8mb4;
 
@@ -198,7 +198,7 @@ CREATE TABLE inbound_item
     PRIMARY KEY (inbound_item_id),
     CONSTRAINT chk_inbound_item_actual_quantity CHECK ((actual_quantity IS NULL) OR (actual_quantity >= 0)),
     CONSTRAINT chk_inbound_item_expected_quantity CHECK (expected_quantity > 0),
-    CONSTRAINT ck_inbound_item_inspection_result CHECK (inspection_result IN ('INBOUND_ITEM_INSPECTION_RESULT_PENDING', 'INBOUND_ITEM_INSPECTION_RESULT_NORMAL', 'INBOUND_ITEM_INSPECTION_RESULT_DEFECTIVE'))
+    CONSTRAINT ck_inbound_item_inspection_result CHECK (inspection_result IN ('PENDING', 'NORMAL', 'DEFECTIVE'))
 ) ENGINE = InnoDB
   DEFAULT CHARSET = utf8mb4;
 
@@ -212,7 +212,7 @@ CREATE TABLE outbound
     updated_at DATETIME(6) NOT NULL,
     updated_by VARCHAR(100) NOT NULL,
     PRIMARY KEY (outbound_id),
-    CONSTRAINT ck_outbound_status CHECK (status IN ('OUTBOUND_STATUS_REQUESTED', 'OUTBOUND_STATUS_PICKING', 'OUTBOUND_STATUS_INSPECTING', 'OUTBOUND_STATUS_COMPLETED'))
+    CONSTRAINT ck_outbound_status CHECK (status IN ('REQUESTED', 'PICKING', 'INSPECTING', 'COMPLETED'))
 ) ENGINE = InnoDB
   DEFAULT CHARSET = utf8mb4;
 
@@ -243,7 +243,7 @@ CREATE TABLE return_request
     updated_at DATETIME(6) NOT NULL,
     updated_by VARCHAR(100) NOT NULL,
     PRIMARY KEY (return_request_id),
-    CONSTRAINT ck_return_request_status CHECK (status IN ('RETURN_STATUS_RECEIVED', 'RETURN_STATUS_INSPECTING', 'RETURN_STATUS_COMPLETED'))
+    CONSTRAINT ck_return_request_status CHECK (status IN ('RECEIVED', 'INSPECTING', 'COMPLETED'))
 ) ENGINE = InnoDB
   DEFAULT CHARSET = utf8mb4;
 
@@ -262,7 +262,7 @@ CREATE TABLE return_item
     PRIMARY KEY (return_item_id),
     CONSTRAINT chk_return_item_actual_quantity CHECK ((actual_quantity IS NULL) OR (actual_quantity >= 0)),
     CONSTRAINT chk_return_item_expected_quantity CHECK (expected_quantity > 0),
-    CONSTRAINT ck_return_item_inspection_result CHECK (inspection_result IN ('RETURN_ITEM_INSPECTION_RESULT_PENDING', 'RETURN_ITEM_INSPECTION_RESULT_NORMAL', 'RETURN_ITEM_INSPECTION_RESULT_DEFECTIVE'))
+    CONSTRAINT ck_return_item_inspection_result CHECK (inspection_result IN ('PENDING', 'NORMAL', 'DEFECTIVE'))
 ) ENGINE = InnoDB
   DEFAULT CHARSET = utf8mb4;
 
@@ -276,7 +276,7 @@ CREATE TABLE disposal
     updated_at DATETIME(6) NOT NULL,
     updated_by VARCHAR(100) NOT NULL,
     PRIMARY KEY (disposal_id),
-    CONSTRAINT ck_disposal_status CHECK (status IN ('DISPOSAL_STATUS_REQUESTED', 'DISPOSAL_STATUS_APPROVED', 'DISPOSAL_STATUS_COMPLETED'))
+    CONSTRAINT ck_disposal_status CHECK (status IN ('REQUESTED', 'APPROVED', 'COMPLETED'))
 ) ENGINE = InnoDB
   DEFAULT CHARSET = utf8mb4;
 
@@ -293,7 +293,7 @@ CREATE TABLE disposal_item
     updated_by VARCHAR(100) NOT NULL,
     PRIMARY KEY (disposal_item_id),
     CONSTRAINT chk_disposal_item_quantity CHECK (quantity > 0),
-    CONSTRAINT ck_disposal_item_reason CHECK (reason IN ('DISPOSAL_REASON_EXPIRED', 'DISPOSAL_REASON_INSPECTION_DEFECT', 'DISPOSAL_REASON_RETURN_DEFECT', 'DISPOSAL_REASON_OTHER'))
+    CONSTRAINT ck_disposal_item_reason CHECK (reason IN ('EXPIRED', 'INSPECTION_DEFECT', 'RETURN_DEFECT', 'OTHER'))
 ) ENGINE = InnoDB
   DEFAULT CHARSET = utf8mb4;
 
@@ -311,7 +311,7 @@ CREATE TABLE inventory_history
     PRIMARY KEY (inventory_history_id),
     INDEX idx_inventory_history_inventory_id_created_at (inventory_id, created_at),
     CONSTRAINT chk_inventory_history_quantity_change CHECK (quantity_change <> 0),
-    CONSTRAINT ck_inventory_history_type CHECK (history_type IN ('INVENTORY_HISTORY_TYPE_INBOUND', 'INVENTORY_HISTORY_TYPE_OUTBOUND', 'INVENTORY_HISTORY_TYPE_DISPOSAL', 'INVENTORY_HISTORY_TYPE_ADJUSTMENT'))
+    CONSTRAINT ck_inventory_history_type CHECK (history_type IN ('INBOUND', 'OUTBOUND', 'DISPOSAL', 'ADJUSTMENT'))
 ) ENGINE = InnoDB
   DEFAULT CHARSET = utf8mb4;
 
@@ -328,7 +328,7 @@ CREATE TABLE stock_audit
     updated_at DATETIME(6) NOT NULL,
     updated_by VARCHAR(100) NOT NULL,
     PRIMARY KEY (stock_audit_id),
-    CONSTRAINT ck_stock_audit_status CHECK (status IN ('STOCK_AUDIT_STATUS_SCHEDULED', 'STOCK_AUDIT_STATUS_IN_PROGRESS', 'STOCK_AUDIT_STATUS_COMPLETED', 'STOCK_AUDIT_STATUS_CLOSED'))
+    CONSTRAINT ck_stock_audit_status CHECK (status IN ('SCHEDULED', 'IN_PROGRESS', 'COMPLETED', 'CLOSED'))
 ) ENGINE = InnoDB
   DEFAULT CHARSET = utf8mb4;
 

@@ -40,7 +40,7 @@ class EnumCheckConstraintMigrationTest {
         constraints.map { spec ->
             DynamicTest.dynamicTest(spec.constraintName) {
                 runBlocking {
-                    val expected: Set<String> = spec.enumClass.enumConstants.map { "${spec.group}_${it.name}" }.toSet()
+                    val expected: Set<String> = spec.enumClass.enumConstants.map { it.name }.toSet()
                     assertThat(allowedValues(spec.constraintName)).isEqualTo(expected)
                 }
             }
@@ -64,29 +64,29 @@ class EnumCheckConstraintMigrationTest {
         return Regex("[A-Z][A-Z_]*[A-Z]").findAll(clause).map { it.value }.toSet()
     }
 
-    private data class ConstraintSpec(val constraintName: String, val group: String, val enumClass: Class<out Enum<*>>)
+    private data class ConstraintSpec(val constraintName: String, val enumClass: Class<out Enum<*>>)
 
     private companion object {
         val constraints: List<ConstraintSpec> = listOf(
-            ConstraintSpec("ck_warehouse_status", "WAREHOUSE_STATUS", AvailabilityStatus::class.java),
-            ConstraintSpec("ck_zone_status", "ZONE_STATUS", AvailabilityStatus::class.java),
-            ConstraintSpec("ck_work_area_status", "WORK_AREA_STATUS", AvailabilityStatus::class.java),
-            ConstraintSpec("ck_location_status", "LOCATION_STATUS", AvailabilityStatus::class.java),
-            ConstraintSpec("ck_product_category", "PRODUCT_CATEGORY", ProductCategory::class.java),
-            ConstraintSpec("ck_product_status", "PRODUCT_STATUS", ProductStatus::class.java),
-            ConstraintSpec("ck_lot_status", "LOT_STATUS", LotStatus::class.java),
-            ConstraintSpec("ck_inventory_quality_status", "QUALITY_STATUS", QualityStatus::class.java),
-            ConstraintSpec("ck_allocation_reference_type", "ALLOCATION_REFERENCE_TYPE", AllocationReferenceType::class.java),
-            ConstraintSpec("ck_allocation_status", "ALLOCATION_STATUS", AllocationStatus::class.java),
-            ConstraintSpec("ck_inbound_status", "INBOUND_STATUS", InboundStatus::class.java),
-            ConstraintSpec("ck_inbound_item_inspection_result", "INBOUND_ITEM_INSPECTION_RESULT", InspectionResult::class.java),
-            ConstraintSpec("ck_outbound_status", "OUTBOUND_STATUS", OutboundStatus::class.java),
-            ConstraintSpec("ck_return_request_status", "RETURN_STATUS", ReturnRequestStatus::class.java),
-            ConstraintSpec("ck_return_item_inspection_result", "RETURN_ITEM_INSPECTION_RESULT", ReturnInspectionResult::class.java),
-            ConstraintSpec("ck_disposal_status", "DISPOSAL_STATUS", DisposalStatus::class.java),
-            ConstraintSpec("ck_disposal_item_reason", "DISPOSAL_REASON", DisposalReason::class.java),
-            ConstraintSpec("ck_inventory_history_type", "INVENTORY_HISTORY_TYPE", InventoryHistoryType::class.java),
-            ConstraintSpec("ck_stock_audit_status", "STOCK_AUDIT_STATUS", StockAuditStatus::class.java)
+            ConstraintSpec("ck_warehouse_status", AvailabilityStatus::class.java),
+            ConstraintSpec("ck_zone_status", AvailabilityStatus::class.java),
+            ConstraintSpec("ck_work_area_status", AvailabilityStatus::class.java),
+            ConstraintSpec("ck_location_status", AvailabilityStatus::class.java),
+            ConstraintSpec("ck_product_category", ProductCategory::class.java),
+            ConstraintSpec("ck_product_status", ProductStatus::class.java),
+            ConstraintSpec("ck_lot_status", LotStatus::class.java),
+            ConstraintSpec("ck_inventory_quality_status", QualityStatus::class.java),
+            ConstraintSpec("ck_allocation_reference_type", AllocationReferenceType::class.java),
+            ConstraintSpec("ck_allocation_status", AllocationStatus::class.java),
+            ConstraintSpec("ck_inbound_status", InboundStatus::class.java),
+            ConstraintSpec("ck_inbound_item_inspection_result", InspectionResult::class.java),
+            ConstraintSpec("ck_outbound_status", OutboundStatus::class.java),
+            ConstraintSpec("ck_return_request_status", ReturnRequestStatus::class.java),
+            ConstraintSpec("ck_return_item_inspection_result", ReturnInspectionResult::class.java),
+            ConstraintSpec("ck_disposal_status", DisposalStatus::class.java),
+            ConstraintSpec("ck_disposal_item_reason", DisposalReason::class.java),
+            ConstraintSpec("ck_inventory_history_type", InventoryHistoryType::class.java),
+            ConstraintSpec("ck_stock_audit_status", StockAuditStatus::class.java)
         )
     }
 }

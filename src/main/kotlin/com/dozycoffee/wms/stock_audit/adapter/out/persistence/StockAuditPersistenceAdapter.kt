@@ -1,6 +1,5 @@
 package com.dozycoffee.wms.stock_audit.adapter.out.persistence
 
-import com.dozycoffee.wms.global.persistence.CommonCodes
 import com.dozycoffee.wms.stock_audit.application.port.out.StockAuditRepository
 import com.dozycoffee.wms.stock_audit.domain.enumeration.StockAuditStatus
 import com.dozycoffee.wms.stock_audit.domain.model.StockAudit
@@ -27,7 +26,7 @@ class StockAuditPersistenceAdapter(
     }
 
     override fun findAll(warehouseIds: List<Long>?, status: StockAuditStatus?): Flow<StockAudit> {
-        val statusCode = status?.let { CommonCodes.toCode(STATUS_GROUP, it) }
+        val statusCode = status?.name
         val ids: List<Long>? = warehouseIds?.takeIf { it.isNotEmpty() }
         val entities = if (ids == null) {
             stockAuditR2dbcRepository.findAllStockAudits(statusCode)
@@ -35,9 +34,5 @@ class StockAuditPersistenceAdapter(
             stockAuditR2dbcRepository.findAllStockAuditsInWarehouses(statusCode, ids)
         }
         return entities.map { it.toDomain() }
-    }
-
-    companion object {
-        private const val STATUS_GROUP = "STOCK_AUDIT_STATUS"
     }
 }

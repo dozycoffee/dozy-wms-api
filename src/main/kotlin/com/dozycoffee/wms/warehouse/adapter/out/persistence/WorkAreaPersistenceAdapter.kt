@@ -1,6 +1,5 @@
 package com.dozycoffee.wms.warehouse.adapter.out.persistence
 
-import com.dozycoffee.wms.global.persistence.CommonCodes
 import com.dozycoffee.wms.warehouse.application.port.out.WorkAreaRepository
 import com.dozycoffee.wms.warehouse.domain.enumeration.AreaCode
 import com.dozycoffee.wms.warehouse.domain.model.WorkArea
@@ -11,10 +10,6 @@ import reactor.core.publisher.Mono
 class WorkAreaPersistenceAdapter(
     private val workAreaR2dbcRepository: WorkAreaR2dbcRepository
 ) : WorkAreaRepository {
-
-    companion object {
-        private const val AREA_CODE_GROUP = "WORK_AREA_TYPE"
-    }
 
     override fun save(workArea: WorkArea): Mono<WorkArea> {
         val entity = WorkAreaEntity.from(workArea)
@@ -31,7 +26,7 @@ class WorkAreaPersistenceAdapter(
     }
 
     override fun findByWarehouseIdAndAreaCode(warehouseId: Long, areaCode: AreaCode): Mono<WorkArea> {
-        val code = CommonCodes.toCode(AREA_CODE_GROUP, areaCode)
+        val code = areaCode.name
         return workAreaR2dbcRepository.findByWarehouseIdAndAreaCode(warehouseId, code).map { it.toDomain() }
     }
 

@@ -1,6 +1,5 @@
 package com.dozycoffee.wms.inventory.adapter.out.persistence
 
-import com.dozycoffee.wms.global.persistence.CommonCodes
 import com.dozycoffee.wms.inventory.application.port.`in`.result.ZoneInventorySummaryResult
 import com.dozycoffee.wms.inventory.application.port.out.ZoneInventorySummaryRepository
 import com.dozycoffee.wms.inventory.domain.enumeration.QualityStatus
@@ -61,10 +60,7 @@ class ZoneInventorySummaryPersistenceAdapter(
             .map { row, _ ->
                 ZoneQuantityRow(
                     zoneId = requireNotNull(row.get("zone_id", java.lang.Long::class.java)).toLong(),
-                    qualityStatus = CommonCodes.fromCode(
-                        QualityStatus::class.java,
-                        requireNotNull(row.get("quality_status", String::class.java))
-                    ),
+                    qualityStatus = QualityStatus.valueOf(requireNotNull(row.get("quality_status", String::class.java))),
                     quantity = requireNotNull(row.get("quantity", java.lang.Long::class.java)).toInt()
                 )
             }

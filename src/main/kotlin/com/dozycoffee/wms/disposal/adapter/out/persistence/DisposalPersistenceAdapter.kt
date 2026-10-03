@@ -3,7 +3,6 @@ package com.dozycoffee.wms.disposal.adapter.out.persistence
 import com.dozycoffee.wms.disposal.application.port.out.DisposalRepository
 import com.dozycoffee.wms.disposal.domain.enumeration.DisposalStatus
 import com.dozycoffee.wms.disposal.domain.model.Disposal
-import com.dozycoffee.wms.global.persistence.CommonCodes
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 import org.springframework.stereotype.Component
@@ -12,10 +11,6 @@ import org.springframework.stereotype.Component
 class DisposalPersistenceAdapter(
     private val disposalR2dbcRepository: DisposalR2dbcRepository
 ) : DisposalRepository {
-
-    companion object {
-        private const val STATUS_GROUP = "DISPOSAL_STATUS"
-    }
 
     override suspend fun save(disposal: Disposal): Disposal {
         val entity = DisposalEntity.from(disposal)
@@ -31,7 +26,7 @@ class DisposalPersistenceAdapter(
     }
 
     override fun findAll(status: DisposalStatus?, warehouseIds: List<Long>?): Flow<Disposal> {
-        val statusCode = status?.let { CommonCodes.toCode(STATUS_GROUP, it) }
+        val statusCode = status?.name
         val ids: List<Long>? = warehouseIds?.takeIf { it.isNotEmpty() }
         val entities = if (ids == null) {
             disposalR2dbcRepository.findAllDisposals(statusCode)
