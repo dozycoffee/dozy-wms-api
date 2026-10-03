@@ -3,8 +3,6 @@ package com.dozycoffee.wms.devseed
 import com.dozycoffee.wms.warehouse.domain.enumeration.AreaCode
 import com.dozycoffee.wms.warehouse.domain.enumeration.ZoneCode
 import kotlinx.coroutines.flow.toList
-import kotlinx.coroutines.reactive.asFlow
-import kotlinx.coroutines.reactive.awaitSingle
 import kotlinx.coroutines.runBlocking
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.AfterAll
@@ -15,6 +13,8 @@ import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.test.context.SpringBootTest
 import org.springframework.boot.DefaultApplicationArguments
 import org.springframework.r2dbc.core.DatabaseClient
+import org.springframework.r2dbc.core.awaitRowsUpdated
+import org.springframework.r2dbc.core.flow
 import org.springframework.test.context.ActiveProfiles
 
 @SpringBootTest(properties = ["wms.dev-seed.enabled=true"])
@@ -31,12 +31,12 @@ class DevSeedRunnerTest {
     @AfterAll
     fun cleanUp() = runBlocking {
         TABLES_IN_DELETE_ORDER.forEach { table ->
-            databaseClient.sql("DELETE FROM $table").fetch().rowsUpdated().awaitSingle()
+            databaseClient.sql("DELETE FROM $table").fetch().awaitRowsUpdated()
         }
     }
 
     private fun <T : Any> query(sql: String, mapper: (io.r2dbc.spi.Readable) -> T): List<T> = runBlocking {
-        databaseClient.sql(sql).map { row -> mapper(row) }.all().asFlow().toList()
+        databaseClient.sql(sql).map { row -> mapper(row) }.flow().toList()
     }
 
     private fun countByStatus(table: String, column: String = "status"): Map<String, Long> =
