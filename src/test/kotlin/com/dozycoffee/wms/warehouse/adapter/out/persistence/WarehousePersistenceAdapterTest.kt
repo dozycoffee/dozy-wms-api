@@ -1,7 +1,6 @@
 package com.dozycoffee.wms.warehouse.adapter.out.persistence
 
 import com.dozycoffee.wms.global.config.R2dbcConfig
-import com.dozycoffee.wms.global.persistence.CommonCodes
 import com.dozycoffee.wms.support.SystemActorProvider
 import com.dozycoffee.wms.warehouse.domain.enumeration.AvailabilityStatus
 import com.dozycoffee.wms.warehouse.domain.model.Warehouse
@@ -65,7 +64,7 @@ class WarehousePersistenceAdapterTest {
         )
             .assertNext { afterUpdate ->
                 assertThat(afterUpdate.warehouseStatus)
-                    .isEqualTo(CommonCodes.toCode("WAREHOUSE_STATUS", AvailabilityStatus.UNAVAILABLE))
+                    .isEqualTo(AvailabilityStatus.UNAVAILABLE.name)
                 assertThat(afterUpdate.createdAt).isEqualTo(beforeUpdate.createdAt)
                 assertThat(afterUpdate.createdBy).isEqualTo(beforeUpdate.createdBy)
             }

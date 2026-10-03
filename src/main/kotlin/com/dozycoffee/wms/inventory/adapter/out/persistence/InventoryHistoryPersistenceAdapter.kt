@@ -1,6 +1,5 @@
 package com.dozycoffee.wms.inventory.adapter.out.persistence
 
-import com.dozycoffee.wms.global.persistence.CommonCodes
 import com.dozycoffee.wms.inventory.application.port.out.InventoryHistoryRepository
 import com.dozycoffee.wms.inventory.domain.enumeration.InventoryHistoryType
 import com.dozycoffee.wms.inventory.domain.model.InventoryHistory
@@ -25,16 +24,12 @@ class InventoryHistoryPersistenceAdapter(
         from: LocalDateTime?,
         to: LocalDateTime?
     ): Flow<InventoryHistory> {
-        val historyTypeCode = historyType?.let { CommonCodes.toCode(HISTORY_TYPE_GROUP, it) }
+        val historyTypeCode = historyType?.name
         return inventoryHistoryR2dbcRepository.findAllFiltered(inventoryId, historyTypeCode, from, to)
             .map { it.toDomain() }
     }
 
     override fun findRecentByInventoryId(inventoryId: Long, limit: Int): Flow<InventoryHistory> {
         return inventoryHistoryR2dbcRepository.findRecentByInventoryId(inventoryId, limit).map { it.toDomain() }
-    }
-
-    companion object {
-        private const val HISTORY_TYPE_GROUP = "INVENTORY_HISTORY_TYPE"
     }
 }

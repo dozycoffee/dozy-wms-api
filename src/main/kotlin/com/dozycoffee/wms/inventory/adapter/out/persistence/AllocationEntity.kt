@@ -1,7 +1,6 @@
 package com.dozycoffee.wms.inventory.adapter.out.persistence
 
 import com.dozycoffee.wms.global.common.BaseEntity
-import com.dozycoffee.wms.global.persistence.CommonCodes
 import com.dozycoffee.wms.inventory.domain.enumeration.AllocationReferenceType
 import com.dozycoffee.wms.inventory.domain.enumeration.AllocationStatus
 import com.dozycoffee.wms.inventory.domain.model.Allocation
@@ -34,25 +33,22 @@ class AllocationEntity private constructor() : BaseEntity() {
         return Allocation.reconstitute(
             requireNotNull(allocationId),
             requireNotNull(inventoryId),
-            CommonCodes.fromCode(AllocationReferenceType::class.java, requireNotNull(referenceType)),
+            AllocationReferenceType.valueOf(requireNotNull(referenceType)),
             requireNotNull(referenceId),
             requireNotNull(quantity),
-            CommonCodes.fromCode(AllocationStatus::class.java, requireNotNull(status))
+            AllocationStatus.valueOf(requireNotNull(status))
         )
     }
 
     companion object {
-        private const val REFERENCE_TYPE_GROUP = "ALLOCATION_REFERENCE_TYPE"
-        private const val STATUS_GROUP = "ALLOCATION_STATUS"
-
         fun from(domain: Allocation): AllocationEntity {
             val entity = AllocationEntity()
             entity.allocationId = domain.allocationId
             entity.inventoryId = domain.inventoryId
-            entity.referenceType = CommonCodes.toCode(REFERENCE_TYPE_GROUP, domain.referenceType)
+            entity.referenceType = domain.referenceType.name
             entity.referenceId = domain.referenceId
             entity.quantity = domain.quantity
-            entity.status = CommonCodes.toCode(STATUS_GROUP, domain.status)
+            entity.status = domain.status.name
             return entity
         }
     }

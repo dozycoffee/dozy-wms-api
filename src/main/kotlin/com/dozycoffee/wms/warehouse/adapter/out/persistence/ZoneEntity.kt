@@ -1,7 +1,6 @@
 package com.dozycoffee.wms.warehouse.adapter.out.persistence
 
 import com.dozycoffee.wms.global.common.BaseEntity
-import com.dozycoffee.wms.global.persistence.CommonCodes
 import com.dozycoffee.wms.warehouse.domain.enumeration.AvailabilityStatus
 import com.dozycoffee.wms.warehouse.domain.enumeration.ZoneCode
 import com.dozycoffee.wms.warehouse.domain.model.Zone
@@ -29,19 +28,17 @@ class ZoneEntity private constructor() : BaseEntity() {
             requireNotNull(zoneId),
             requireNotNull(warehouseId),
             ZoneCode.valueOf(requireNotNull(zoneCode)),
-            CommonCodes.fromCode(AvailabilityStatus::class.java, requireNotNull(zoneStatus))
+            AvailabilityStatus.valueOf(requireNotNull(zoneStatus))
         )
     }
 
     companion object {
-        private const val STATUS_GROUP = "ZONE_STATUS"
-
         fun from(domain: Zone): ZoneEntity {
             val entity = ZoneEntity()
             entity.zoneId = domain.zoneId
             entity.warehouseId = domain.warehouseId
             entity.zoneCode = domain.zoneCode.name
-            entity.zoneStatus = CommonCodes.toCode(STATUS_GROUP, domain.zoneStatus)
+            entity.zoneStatus = domain.zoneStatus.name
             return entity
         }
     }

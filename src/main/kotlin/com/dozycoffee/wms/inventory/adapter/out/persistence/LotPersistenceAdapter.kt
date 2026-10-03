@@ -1,6 +1,5 @@
 package com.dozycoffee.wms.inventory.adapter.out.persistence
 
-import com.dozycoffee.wms.global.persistence.CommonCodes
 import com.dozycoffee.wms.inventory.application.port.out.LotRepository
 import com.dozycoffee.wms.inventory.domain.enumeration.LotStatus
 import com.dozycoffee.wms.inventory.domain.model.Lot
@@ -39,12 +38,8 @@ class LotPersistenceAdapter(
         lotStatus: LotStatus,
         threshold: LocalDate
     ): Flow<Lot> {
-        val lotStatusCode = CommonCodes.toCode(STATUS_GROUP, lotStatus)
+        val lotStatusCode = lotStatus.name
         return lotR2dbcRepository.findAllByLotStatusNotAndExpirationDateLessThanEqual(lotStatusCode, threshold)
             .map { it.toDomain() }
-    }
-
-    companion object {
-        private const val STATUS_GROUP = "LOT_STATUS"
     }
 }

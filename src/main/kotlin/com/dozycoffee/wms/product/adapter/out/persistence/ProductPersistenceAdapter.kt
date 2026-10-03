@@ -1,6 +1,5 @@
 package com.dozycoffee.wms.product.adapter.out.persistence
 
-import com.dozycoffee.wms.global.persistence.CommonCodes
 import com.dozycoffee.wms.product.application.port.out.ProductRepository
 import com.dozycoffee.wms.product.domain.enumeration.ProductCategory
 import com.dozycoffee.wms.product.domain.enumeration.ProductStatus
@@ -32,13 +31,8 @@ class ProductPersistenceAdapter(
     }
 
     override fun findAll(category: ProductCategory?, productStatus: ProductStatus?): Flow<Product> {
-        val categoryCode = category?.let { CommonCodes.toCode(CATEGORY_GROUP, it) }
-        val statusCode = productStatus?.let { CommonCodes.toCode(STATUS_GROUP, it) }
+        val categoryCode = category?.name
+        val statusCode = productStatus?.name
         return productR2dbcRepository.findAllActive(categoryCode, statusCode).map { it.toDomain() }
-    }
-
-    companion object {
-        private const val CATEGORY_GROUP = "PRODUCT_CATEGORY"
-        private const val STATUS_GROUP = "PRODUCT_STATUS"
     }
 }

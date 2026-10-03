@@ -12,7 +12,7 @@ interface AllocationR2dbcRepository : CoroutineCrudRepository<AllocationEntity, 
         WHERE inventory_id = :inventoryId
           AND reference_type = :referenceType
           AND reference_id = :referenceId
-          AND status = 'ALLOCATION_STATUS_HELD'
+          AND status = 'HELD'
         """
     )
     suspend fun findHeld(inventoryId: Long, referenceType: String, referenceId: Long): AllocationEntity?
@@ -22,7 +22,7 @@ interface AllocationR2dbcRepository : CoroutineCrudRepository<AllocationEntity, 
         SELECT * FROM allocation
         WHERE reference_type = :referenceType
           AND reference_id = :referenceId
-          AND status = 'ALLOCATION_STATUS_HELD'
+          AND status = 'HELD'
         """
     )
     fun findAllHeldByReference(referenceType: String, referenceId: Long): Flow<AllocationEntity>

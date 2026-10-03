@@ -1,7 +1,6 @@
 package com.dozycoffee.wms.product.adapter.out.persistence
 
 import com.dozycoffee.wms.global.config.R2dbcConfig
-import com.dozycoffee.wms.global.persistence.CommonCodes
 import com.dozycoffee.wms.support.SystemActorProvider
 import com.dozycoffee.wms.product.domain.enumeration.ProductCategory
 import com.dozycoffee.wms.product.domain.enumeration.ProductStatus
@@ -62,7 +61,7 @@ class ProductPersistenceAdapterTest {
         val afterUpdate = requireNotNull(productR2dbcRepository.findById(productId))
 
         assertThat(afterUpdate.productStatus)
-            .isEqualTo(CommonCodes.toCode("PRODUCT_STATUS", ProductStatus.INACTIVE))
+            .isEqualTo(ProductStatus.INACTIVE.name)
         assertThat(afterUpdate.createdAt).isEqualTo(beforeUpdate.createdAt)
         assertThat(afterUpdate.createdBy).isEqualTo(beforeUpdate.createdBy)
     }

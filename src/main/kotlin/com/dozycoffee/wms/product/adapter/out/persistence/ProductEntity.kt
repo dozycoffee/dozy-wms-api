@@ -1,7 +1,6 @@
 package com.dozycoffee.wms.product.adapter.out.persistence
 
 import com.dozycoffee.wms.global.common.SoftDeletableEntity
-import com.dozycoffee.wms.global.persistence.CommonCodes
 import com.dozycoffee.wms.product.domain.enumeration.ProductCategory
 import com.dozycoffee.wms.product.domain.enumeration.ProductStatus
 import com.dozycoffee.wms.product.domain.model.Product
@@ -38,26 +37,23 @@ class ProductEntity private constructor() : SoftDeletableEntity() {
             requireNotNull(productId),
             requireNotNull(productCode),
             requireNotNull(productName),
-            CommonCodes.fromCode(ProductCategory::class.java, requireNotNull(category)),
+            ProductCategory.valueOf(requireNotNull(category)),
             requireNotNull(unit),
             shelfLifeDays,
-            CommonCodes.fromCode(ProductStatus::class.java, requireNotNull(productStatus))
+            ProductStatus.valueOf(requireNotNull(productStatus))
         )
     }
 
     companion object {
-        private const val CATEGORY_GROUP = "PRODUCT_CATEGORY"
-        private const val STATUS_GROUP = "PRODUCT_STATUS"
-
         fun from(domain: Product): ProductEntity {
             val entity = ProductEntity()
             entity.productId = domain.productId
             entity.productCode = domain.productCode
             entity.productName = domain.productName
-            entity.category = CommonCodes.toCode(CATEGORY_GROUP, domain.category)
+            entity.category = domain.category.name
             entity.unit = domain.unit
             entity.shelfLifeDays = domain.shelfLifeDays
-            entity.productStatus = CommonCodes.toCode(STATUS_GROUP, domain.productStatus)
+            entity.productStatus = domain.productStatus.name
             if (domain.isDeleted()) {
                 entity.softDelete(requireNotNull(domain.deletedBy))
             }

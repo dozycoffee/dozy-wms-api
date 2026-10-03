@@ -14,7 +14,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 | Framework | Spring Boot 4.1.1 |
 | Web | Spring WebFlux |
 | DB Access | Spring Data R2DBC |
-| Reactive Style | Warehouse/common_code/global: Reactor `Mono`/`Flux` (ADR-0007 범위 밖, 유지) / Product 이후 신규 도메인: Kotlin Coroutines `suspend`/`Flow` ([ADR-0006](docs/adr/0006-kotlin-coroutines-for-new-domains.md)) |
+| Reactive Style | Warehouse/global: Reactor `Mono`/`Flux` (ADR-0007 범위 밖, 유지) / Product 이후 신규 도메인: Kotlin Coroutines `suspend`/`Flow` ([ADR-0006](docs/adr/0006-kotlin-coroutines-for-new-domains.md)) |
 | Validation | Spring Validation |
 | Build | Gradle |
 
@@ -121,9 +121,8 @@ src
 
 **Common Code**
 
-- `common_code` 테이블이 상태·분류 코드를 중앙 관리 — `zone_status`, `temperature_type`, `product_status`, `inbound_status` 등 `VARCHAR(50)` FK 컬럼들이 `common_code.code`를 참조
-- 코드 형식: `{GROUP}_{VALUE}` (예: `TEMPERATURE_TYPE_AMBIENT`, `LOT_STATUS_NORMAL`)
-- 애플리케이션 레벨에서는 Kotlin enum으로 정의하고 DB에는 코드 문자열로 저장
+- 상태·분류 코드는 `common_code` 테이블 없이, 각 컬럼의 `VARCHAR(50)` + 컬럼별 `CHECK` 제약(`ck_{table}_{column}`)으로 허용 값을 제한한다 ([ADR-0013](docs/adr/0013-replace-common-code-with-check-constraints.md))
+- 애플리케이션 레벨에서는 Kotlin enum으로 정의하고 DB에는 enum 상수 이름(`name`)을 그대로 저장한다(예: `'EXPIRING_SOON'`). 영속성 어댑터에서 `enum.name`/`Enum.valueOf`로 변환한다. enum 상수를 추가·변경하면 해당 CHECK 제약을 바꾸는 마이그레이션이 필요하며, `EnumCheckConstraintMigrationTest`가 enum과 CHECK의 일치를 검증한다
 
 **DTOs**
 
@@ -246,7 +245,7 @@ and `XxxDtoBuilder` for DTO builders.
 
 전체 코드베이스가 Kotlin이다 — 근거는
 [ADR-0007](docs/adr/0007-full-kotlin-migration.md) 참고 (이전에는 Product부터의 신규 도메인만
-Kotlin이고 Warehouse/common_code/global은 Java로 유지하는 혼용 방식이었으나, ADR-0005를 대체하고 전체
+Kotlin이고 Warehouse/global은 Java로 유지하는 혼용 방식이었으나, ADR-0005를 대체하고 전체
 마이그레이션했다). 아래 컨벤션은 도메인 구분 없이 저장소 전체에 적용된다.
 
 **타입 명시**
@@ -285,7 +284,7 @@ Kotlin이고 Warehouse/common_code/global은 Java로 유지하는 혼용 방식�
 
 - Product부터 시작하는 신규 도메인은 Reactor(`Mono`/`Flux`) 대신 Coroutines(`suspend fun`, `Flow`)를
   사용한다 — 근거는 [ADR-0006](docs/adr/0006-kotlin-coroutines-for-new-domains.md) 참고.
-- `warehouse`/`common_code`/`global`은 [ADR-0007](docs/adr/0007-full-kotlin-migration.md)로 Kotlin으로
+- `warehouse`/`global`은 [ADR-0007](docs/adr/0007-full-kotlin-migration.md)로 Kotlin으로
   포팅됐지만, 언어만 전환하고 비동기 스타일은 그대로 Reactor `Mono`/`Flux`를 유지한다 — Coroutines 전환은
   ADR-0007의 범위 밖이다. 이 패키지들의 기존 코드를 참고할 때 Coroutines 스타일로 오해하지 않는다.
 - Reactor 코드에서 coroutine 경계로 넘어갈 때는 `kotlinx-coroutines-reactor`의 `awaitSingle()` /

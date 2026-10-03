@@ -1,6 +1,5 @@
 package com.dozycoffee.wms.inventory.adapter.out.persistence
 
-import com.dozycoffee.wms.global.persistence.CommonCodes
 import com.dozycoffee.wms.inventory.application.port.`in`.result.OutboundRecommendationResult
 import com.dozycoffee.wms.inventory.application.port.out.OutboundRecommendationRepository
 import com.dozycoffee.wms.inventory.domain.enumeration.LotStatus
@@ -25,8 +24,8 @@ class OutboundRecommendationPersistenceAdapter(
 
     override fun findAll(): Flow<OutboundRecommendationResult> {
         return databaseClient.sql(RECOMMENDATION_QUERY)
-            .bind("lotStatus", CommonCodes.toCode(LOT_STATUS_GROUP, LotStatus.EXPIRING_SOON))
-            .bind("qualityStatus", CommonCodes.toCode(QUALITY_STATUS_GROUP, QualityStatus.NORMAL))
+            .bind("lotStatus", LotStatus.EXPIRING_SOON.name)
+            .bind("qualityStatus", QualityStatus.NORMAL.name)
             .map { row, _ ->
                 OutboundRecommendationResult(
                     lotId = requireNotNull(row.get("lot_id", java.lang.Long::class.java)).toLong(),
@@ -42,9 +41,6 @@ class OutboundRecommendationPersistenceAdapter(
     }
 
     companion object {
-        private const val LOT_STATUS_GROUP = "LOT_STATUS"
-        private const val QUALITY_STATUS_GROUP = "QUALITY_STATUS"
-
         private const val RECOMMENDATION_QUERY = """
             SELECT l.lot_id AS lot_id, l.lot_number AS lot_number, l.expiration_date AS expiration_date,
                    l.updated_at AS updated_at, p.product_id AS product_id, p.product_name AS product_name,

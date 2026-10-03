@@ -1,7 +1,6 @@
 package com.dozycoffee.wms.warehouse.adapter.out.persistence
 
 import com.dozycoffee.wms.global.common.BaseEntity
-import com.dozycoffee.wms.global.persistence.CommonCodes
 import com.dozycoffee.wms.warehouse.domain.enumeration.AvailabilityStatus
 import com.dozycoffee.wms.warehouse.domain.model.Location
 import com.dozycoffee.wms.warehouse.domain.valueobject.Capacity
@@ -38,13 +37,11 @@ class LocationEntity private constructor() : BaseEntity() {
             LocationCode.of(locationCode),
             Capacity(maxCapacity),
             usedCapacity,
-            CommonCodes.fromCode(AvailabilityStatus::class.java, requireNotNull(locationStatus))
+            AvailabilityStatus.valueOf(requireNotNull(locationStatus))
         )
     }
 
     companion object {
-        private const val STATUS_GROUP = "LOCATION_STATUS"
-
         fun from(domain: Location): LocationEntity {
             val entity = LocationEntity()
             entity.locationId = domain.locationId
@@ -52,7 +49,7 @@ class LocationEntity private constructor() : BaseEntity() {
             entity.locationCode = domain.locationCode.value
             entity.maxCapacity = domain.maxCapacity.value
             entity.usedCapacity = domain.usedCapacity
-            entity.locationStatus = CommonCodes.toCode(STATUS_GROUP, domain.locationStatus)
+            entity.locationStatus = domain.locationStatus.name
             return entity
         }
     }

@@ -1,6 +1,5 @@
 package com.dozycoffee.wms.inventory.adapter.out.persistence
 
-import com.dozycoffee.wms.global.persistence.CommonCodes
 import com.dozycoffee.wms.inventory.application.port.out.AllocationRepository
 import com.dozycoffee.wms.inventory.domain.enumeration.AllocationReferenceType
 import com.dozycoffee.wms.inventory.domain.model.Allocation
@@ -31,16 +30,12 @@ class AllocationPersistenceAdapter(
         referenceType: AllocationReferenceType,
         referenceId: Long
     ): Allocation? {
-        val referenceTypeCode = CommonCodes.toCode(REFERENCE_TYPE_GROUP, referenceType)
+        val referenceTypeCode = referenceType.name
         return allocationR2dbcRepository.findHeld(inventoryId, referenceTypeCode, referenceId)?.toDomain()
     }
 
     override fun findAllHeldByReference(referenceType: AllocationReferenceType, referenceId: Long): Flow<Allocation> {
-        val referenceTypeCode = CommonCodes.toCode(REFERENCE_TYPE_GROUP, referenceType)
+        val referenceTypeCode = referenceType.name
         return allocationR2dbcRepository.findAllHeldByReference(referenceTypeCode, referenceId).map { it.toDomain() }
-    }
-
-    companion object {
-        private const val REFERENCE_TYPE_GROUP = "ALLOCATION_REFERENCE_TYPE"
     }
 }

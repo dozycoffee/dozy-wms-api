@@ -1,7 +1,7 @@
 # ADR-0004: 상태/분류 코드를 `common_code` 테이블로 중앙 관리
 
 ## 상태
-Accepted
+Superseded by 0013
 
 ## 배경 (Context)
 `zone_status`, `temperature_type`, `product_status`, `inbound_status` 등 상태·분류 코드를 쓰는 `VARCHAR`

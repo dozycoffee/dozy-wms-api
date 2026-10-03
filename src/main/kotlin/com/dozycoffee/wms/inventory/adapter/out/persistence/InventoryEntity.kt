@@ -1,7 +1,6 @@
 package com.dozycoffee.wms.inventory.adapter.out.persistence
 
 import com.dozycoffee.wms.global.common.SoftDeletableEntity
-import com.dozycoffee.wms.global.persistence.CommonCodes
 import com.dozycoffee.wms.inventory.domain.enumeration.QualityStatus
 import com.dozycoffee.wms.inventory.domain.model.Inventory
 import org.springframework.data.annotation.Id
@@ -40,13 +39,11 @@ class InventoryEntity private constructor() : SoftDeletableEntity() {
             requireNotNull(locationId),
             requireNotNull(quantity),
             requireNotNull(allocatedQuantity),
-            CommonCodes.fromCode(QualityStatus::class.java, requireNotNull(qualityStatus))
+            QualityStatus.valueOf(requireNotNull(qualityStatus))
         )
     }
 
     companion object {
-        private const val QUALITY_STATUS_GROUP = "QUALITY_STATUS"
-
         fun from(domain: Inventory): InventoryEntity {
             val entity = InventoryEntity()
             entity.inventoryId = domain.inventoryId
@@ -55,7 +52,7 @@ class InventoryEntity private constructor() : SoftDeletableEntity() {
             entity.locationId = domain.locationId
             entity.quantity = domain.quantity
             entity.allocatedQuantity = domain.allocatedQuantity
-            entity.qualityStatus = CommonCodes.toCode(QUALITY_STATUS_GROUP, domain.qualityStatus)
+            entity.qualityStatus = domain.qualityStatus.name
             if (domain.isDeleted()) {
                 entity.softDelete(requireNotNull(domain.deletedBy))
             }

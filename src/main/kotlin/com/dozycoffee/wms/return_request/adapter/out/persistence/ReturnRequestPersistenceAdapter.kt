@@ -1,6 +1,5 @@
 package com.dozycoffee.wms.return_request.adapter.out.persistence
 
-import com.dozycoffee.wms.global.persistence.CommonCodes
 import com.dozycoffee.wms.return_request.application.port.out.ReturnRequestRepository
 import com.dozycoffee.wms.return_request.domain.enumeration.ReturnRequestStatus
 import com.dozycoffee.wms.return_request.domain.model.ReturnRequest
@@ -12,10 +11,6 @@ import org.springframework.stereotype.Component
 class ReturnRequestPersistenceAdapter(
     private val returnRequestR2dbcRepository: ReturnRequestR2dbcRepository
 ) : ReturnRequestRepository {
-
-    companion object {
-        private const val STATUS_GROUP = "RETURN_STATUS"
-    }
 
     override suspend fun save(returnRequest: ReturnRequest): ReturnRequest {
         val entity = ReturnRequestEntity.from(returnRequest)
@@ -31,7 +26,7 @@ class ReturnRequestPersistenceAdapter(
     }
 
     override fun findAll(status: ReturnRequestStatus?, warehouseIds: List<Long>?): Flow<ReturnRequest> {
-        val statusCode = status?.let { CommonCodes.toCode(STATUS_GROUP, it) }
+        val statusCode = status?.name
         val ids: List<Long>? = warehouseIds?.takeIf { it.isNotEmpty() }
         val entities = if (ids == null) {
             returnRequestR2dbcRepository.findAllReturnRequests(statusCode)

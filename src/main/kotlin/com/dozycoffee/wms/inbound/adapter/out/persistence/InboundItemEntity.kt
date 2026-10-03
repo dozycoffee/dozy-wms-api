@@ -1,7 +1,6 @@
 package com.dozycoffee.wms.inbound.adapter.out.persistence
 
 import com.dozycoffee.wms.global.common.BaseEntity
-import com.dozycoffee.wms.global.persistence.CommonCodes
 import com.dozycoffee.wms.inbound.domain.enumeration.InspectionResult
 import com.dozycoffee.wms.inbound.domain.model.InboundItem
 import org.springframework.data.annotation.Id
@@ -40,13 +39,11 @@ class InboundItemEntity private constructor() : BaseEntity() {
             requireNotNull(zoneId),
             expectedQuantity,
             actualQuantity,
-            CommonCodes.fromCode(InspectionResult::class.java, requireNotNull(inspectionResult))
+            InspectionResult.valueOf(requireNotNull(inspectionResult))
         )
     }
 
     companion object {
-        private const val INSPECTION_RESULT_GROUP = "INBOUND_ITEM_INSPECTION_RESULT"
-
         fun from(domain: InboundItem): InboundItemEntity {
             val entity = InboundItemEntity()
             entity.inboundItemId = domain.inboundItemId
@@ -55,7 +52,7 @@ class InboundItemEntity private constructor() : BaseEntity() {
             entity.zoneId = domain.zoneId
             entity.expectedQuantity = domain.expectedQuantity
             entity.actualQuantity = domain.actualQuantity
-            entity.inspectionResult = CommonCodes.toCode(INSPECTION_RESULT_GROUP, domain.inspectionResult)
+            entity.inspectionResult = domain.inspectionResult.name
             return entity
         }
     }
