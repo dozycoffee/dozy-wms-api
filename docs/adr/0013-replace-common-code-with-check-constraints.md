@@ -18,7 +18,7 @@ ADR-0004는 상태·분류 코드를 `common_code` 테이블에 모으고 각 �
 
 ## 결정 (Decision)
 `common_code` 테이블과 `common_code` 패키지(도메인 모델·엔티티·Repository)를 제거하고, 참조하던 19개 컬럼은
-FK 대신 `CHECK (col IN (...))` 제약(`ck_{table}_{column}`)으로 허용 값을 제한한다(V26). 저장 값은 기존
+FK 대신 `CHECK (col IN (...))` 제약(`ck_{table}_{column}`)으로 허용 값을 제한한다(V1 baseline에 인라인, FK는 V2). 저장 값은 기존
 `{GROUP}_{VALUE}` 형식을 유지하므로 데이터 마이그레이션은 없고, `CommonCodes.toCode`/`fromCode`도 그대로 쓴다.
 
 ## 결과 (Consequences)
@@ -30,5 +30,9 @@ FK 대신 `CHECK (col IN (...))` 제약(`ck_{table}_{column}`)으로 허용 값�
 - 후속: `{GROUP}_` 접두사는 FK 대상의 전역 유일성을 위한 것이었으므로 이제 불필요하다. 제거하려면 기존 컬럼
   값 UPDATE와 CHECK 재작성이 필요해 이번 변경과 분리했다. `work_area.area_code`는 기존에도 FK가 없어 CHECK를
   추가하지 않았다.
+- 마이그레이션 통합: 미배포 단계라 기존 V1~V25와 이 변경을 합쳐 V1(테이블·인덱스·CHECK)/V2(외래키) baseline으로
+  재작성했다. Flyway 체크섬이 달라지므로 기존 DB는 초기화가 필요하다(`scripts/reset-dev-db.sh`). 배포 이후에는
+  이런 통합을 하지 않는다. 통합 전후 스키마를 `SHOW CREATE TABLE`로 비교해 차이가 없음을 확인했고, 예외는
+  FK 삭제 때 남던 상태 컬럼 인덱스 19개를 baseline에서 뺀 것뿐이다.
 - 검증: `EnumCheckConstraintMigrationTest`가 각 CHECK의 허용 값이 enum 상수와 일치하는지, `common_code`
   테이블이 없는지 확인한다.
