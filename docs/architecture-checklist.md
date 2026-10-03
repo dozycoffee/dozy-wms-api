@@ -31,11 +31,12 @@
 - [ ] 연관 Entity는 cascade/orphanRemoval에 의존하지 않고, 각 도메인의 전용 Repository로 명시적으로
       저장/삭제한다 (ADR-0002)
 
-## Common Code
+## 상태/분류 코드
 
-- [ ] 상태/분류 코드는 `common_code` 테이블을 참조하며, 코드 형식은 `{GROUP}_{VALUE}`를 따른다
-      (예: `TEMPERATURE_TYPE_AMBIENT`) (ADR-0004)
-- [ ] 애플리케이션 레벨에서는 Java enum으로 정의하고, DB에는 코드 문자열로 저장한다
+- [ ] 상태/분류 컬럼은 `VARCHAR(50)` + 컬럼별 `CHECK` 제약으로 허용 값을 제한하며, 코드 형식은
+      `{GROUP}_{VALUE}`를 따른다 (예: `LOT_STATUS_NORMAL`) (ADR-0013)
+- [ ] 애플리케이션 레벨에서는 Kotlin enum으로 정의하고, DB에는 코드 문자열로 저장한다
+- [ ] enum 상수를 추가·변경하면 CHECK 제약 마이그레이션과 `EnumCheckConstraintMigrationTest` 목록을 함께 갱신한다
 
 ## DTO
 
@@ -74,7 +75,7 @@
 
 ## Kotlin 스타일 (ADR-0007, ADR-0006)
 
-이 섹션은 저장소 전체(신규 도메인뿐 아니라 ADR-0007로 포팅된 Warehouse/common_code/global 포함)에
+이 섹션은 저장소 전체(신규 도메인뿐 아니라 ADR-0007로 포팅된 Warehouse/global 포함)에
 적용된다.
 
 - [ ] 클래스 프로퍼티, 함수 파라미터, 함수 반환 타입은 명시한다 — 메서드 본문 내부 지역 변수는 타입

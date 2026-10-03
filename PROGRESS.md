@@ -11,6 +11,12 @@
 
 ## 세션 로그
 
+### 2026-10-03
+
+- F-024: `common_code` 테이블과 패키지를 제거하고 참조 FK 19개를 컬럼별 CHECK 제약으로 대체했다(V26, ADR-0013, ADR-0004 대체).
+  저장 값은 `{GROUP}_{VALUE}` 형식을 유지해 데이터 마이그레이션은 없다. `EnumCheckConstraintMigrationTest`가 CHECK 허용 값과 enum의
+  일치, 테이블 부재를 검증한다. `{GROUP}_` 접두사 제거는 값 UPDATE가 필요해 후속으로 분리했다.
+
 ### 2026-10-02
 
 - F-022: 사용자-창고 접근 매핑과 가드를 구현했다(ADR-0012 갱신). `warehouse_member`(V25)와 배정 관리 API(`/api/warehouses/{id}/members`,

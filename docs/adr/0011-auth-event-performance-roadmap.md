@@ -81,7 +81,7 @@ JWKS 연동 시점에 다시 뜯어고칠 가능성이 높아 코드화하지 �
   우선순위로 둔다.
 
 **Redis 캐싱 정책** — "읽기 많고 쓰기 드문" 데이터만 후보로 삼는다.
-- 캐싱 후보: `Product` 마스터, `common_code`(사실상 상수), `Warehouse`/`Zone`/`WorkArea`의 정적
+- 캐싱 후보: `Product` 마스터, `Warehouse`/`Zone`/`WorkArea`의 정적
   구조(이름/코드/`maxCapacity`) — 변경 빈도가 낮다.
 - **캐싱 금지**: `Location.usedCapacity`, `Inventory` 수량류(`quantity`/`allocatedQuantity`) —
   입출고마다 바뀌는 값이라 캐싱 시 무효화 비용이 이득을 상쇄하고, WMS에서 재고 수량 stale은 치명적
