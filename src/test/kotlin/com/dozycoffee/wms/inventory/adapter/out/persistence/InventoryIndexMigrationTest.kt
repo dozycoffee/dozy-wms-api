@@ -2,7 +2,6 @@ package com.dozycoffee.wms.inventory.adapter.out.persistence
 
 import com.dozycoffee.wms.support.SystemActorProvider
 import kotlinx.coroutines.flow.toList
-import kotlinx.coroutines.reactive.asFlow
 import kotlinx.coroutines.runBlocking
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
@@ -10,6 +9,7 @@ import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.data.r2dbc.test.autoconfigure.DataR2dbcTest
 import org.springframework.context.annotation.Import
 import org.springframework.r2dbc.core.DatabaseClient
+import org.springframework.r2dbc.core.flow
 
 @DataR2dbcTest
 @Import(SystemActorProvider::class)
@@ -37,5 +37,5 @@ class InventoryIndexMigrationTest {
             ORDER BY seq_in_index
             """
         ).map { row -> row.get(0, String::class.java) ?: error("column_name 누락") }
-            .all().asFlow().toList()
+            .flow().toList()
 }

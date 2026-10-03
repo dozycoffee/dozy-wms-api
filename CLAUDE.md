@@ -14,7 +14,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 | Framework | Spring Boot 4.1.1 |
 | Web | Spring WebFlux |
 | DB Access | Spring Data R2DBC |
-| Reactive Style | Warehouse/global: Reactor `Mono`/`Flux` (ADR-0007 범위 밖, 유지) / Product 이후 신규 도메인: Kotlin Coroutines `suspend`/`Flow` ([ADR-0006](docs/adr/0006-kotlin-coroutines-for-new-domains.md)) |
+| Reactive Style | 전체 Kotlin Coroutines `suspend`/`Flow` ([ADR-0014](docs/adr/0014-unify-on-kotlin-coroutines.md), ADR-0006 확장). Reactor는 프레임워크가 요구하는 경계(Security, Auditing, `DatabaseClient`)에만 남는다 |
 | Validation | Spring Validation |
 | Build | Gradle |
 
@@ -282,15 +282,15 @@ Kotlin이고 Warehouse/global은 Java로 유지하는 혼용 방식이었으나,
 
 **비동기 처리 스타일**
 
-- Product부터 시작하는 신규 도메인은 Reactor(`Mono`/`Flux`) 대신 Coroutines(`suspend fun`, `Flow`)를
-  사용한다 — 근거는 [ADR-0006](docs/adr/0006-kotlin-coroutines-for-new-domains.md) 참고.
-- `warehouse`/`global`은 [ADR-0007](docs/adr/0007-full-kotlin-migration.md)로 Kotlin으로
-  포팅됐지만, 언어만 전환하고 비동기 스타일은 그대로 Reactor `Mono`/`Flux`를 유지한다 — Coroutines 전환은
-  ADR-0007의 범위 밖이다. 이 패키지들의 기존 코드를 참고할 때 Coroutines 스타일로 오해하지 않는다.
-- Reactor 코드에서 coroutine 경계로 넘어갈 때는 `kotlinx-coroutines-reactor`의 `awaitSingle()` /
-  `awaitSingleOrNull()` / `asFlow()`로 변환한다.
-- Reactor 스타일 코드(Warehouse 등)가 Kotlin `suspend fun`을 직접 호출해야 하는 지점은 그 함수 쪽에
-  `Mono`/`Flux`를 반환하는 어댑터 메서드를 별도로 노출한다.
+- 전체 코드베이스는 Reactor(`Mono`/`Flux`) 대신 Coroutines(`suspend fun`, `Flow`)를 사용한다 — 근거는
+  [ADR-0014](docs/adr/0014-unify-on-kotlin-coroutines.md) 참고 (ADR-0006을 전체로 확장).
+- Repository는 `CoroutineCrudRepository`, 단건 조회는 `T?`, 목록은 `Flow<T>`를 반환한다.
+- 프레임워크가 Reactor 타입을 요구하는 경계(`SecurityConfig`의 `Mono` 컨버터, `ReactiveSecurityContextHolder`,
+  `ReactiveAuditorAware`)에서만 `kotlinx-coroutines-reactor`의 `awaitSingleOrNull()` / `mono {}`로 변환한다.
+  그 외 지점에 Reactor 타입을 새로 들이지 않는다.
+- `DatabaseClient`는 `org.springframework.r2dbc.core`의 Kotlin 확장(`awaitRowsUpdated()` / `awaitOne()` /
+  `awaitOneOrNull()` / `flow()`)으로 쓴다.
+- `@Transactional` 서비스 안에서 `launch`/`async`로 새 코루틴을 띄우지 않는다(트랜잭션 컨텍스트 공유 보장 없음).
 
 **테스트**
 

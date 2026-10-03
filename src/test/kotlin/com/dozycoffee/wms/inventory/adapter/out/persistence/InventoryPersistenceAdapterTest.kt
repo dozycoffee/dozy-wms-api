@@ -83,30 +83,22 @@ class InventoryPersistenceAdapterTest {
             inventoryR2dbcRepository.deleteAll()
             lotR2dbcRepository.deleteAll()
             productR2dbcRepository.deleteAll()
+            locationR2dbcRepository.deleteAll()
+            zoneR2dbcRepository.deleteAll()
+            warehouseR2dbcRepository.deleteAll()
         }
-        locationR2dbcRepository.deleteAll().block()
-        zoneR2dbcRepository.deleteAll().block()
-        warehouseR2dbcRepository.deleteAll().block()
     }
 
-    private fun createLocation(): Long {
+    private suspend fun createLocation(): Long {
         return createLocationInWarehouse().locationId
     }
 
     private data class CreatedLocation(val locationId: Long, val warehouseId: Long)
 
-    private fun createLocationInWarehouse(): CreatedLocation {
-        val warehouseId: Long = requireNotNull(
-            warehousePersistenceAdapter.save(warehouse().build()).map { requireNotNull(it.warehouseId) }.block()
-        )
-        val zoneId: Long = requireNotNull(
-            zonePersistenceAdapter.save(zone().warehouseId(warehouseId).build())
-                .map { requireNotNull(it.zoneId) }.block()
-        )
-        val locationId: Long = requireNotNull(
-            locationPersistenceAdapter.save(location().zoneId(zoneId).build())
-                .map { requireNotNull(it.locationId) }.block()
-        )
+    private suspend fun createLocationInWarehouse(): CreatedLocation {
+        val warehouseId: Long = requireNotNull(warehousePersistenceAdapter.save(warehouse().build()).warehouseId)
+        val zoneId: Long = requireNotNull(zonePersistenceAdapter.save(zone().warehouseId(warehouseId).build()).zoneId)
+        val locationId: Long = requireNotNull(locationPersistenceAdapter.save(location().zoneId(zoneId).build()).locationId)
         return CreatedLocation(locationId, warehouseId)
     }
 

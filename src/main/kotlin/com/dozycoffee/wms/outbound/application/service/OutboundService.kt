@@ -33,7 +33,6 @@ import com.dozycoffee.wms.warehouse.domain.enumeration.AreaCode
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.toList
-import kotlinx.coroutines.reactive.awaitSingle
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
 
@@ -89,8 +88,8 @@ class OutboundService(
             totalPickedQuantity += pickedQuantity
         }
 
-        val workArea = getWorkAreaUseCase.getByWarehouseIdAndAreaCode(outbound.warehouseId, AreaCode.OUTBOUND).awaitSingle()
-        occupyWorkAreaUseCase.occupy(OccupyWorkAreaCommand(workArea.workAreaId, totalPickedQuantity)).awaitSingle()
+        val workArea = getWorkAreaUseCase.getByWarehouseIdAndAreaCode(outbound.warehouseId, AreaCode.OUTBOUND)
+        occupyWorkAreaUseCase.occupy(OccupyWorkAreaCommand(workArea.workAreaId, totalPickedQuantity))
 
         outbound.startPicking()
         return OutboundResult.from(outboundRepository.save(outbound))
@@ -117,13 +116,13 @@ class OutboundService(
             for (allocation in allocations) {
                 val inventory = getInventoryUseCase.getById(allocation.inventoryId)
                 fulfillAllocationUseCase.fulfill(allocation.allocationId)
-                releaseLocationUseCase.release(ReleaseLocationCommand(inventory.locationId, allocation.quantity)).awaitSingle()
+                releaseLocationUseCase.release(ReleaseLocationCommand(inventory.locationId, allocation.quantity))
             }
             totalPickedQuantity += item.pickedQuantity ?: 0
         }
 
-        val workArea = getWorkAreaUseCase.getByWarehouseIdAndAreaCode(outbound.warehouseId, AreaCode.OUTBOUND).awaitSingle()
-        releaseWorkAreaUseCase.release(ReleaseWorkAreaCommand(workArea.workAreaId, totalPickedQuantity)).awaitSingle()
+        val workArea = getWorkAreaUseCase.getByWarehouseIdAndAreaCode(outbound.warehouseId, AreaCode.OUTBOUND)
+        releaseWorkAreaUseCase.release(ReleaseWorkAreaCommand(workArea.workAreaId, totalPickedQuantity))
 
         outbound.complete()
         return OutboundResult.from(outboundRepository.save(outbound))

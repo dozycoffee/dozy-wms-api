@@ -1,7 +1,6 @@
 package com.dozycoffee.wms.global.security
 
 import com.dozycoffee.auth.test.DozyTestTokens
-import kotlinx.coroutines.reactive.awaitSingle
 import kotlinx.coroutines.runBlocking
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.BeforeEach
@@ -11,6 +10,8 @@ import org.springframework.boot.test.context.SpringBootTest
 import org.springframework.boot.webtestclient.autoconfigure.AutoConfigureWebTestClient
 import org.springframework.http.MediaType
 import org.springframework.r2dbc.core.DatabaseClient
+import org.springframework.r2dbc.core.awaitOne
+import org.springframework.r2dbc.core.awaitRowsUpdated
 import org.springframework.test.web.reactive.server.WebTestClient
 import java.util.UUID
 
@@ -55,7 +56,7 @@ class WarehouseAccessIntegrationTest {
     }
 
     private suspend fun execute(sql: String) {
-        databaseClient.sql(sql).fetch().rowsUpdated().awaitSingle()
+        databaseClient.sql(sql).fetch().awaitRowsUpdated()
     }
 
     private suspend fun insertWarehouse(name: String): Long {
@@ -78,7 +79,7 @@ class WarehouseAccessIntegrationTest {
     private suspend fun lastInsertId(): Long =
         databaseClient.sql("SELECT LAST_INSERT_ID() AS id")
             .map { row -> requireNotNull(row.get("id", java.lang.Long::class.java)).toLong() }
-            .one().awaitSingle()
+            .awaitOne()
 
     private fun bearer(principalId: UUID, vararg roles: String): String =
         "Bearer ${tokens.issue(id = principalId, roles = roles.toList())}"

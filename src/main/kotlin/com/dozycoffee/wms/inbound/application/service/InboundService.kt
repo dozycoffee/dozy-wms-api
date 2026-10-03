@@ -46,7 +46,6 @@ import com.dozycoffee.wms.warehouse.domain.enumeration.ZoneCode
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.toList
-import kotlinx.coroutines.reactive.awaitSingle
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
 
@@ -86,9 +85,9 @@ class InboundService(
 
         val zoneIdByCode = mutableMapOf<ZoneCode, Long>()
         for ((zoneCode, requiredQuantity) in requiredQuantityByZoneCode) {
-            val zone = getZoneUseCase.getByWarehouseIdAndZoneCode(command.warehouseId, zoneCode).awaitSingle()
+            val zone = getZoneUseCase.getByWarehouseIdAndZoneCode(command.warehouseId, zoneCode)
             zoneIdByCode[zoneCode] = zone.zoneId
-            val locations = getLocationUseCase.getByZoneId(zone.zoneId).collectList().awaitSingle()
+            val locations = getLocationUseCase.getByZoneId(zone.zoneId).toList()
             val remainingCapacity = locations.sumOf { it.maxCapacity - it.usedCapacity }
             if (remainingCapacity < requiredQuantity) {
                 throw InsufficientZoneCapacityException()
@@ -115,8 +114,8 @@ class InboundService(
         val totalExpectedQuantity = inboundItemRepository.findAllByInboundId(inboundId).toList()
             .sumOf { it.expectedQuantity }
 
-        val workArea = getWorkAreaUseCase.getByWarehouseIdAndAreaCode(inbound.warehouseId, AreaCode.INBOUND).awaitSingle()
-        occupyWorkAreaUseCase.occupy(OccupyWorkAreaCommand(workArea.workAreaId, totalExpectedQuantity)).awaitSingle()
+        val workArea = getWorkAreaUseCase.getByWarehouseIdAndAreaCode(inbound.warehouseId, AreaCode.INBOUND)
+        occupyWorkAreaUseCase.occupy(OccupyWorkAreaCommand(workArea.workAreaId, totalExpectedQuantity))
 
         inbound.startProcessing()
         return InboundResult.from(inboundRepository.save(inbound))
@@ -158,8 +157,8 @@ class InboundService(
         }
 
         val totalExpectedQuantity = items.sumOf { it.expectedQuantity }
-        val workArea = getWorkAreaUseCase.getByWarehouseIdAndAreaCode(inbound.warehouseId, AreaCode.INBOUND).awaitSingle()
-        releaseWorkAreaUseCase.release(ReleaseWorkAreaCommand(workArea.workAreaId, totalExpectedQuantity)).awaitSingle()
+        val workArea = getWorkAreaUseCase.getByWarehouseIdAndAreaCode(inbound.warehouseId, AreaCode.INBOUND)
+        releaseWorkAreaUseCase.release(ReleaseWorkAreaCommand(workArea.workAreaId, totalExpectedQuantity))
 
         inbound.complete()
         return InboundResult.from(inboundRepository.save(inbound))
@@ -190,7 +189,7 @@ class InboundService(
     /** Zone 내 잔여 capacity가 큰 Location부터 채우는 First-Fit 방식으로 여러 Location에 분산 배치한다 */
     private suspend fun distributeToLocations(item: InboundItem, lotId: Long): List<InventoryResult> {
         var remainingQuantity = requireNotNull(item.actualQuantity)
-        val locations = getLocationUseCase.getByZoneId(item.zoneId).collectList().awaitSingle()
+        val locations = getLocationUseCase.getByZoneId(item.zoneId).toList()
             .sortedByDescending { it.maxCapacity - it.usedCapacity }
 
         val registeredInventories = mutableListOf<InventoryResult>()
@@ -200,7 +199,7 @@ class InboundService(
             if (availableCapacity <= 0) continue
 
             val allocatedQuantity = minOf(availableCapacity, remainingQuantity)
-            occupyLocationUseCase.occupy(OccupyLocationCommand(location.locationId, allocatedQuantity)).awaitSingle()
+            occupyLocationUseCase.occupy(OccupyLocationCommand(location.locationId, allocatedQuantity))
             registeredInventories.add(
                 registerInventoryUseCase.register(
                     RegisterInventoryCommand(lotId, location.locationId, allocatedQuantity, requireNotNull(item.inboundItemId))

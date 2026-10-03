@@ -9,17 +9,17 @@ import com.dozycoffee.wms.warehouse.application.port.`in`.RegisterWarehouseUseCa
 import com.dozycoffee.wms.warehouse.application.port.`in`.result.WarehouseResult
 import com.dozycoffee.wms.warehouse.domain.enumeration.AvailabilityStatus
 import com.dozycoffee.wms.warehouse.domain.exception.WarehouseNotFoundException
+import kotlinx.coroutines.runBlocking
 import org.junit.jupiter.api.Nested
 import org.junit.jupiter.api.Test
+import org.mockito.kotlin.whenever
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.webflux.test.autoconfigure.WebFluxTest
 import org.springframework.test.context.bean.override.mockito.MockitoBean
 import org.springframework.test.web.reactive.server.WebTestClient
-import reactor.core.publisher.Mono
 import java.math.BigDecimal
 import org.mockito.kotlin.any
 import org.mockito.kotlin.eq
-import org.mockito.Mockito.`when`
 
 @WithDozyPrincipal(roles = ["wms:warehouse_admin"])
 @WebFluxTest(WarehouseController::class)
@@ -53,7 +53,7 @@ class WarehouseControllerTest {
 
         @Test
         fun `유효한 요청이면 201과 등록된 창고를 반환한다`() {
-            `when`(registerWarehouseUseCase.register(any())).thenReturn(Mono.just(sampleResult()))
+            runBlocking { whenever(registerWarehouseUseCase.register(any())).thenReturn(sampleResult()) }
 
             webTestClient.post().uri("/api/warehouses")
                 .bodyValue(
@@ -83,7 +83,7 @@ class WarehouseControllerTest {
 
         @Test
         fun `존재하면 200과 창고 정보를 반환한다`() {
-            `when`(getWarehouseUseCase.getById(1L)).thenReturn(Mono.just(sampleResult()))
+            runBlocking { whenever(getWarehouseUseCase.getById(1L)).thenReturn(sampleResult()) }
 
             webTestClient.get().uri("/api/warehouses/{warehouseId}", 1L)
                 .exchange()
@@ -94,7 +94,7 @@ class WarehouseControllerTest {
 
         @Test
         fun `존재하지 않으면 404를 반환한다`() {
-            `when`(getWarehouseUseCase.getById(eq(999L))).thenReturn(Mono.error(WarehouseNotFoundException()))
+            runBlocking { whenever(getWarehouseUseCase.getById(eq(999L))).thenThrow(WarehouseNotFoundException()) }
 
             webTestClient.get().uri("/api/warehouses/{warehouseId}", 999L)
                 .exchange()
@@ -107,7 +107,7 @@ class WarehouseControllerTest {
 
         @Test
         fun `활성화 요청 시 200과 활성화된 창고를 반환한다`() {
-            `when`(activateWarehouseUseCase.activate(1L)).thenReturn(Mono.just(sampleResult()))
+            runBlocking { whenever(activateWarehouseUseCase.activate(1L)).thenReturn(sampleResult()) }
 
             webTestClient.patch().uri("/api/warehouses/{warehouseId}/activate", 1L)
                 .exchange()
@@ -121,7 +121,7 @@ class WarehouseControllerTest {
                 BigDecimal.valueOf(33.4996), BigDecimal.valueOf(126.5312),
                 AvailabilityStatus.UNAVAILABLE
             )
-            `when`(deactivateWarehouseUseCase.deactivate(1L)).thenReturn(Mono.just(deactivated))
+            runBlocking { whenever(deactivateWarehouseUseCase.deactivate(1L)).thenReturn(deactivated) }
 
             webTestClient.patch().uri("/api/warehouses/{warehouseId}/deactivate", 1L)
                 .exchange()

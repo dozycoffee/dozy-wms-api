@@ -9,16 +9,16 @@ import com.dozycoffee.wms.warehouse.domain.enumeration.AvailabilityStatus
 import com.dozycoffee.wms.warehouse.domain.enumeration.TemperatureType
 import com.dozycoffee.wms.warehouse.domain.enumeration.ZoneCode
 import com.dozycoffee.wms.warehouse.domain.exception.ZoneNotFoundException
+import kotlinx.coroutines.runBlocking
 import org.junit.jupiter.api.Nested
 import org.junit.jupiter.api.Test
+import org.mockito.kotlin.whenever
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.webflux.test.autoconfigure.WebFluxTest
 import org.springframework.test.context.bean.override.mockito.MockitoBean
 import org.springframework.test.web.reactive.server.WebTestClient
-import reactor.core.publisher.Mono
 import org.mockito.kotlin.any
 import org.mockito.kotlin.eq
-import org.mockito.Mockito.`when`
 
 @WithDozyPrincipal(roles = ["wms:warehouse_admin"])
 @WebFluxTest(ZoneController::class)
@@ -42,7 +42,7 @@ class ZoneControllerTest {
 
         @Test
         fun `유효한 요청이면 201과 등록된 구역을 반환한다`() {
-            `when`(registerZoneUseCase.register(any())).thenReturn(Mono.just(sampleResult()))
+            runBlocking { whenever(registerZoneUseCase.register(any())).thenReturn(sampleResult()) }
 
             webTestClient.post().uri("/api/warehouses/{warehouseId}/zones", 1L)
                 .bodyValue(RegisterZoneRequest(ZoneCode.A))
@@ -67,7 +67,7 @@ class ZoneControllerTest {
 
         @Test
         fun `존재하면 200과 구역 정보를 반환한다`() {
-            `when`(getZoneUseCase.getById(1L)).thenReturn(Mono.just(sampleResult()))
+            runBlocking { whenever(getZoneUseCase.getById(1L)).thenReturn(sampleResult()) }
 
             webTestClient.get().uri("/api/zones/{zoneId}", 1L)
                 .exchange()
@@ -78,7 +78,7 @@ class ZoneControllerTest {
 
         @Test
         fun `존재하지 않으면 404를 반환한다`() {
-            `when`(getZoneUseCase.getById(eq(999L))).thenReturn(Mono.error(ZoneNotFoundException()))
+            runBlocking { whenever(getZoneUseCase.getById(eq(999L))).thenThrow(ZoneNotFoundException()) }
 
             webTestClient.get().uri("/api/zones/{zoneId}", 999L)
                 .exchange()
@@ -91,7 +91,7 @@ class ZoneControllerTest {
 
         @Test
         fun `존재하면 200과 구역 정보를 반환한다`() {
-            `when`(getZoneUseCase.getByWarehouseIdAndZoneCode(1L, ZoneCode.A)).thenReturn(Mono.just(sampleResult()))
+            runBlocking { whenever(getZoneUseCase.getByWarehouseIdAndZoneCode(1L, ZoneCode.A)).thenReturn(sampleResult()) }
 
             webTestClient.get().uri("/api/warehouses/{warehouseId}/zones/{zoneCode}", 1L, "A")
                 .exchange()
@@ -102,7 +102,7 @@ class ZoneControllerTest {
 
         @Test
         fun `존재하지 않으면 404를 반환한다`() {
-            `when`(getZoneUseCase.getByWarehouseIdAndZoneCode(1L, ZoneCode.B)).thenReturn(Mono.error(ZoneNotFoundException()))
+            runBlocking { whenever(getZoneUseCase.getByWarehouseIdAndZoneCode(1L, ZoneCode.B)).thenThrow(ZoneNotFoundException()) }
 
             webTestClient.get().uri("/api/warehouses/{warehouseId}/zones/{zoneCode}", 1L, "B")
                 .exchange()

@@ -11,7 +11,6 @@ import com.dozycoffee.wms.warehouse.domain.exception.ZoneNotFoundException
 import com.dozycoffee.wms.warehouse.domain.model.Zone
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
-import reactor.core.publisher.Mono
 
 @Service
 class ZoneService(
@@ -19,22 +18,20 @@ class ZoneService(
 ) : RegisterZoneUseCase, GetZoneUseCase {
 
     @Transactional
-    override fun register(command: RegisterZoneCommand): Mono<ZoneResult> {
+    override suspend fun register(command: RegisterZoneCommand): ZoneResult {
         val zone = Zone.create(command.warehouseId, command.zoneCode, AvailabilityStatus.AVAILABLE)
-        return zoneRepository.save(zone).map { ZoneResult.from(it) }
+        return ZoneResult.from(zoneRepository.save(zone))
     }
 
     @Transactional(readOnly = true)
-    override fun getById(zoneId: Long): Mono<ZoneResult> {
-        return zoneRepository.findById(zoneId)
-            .switchIfEmpty(Mono.error(ZoneNotFoundException()))
-            .map { ZoneResult.from(it) }
+    override suspend fun getById(zoneId: Long): ZoneResult {
+        val zone = zoneRepository.findById(zoneId) ?: throw ZoneNotFoundException()
+        return ZoneResult.from(zone)
     }
 
     @Transactional(readOnly = true)
-    override fun getByWarehouseIdAndZoneCode(warehouseId: Long, zoneCode: ZoneCode): Mono<ZoneResult> {
-        return zoneRepository.findByWarehouseIdAndZoneCode(warehouseId, zoneCode)
-            .switchIfEmpty(Mono.error(ZoneNotFoundException()))
-            .map { ZoneResult.from(it) }
+    override suspend fun getByWarehouseIdAndZoneCode(warehouseId: Long, zoneCode: ZoneCode): ZoneResult {
+        val zone = zoneRepository.findByWarehouseIdAndZoneCode(warehouseId, zoneCode) ?: throw ZoneNotFoundException()
+        return ZoneResult.from(zone)
     }
 }

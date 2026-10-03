@@ -91,24 +91,16 @@ class InventoryHistoryPersistenceAdapterTest {
             inventoryR2dbcRepository.deleteAll()
             lotR2dbcRepository.deleteAll()
             productR2dbcRepository.deleteAll()
+            locationR2dbcRepository.deleteAll()
+            zoneR2dbcRepository.deleteAll()
+            warehouseR2dbcRepository.deleteAll()
         }
-        locationR2dbcRepository.deleteAll().block()
-        zoneR2dbcRepository.deleteAll().block()
-        warehouseR2dbcRepository.deleteAll().block()
     }
 
     private suspend fun createInventory(productCode: String = "PRD-0001"): Long {
-        val warehouseId: Long = requireNotNull(
-            warehousePersistenceAdapter.save(warehouse().build()).map { requireNotNull(it.warehouseId) }.block()
-        )
-        val zoneId: Long = requireNotNull(
-            zonePersistenceAdapter.save(zone().warehouseId(warehouseId).build())
-                .map { requireNotNull(it.zoneId) }.block()
-        )
-        val locationId: Long = requireNotNull(
-            locationPersistenceAdapter.save(location().zoneId(zoneId).build())
-                .map { requireNotNull(it.locationId) }.block()
-        )
+        val warehouseId: Long = requireNotNull(warehousePersistenceAdapter.save(warehouse().build()).warehouseId)
+        val zoneId: Long = requireNotNull(zonePersistenceAdapter.save(zone().warehouseId(warehouseId).build()).zoneId)
+        val locationId: Long = requireNotNull(locationPersistenceAdapter.save(location().zoneId(zoneId).build()).locationId)
         val productId =
             requireNotNull(productPersistenceAdapter.save(product().productCode(productCode).build()).productId)
         val lotId = requireNotNull(lotPersistenceAdapter.save(lot().productId(productId).build()).lotId)

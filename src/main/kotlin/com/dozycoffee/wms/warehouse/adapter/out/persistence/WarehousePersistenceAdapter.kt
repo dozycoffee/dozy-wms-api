@@ -3,28 +3,26 @@ package com.dozycoffee.wms.warehouse.adapter.out.persistence
 import com.dozycoffee.wms.warehouse.application.port.out.WarehouseRepository
 import com.dozycoffee.wms.warehouse.domain.model.Warehouse
 import org.springframework.stereotype.Component
-import reactor.core.publisher.Mono
 
 @Component
 class WarehousePersistenceAdapter(
     private val warehouseR2dbcRepository: WarehouseR2dbcRepository
 ) : WarehouseRepository {
 
-    override fun save(warehouse: Warehouse): Mono<Warehouse> {
+    override suspend fun save(warehouse: Warehouse): Warehouse {
         val entity = WarehouseEntity.from(warehouse)
         val warehouseId = warehouse.warehouseId
-            ?: return warehouseR2dbcRepository.save(entity).map { it.toDomain() }
-        return warehouseR2dbcRepository.findById(warehouseId)
-            .doOnNext { entity.copyAuditFieldsFrom(it) }
-            .then(warehouseR2dbcRepository.save(entity))
-            .map { it.toDomain() }
+        if (warehouseId != null) {
+            warehouseR2dbcRepository.findById(warehouseId)?.let { entity.copyAuditFieldsFrom(it) }
+        }
+        return warehouseR2dbcRepository.save(entity).toDomain()
     }
 
-    override fun findById(warehouseId: Long): Mono<Warehouse> {
-        return warehouseR2dbcRepository.findById(warehouseId).map { it.toDomain() }
+    override suspend fun findById(warehouseId: Long): Warehouse? {
+        return warehouseR2dbcRepository.findById(warehouseId)?.toDomain()
     }
 
-    override fun delete(warehouse: Warehouse): Mono<Void> {
-        return warehouseR2dbcRepository.delete(WarehouseEntity.from(warehouse))
+    override suspend fun delete(warehouse: Warehouse) {
+        warehouseR2dbcRepository.delete(WarehouseEntity.from(warehouse))
     }
 }

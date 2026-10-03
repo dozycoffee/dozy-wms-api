@@ -15,7 +15,6 @@ import org.springframework.web.bind.annotation.PostMapping
 import org.springframework.web.bind.annotation.RequestBody
 import org.springframework.web.bind.annotation.ResponseStatus
 import org.springframework.web.bind.annotation.RestController
-import reactor.core.publisher.Mono
 
 @RestController
 class ZoneController(
@@ -26,22 +25,22 @@ class ZoneController(
     @PostMapping("/api/warehouses/{warehouseId}/zones")
     @PreAuthorize(WmsAuthorize.ADMIN)
     @ResponseStatus(HttpStatus.CREATED)
-    fun register(@PathVariable warehouseId: Long, @Valid @RequestBody request: RegisterZoneRequest): Mono<ZoneResponse> {
-        return registerZoneUseCase.register(request.toCommand(warehouseId)).map { ZoneResponse.from(it) }
+    suspend fun register(@PathVariable warehouseId: Long, @Valid @RequestBody request: RegisterZoneRequest): ZoneResponse {
+        return ZoneResponse.from(registerZoneUseCase.register(request.toCommand(warehouseId)))
     }
 
     @GetMapping("/api/zones/{zoneId}")
     @PreAuthorize(WmsAuthorize.READ)
-    fun getById(@PathVariable zoneId: Long): Mono<ZoneResponse> {
-        return getZoneUseCase.getById(zoneId).map { ZoneResponse.from(it) }
+    suspend fun getById(@PathVariable zoneId: Long): ZoneResponse {
+        return ZoneResponse.from(getZoneUseCase.getById(zoneId))
     }
 
     @GetMapping("/api/warehouses/{warehouseId}/zones/{zoneCode}")
     @PreAuthorize(WmsAuthorize.READ)
-    fun getByWarehouseIdAndZoneCode(
+    suspend fun getByWarehouseIdAndZoneCode(
         @PathVariable warehouseId: Long,
         @PathVariable zoneCode: ZoneCode
-    ): Mono<ZoneResponse> {
-        return getZoneUseCase.getByWarehouseIdAndZoneCode(warehouseId, zoneCode).map { ZoneResponse.from(it) }
+    ): ZoneResponse {
+        return ZoneResponse.from(getZoneUseCase.getByWarehouseIdAndZoneCode(warehouseId, zoneCode))
     }
 }

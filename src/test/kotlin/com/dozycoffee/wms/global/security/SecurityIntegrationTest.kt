@@ -3,8 +3,6 @@ package com.dozycoffee.wms.global.security
 import com.dozycoffee.auth.core.PrincipalType
 import com.dozycoffee.auth.test.DozyTestTokens
 import kotlinx.coroutines.flow.toList
-import kotlinx.coroutines.reactive.asFlow
-import kotlinx.coroutines.reactive.awaitSingle
 import kotlinx.coroutines.runBlocking
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.AfterEach
@@ -14,6 +12,8 @@ import org.springframework.boot.test.context.SpringBootTest
 import org.springframework.boot.webtestclient.autoconfigure.AutoConfigureWebTestClient
 import org.springframework.http.MediaType
 import org.springframework.r2dbc.core.DatabaseClient
+import org.springframework.r2dbc.core.awaitRowsUpdated
+import org.springframework.r2dbc.core.flow
 import org.springframework.test.web.reactive.server.WebTestClient
 import java.time.Instant
 import java.util.UUID
@@ -33,7 +33,7 @@ class SecurityIntegrationTest {
 
     @AfterEach
     fun cleanUp() = runBlocking {
-        databaseClient.sql("DELETE FROM product").fetch().rowsUpdated().awaitSingle()
+        databaseClient.sql("DELETE FROM product").fetch().awaitRowsUpdated()
         Unit
     }
 
@@ -125,7 +125,7 @@ class SecurityIntegrationTest {
         val createdBy: List<String> = runBlocking {
             databaseClient.sql("SELECT created_by FROM product WHERE product_code = 'AUDIT-001'")
                 .map { row -> row.get("created_by", String::class.java) ?: "" }
-                .all().asFlow().toList()
+                .flow().toList()
         }
         assertThat(createdBy).containsExactly(principalId.toString())
     }

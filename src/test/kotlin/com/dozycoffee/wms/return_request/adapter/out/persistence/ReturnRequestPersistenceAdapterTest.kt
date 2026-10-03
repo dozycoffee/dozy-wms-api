@@ -36,13 +36,13 @@ class ReturnRequestPersistenceAdapterTest {
     @AfterEach
     fun cleanUp() {
         runTest { returnRequestR2dbcRepository.deleteAll() }
-        warehouseR2dbcRepository.deleteAll().block()
+        runTest {
+            warehouseR2dbcRepository.deleteAll()
+        }
     }
 
-    private fun createWarehouseId(): Long {
-        return requireNotNull(
-            warehousePersistenceAdapter.save(warehouse().build()).map { requireNotNull(it.warehouseId) }.block()
-        )
+    private suspend fun createWarehouseId(): Long {
+        return requireNotNull(warehousePersistenceAdapter.save(warehouse().build()).warehouseId)
     }
 
     @Test

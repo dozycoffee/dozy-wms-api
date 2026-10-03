@@ -9,8 +9,8 @@ import com.dozycoffee.wms.inventory.application.port.`in`.command.RegisterLotCom
 import com.dozycoffee.wms.inventory.application.port.`in`.result.ExpirationScanResult
 import com.dozycoffee.wms.warehouse.application.port.`in`.OccupyLocationUseCase
 import com.dozycoffee.wms.warehouse.application.port.`in`.command.OccupyLocationCommand
-import kotlinx.coroutines.reactive.awaitSingle
 import org.springframework.r2dbc.core.DatabaseClient
+import org.springframework.r2dbc.core.awaitRowsUpdated
 import org.springframework.stereotype.Component
 import java.time.LocalDate
 
@@ -43,7 +43,7 @@ internal class InventorySeeder(
                 )
             )
             val locationId: Long = context.locationIdByCode.getValue(spec.locationCode)
-            occupyLocationUseCase.occupy(OccupyLocationCommand(locationId, spec.quantity)).awaitSingle()
+            occupyLocationUseCase.occupy(OccupyLocationCommand(locationId, spec.quantity))
             val inventory = registerInventoryUseCase.register(
                 RegisterInventoryCommand(lot.lotId, locationId, spec.quantity, INITIAL_REFERENCE_ID)
             )
@@ -60,10 +60,10 @@ internal class InventorySeeder(
     suspend fun spreadCreatedAt() {
         databaseClient.sql(
             "UPDATE inventory_history SET created_at = DATE_SUB(created_at, INTERVAL ((inventory_history_id * 7) MOD 55 + 1) DAY)"
-        ).fetch().rowsUpdated().awaitSingle()
+        ).fetch().awaitRowsUpdated()
         databaseClient.sql(
             "UPDATE inventory SET created_at = DATE_SUB(created_at, INTERVAL ((inventory_id * 5) MOD 40 + 1) DAY)"
-        ).fetch().rowsUpdated().awaitSingle()
+        ).fetch().awaitRowsUpdated()
     }
 
     private companion object {

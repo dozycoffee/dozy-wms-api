@@ -103,28 +103,20 @@ class StockAuditItemPersistenceAdapterTest {
             inventoryR2dbcRepository.deleteAll()
             lotR2dbcRepository.deleteAll()
             productR2dbcRepository.deleteAll()
+            locationR2dbcRepository.deleteAll()
+            zoneR2dbcRepository.deleteAll()
+            warehouseR2dbcRepository.deleteAll()
         }
-        locationR2dbcRepository.deleteAll().block()
-        zoneR2dbcRepository.deleteAll().block()
-        warehouseR2dbcRepository.deleteAll().block()
     }
 
-    private fun createWarehouseAndZone(): Pair<Long, Long> {
-        val warehouseId: Long = requireNotNull(
-            warehousePersistenceAdapter.save(warehouse().build()).map { requireNotNull(it.warehouseId) }.block()
-        )
-        val zoneId: Long = requireNotNull(
-            zonePersistenceAdapter.save(zone().warehouseId(warehouseId).build())
-                .map { requireNotNull(it.zoneId) }.block()
-        )
+    private suspend fun createWarehouseAndZone(): Pair<Long, Long> {
+        val warehouseId: Long = requireNotNull(warehousePersistenceAdapter.save(warehouse().build()).warehouseId)
+        val zoneId: Long = requireNotNull(zonePersistenceAdapter.save(zone().warehouseId(warehouseId).build()).zoneId)
         return warehouseId to zoneId
     }
 
     private suspend fun createInventory(zoneId: Long): Long {
-        val locationId: Long = requireNotNull(
-            locationPersistenceAdapter.save(location().zoneId(zoneId).build())
-                .map { requireNotNull(it.locationId) }.block()
-        )
+        val locationId: Long = requireNotNull(locationPersistenceAdapter.save(location().zoneId(zoneId).build()).locationId)
         val productId = requireNotNull(productPersistenceAdapter.save(product().build()).productId)
         val lotId = requireNotNull(lotPersistenceAdapter.save(lot().productId(productId).build()).lotId)
         return requireNotNull(
