@@ -88,8 +88,8 @@
 - [ ] `domain/model`의 내부 구현 세부사항은 `internal`/`private`로 가시성을 명시적으로 좁힌다
 - [ ] 확장 함수는 어댑터 계층의 매핑 용도로만 사용하고, 비즈니스 로직을 확장 함수로 domain 밖에
       두지 않는다
-- [ ] 신규 Kotlin 도메인은 `Mono`/`Flux` 대신 `suspend fun`/`Flow`를 사용한다 — 기존 Java 코드 호출
-      경계에서만 `kotlinx-coroutines-reactor`로 변환한다
+- [ ] `Mono`/`Flux` 대신 `suspend fun`/`Flow`를 사용한다 — 프레임워크가 Reactor 타입을 요구하는 경계
+      (Security, Auditing)에서만 `kotlinx-coroutines-reactor`로 변환한다 (ADR-0014)
 
 ## 아키텍처 스타일 (ADR-0001)
 
