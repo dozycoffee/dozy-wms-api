@@ -73,7 +73,14 @@ Auth 모델과 맞지 않는다. 또한 `warehouseIds`가 빈 리스트면 "제�
 - 감사 컬럼의 값이 `"system"`에서 사용자별 `principalId`로 바뀐다. 요청 컨텍스트 밖의 작업은 계속
   `"system"`이다. 기존 데이터는 변경하지 않는다.
 - 매핑이 없는 일반 담당자는 어떤 창고에도 접근하지 못한다. 담당자를 추가할 때 `warehouse_admin`이 창고를 배정해야 한다.
-- WMS의 role은 코드에서 쓰기 전에 Auth에 등록해야 한다(`dozy-auth` ADR-0017).
+- WMS의 role은 `dozy-auth` ADR-0017에 따라 Auth에 등록해야 하지만, 코드는 등록 여부와 무관하게 `WmsRole`의 코드 문자열을
+  계약으로 삼아 구현·검증한다(테스트는 토큰을 직접 만들고 local은 인증을 우회한다). 등록은 배포 시점의 운영 작업이다.
+  계약 목록: `inbound_manager`, `outbound_manager`, `return_manager`, `disposal_manager`, `stock_audit_manager`,
+  `inventory_viewer`, `warehouse_admin` (audience `wms`, 토큰에서는 `wms:` prefix).
+- 한 사용자는 role을 여러 개 가질 수 있다(토큰 `roles`는 집합, `@PreAuthorize`는 `hasAnyRole`로 OR 판정). 창고 범위는
+  role과 독립이라 `warehouse_member` 배정이 모든 role에 공통으로 적용된다. 도메인별로 창고를 달리하는 것은 지원하지 않는다.
+- 실사 담당자(`assignee`)와 승인자(`approvedBy`)는 요청 값이 아니라 토큰 principal로 기록한다. 배정은 호출자 본인 기준이며
+  타인에게 지정하는 기능은 없다.
 - 아직 검증이 필요한 항목: `suspend` 서비스 안에서 Reactor Context의 보안 컨텍스트가 실제로 읽히는지,
   스타터 기본 필터 체인에 CORS 설정이 없어 사전 요청(OPTIONS)이 막히지 않는지.
 - CI와 로컬 빌드는 GitHub Packages 읽기 권한(`read:packages`)이 필요하다.

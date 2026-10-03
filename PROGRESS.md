@@ -25,6 +25,9 @@
   `GlobalExceptionHandler`가 `AccessDeniedException`을 500으로 바꾸던 문제를 보안 예외 재전파로 고쳤다(403 Problem Details).
 - 실사 마감의 `approvedBy` 요청 필드를 제거하고 토큰 principal로 대체했다. 임계치 초과 조정은 `warehouse_admin`만 승인할 수
   있으며, 아니면 `StockAuditApprovalRequiredException`이다. `devseed`는 local 개발 사용자로 승인한다.
+- F-023 마무리: 실사 `assignee`를 요청 바디 대신 토큰 principal로 기록하도록 바꿨다(`PATCH /assign`은 바디 없음, 사용자가 아닌
+  행위자는 `INVALID_ASSIGNEE`). role Auth 등록은 코드 완료 조건에서 빼고 배포 체크리스트로 분리했다(ADR-0012에 role 계약 명시).
+  한 사용자는 role을 여러 개 가질 수 있음을 확인했다(`roles` 집합 + `hasAnyRole`).
 - 코드 분석으로 dozy-auth 연동 모델을 정리했다(ADR-0012). 토큰에는 `principalId`와 `roles`만 있고 창고 범위가 없어,
   창고 접근은 WMS 자체 데이터(사용자-창고 매핑)로 관리하는 것으로 결정했다. 노션 "서비스 연동 가이드"는 워크스페이스에서
   찾지 못해 dozy-auth 저장소의 명세(`docs/`)를 기준으로 삼았다.
@@ -57,7 +60,7 @@
 ## 다음 세션에서 할 일
 
 1. 개발 DB에 시드 적재(`SPRING_PROFILES_ACTIVE=local WMS_DEV_SEED_ENABLED=true ./gradlew bootRun`) 후 UI/API로 확인
-2. F-023 마무리: dozy-auth admin에 `wms:` role 7개 등록(배포 전 필수), 실사 `assignee`를 principal 기반으로 바꿀지 결정
+2. 배포 체크리스트: dozy-auth admin에 `wms:` role 7개 등록 (코드 작업 아님)
 3. (신규) 창고 배정 변경 시 요청마다 조회하는 비용 점검, `stock_audit.register`의 Zone이 요청 창고 소속인지 검증 여부 결정
 4. F-014: 이벤트 전환 1단계 착수 여부 재검토 (원자성 상실, AFTER_COMMIT 유실 리스크)
 5. F-015: 입고 검수 로직 보강
