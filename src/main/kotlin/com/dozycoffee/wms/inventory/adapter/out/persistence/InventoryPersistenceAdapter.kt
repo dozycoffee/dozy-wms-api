@@ -35,13 +35,13 @@ class InventoryPersistenceAdapter(
         warehouseIds: List<Long>?
     ): Flow<Inventory> {
         val qualityStatusCode = qualityStatus?.let { CommonCodes.toCode(QUALITY_STATUS_GROUP, it) }
-        return inventoryR2dbcRepository.findAllActive(
-            locationId,
-            productId,
-            qualityStatusCode,
-            sortBy?.name,
-            warehouseIds?.takeIf { it.isNotEmpty() }
-        ).map { it.toDomain() }
+        val ids: List<Long>? = warehouseIds?.takeIf { it.isNotEmpty() }
+        val entities: Flow<InventoryEntity> = if (ids == null) {
+            inventoryR2dbcRepository.findAllActive(locationId, productId, qualityStatusCode, sortBy?.name)
+        } else {
+            inventoryR2dbcRepository.findAllActiveInWarehouses(locationId, productId, qualityStatusCode, sortBy?.name, ids)
+        }
+        return entities.map { it.toDomain() }
     }
 
     override fun findAllByLotId(lotId: Long): Flow<Inventory> {

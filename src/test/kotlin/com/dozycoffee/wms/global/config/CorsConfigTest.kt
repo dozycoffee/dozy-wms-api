@@ -21,7 +21,7 @@ class CorsConfigTest {
     @Autowired
     private lateinit var tokens: DozyTestTokens
 
-    private fun bearer(): String = "Bearer ${tokens.issue()}"
+    private fun bearer(): String = "Bearer ${tokens.issue(roles = listOf("wms:inventory_viewer"))}"
 
     @Test
     fun `허용된 origin으로 요청하면 Access-Control-Allow-Origin 헤더를 붙여 응답한다`() {

@@ -20,7 +20,7 @@ import org.mockito.kotlin.any
 import org.mockito.kotlin.eq
 import org.mockito.Mockito.`when`
 
-@WithDozyPrincipal
+@WithDozyPrincipal(roles = ["wms:warehouse_admin"])
 @WebFluxTest(ZoneController::class)
 class ZoneControllerTest {
 

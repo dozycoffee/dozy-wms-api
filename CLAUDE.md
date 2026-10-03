@@ -142,6 +142,7 @@ src
 - 인증 서비스는 `dozy-auth`다 — 토큰(JWT, RS256) 검증은 `auth-spring-boot-starter`(GitHub Packages)가 처리하고, 설정은 `dozy.auth.*`(`audience: wms`, `accepted-realms: [internal]`, `issuer-base-uri`는 `AUTH_ISSUER_BASE_URI`)다
 - 의존성을 받으려면 GitHub Packages 읽기 권한이 필요하다 — `~/.gradle/gradle.properties`의 `gpr.user`/`gpr.token`(`read:packages`) 또는 환경변수 `GPR_USER`/`GPR_TOKEN`. CI는 `GITHUB_TOKEN`을 쓰므로 `dozy-auth` 패키지 설정에서 이 저장소의 읽기 접근이 허용돼 있어야 한다
 - 책임은 셋으로 나눈다: **누구인가**(`Actor`: `UserActor`/`SystemActor`, `CurrentActorProvider`), **어떤 기능을 쓸 수 있나**(Auth 토큰의 `roles`, `@PreAuthorize`), **어느 창고를 볼 수 있나**(`WarehouseAccess`: `AllWarehouses`/`OnlyWarehouses`, WMS 자체 데이터)
+- 창고 접근은 `warehouse_member` 매핑으로 결정한다 — `warehouse_admin`/시스템 작업은 전체, 그 외는 배정된 창고만이며, 서비스 계층 `WarehouseAccessGuard`로 검사한다
 - 감사 컬럼에는 `Actor.auditName`을 기록한다 — 사용자는 `principalId` UUID, 요청 밖 작업(스케줄러·시더)은 `"system"`
 - 보안 필터 체인은 스타터 빈(디코더, 권한 변환기, 401/403 핸들러)을 쓰되 CORS 때문에 `SecurityConfig`에서 직접 정의한다. CORS는 필터 체인 안에서(`CorsConfig`의 `CorsConfigurationSource`) 처리한다
 - `local` 프로파일만 인증을 우회한다(고정 개발 사용자). `prod` 프로파일과 함께 켜지면 기동에 실패한다

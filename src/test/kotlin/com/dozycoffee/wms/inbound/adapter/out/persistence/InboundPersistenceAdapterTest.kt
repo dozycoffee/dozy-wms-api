@@ -76,9 +76,25 @@ class InboundPersistenceAdapterTest {
         processingInbound.startProcessing()
         inboundPersistenceAdapter.save(processingInbound)
 
-        val result = inboundPersistenceAdapter.findAll(InboundStatus.WAITING).toList()
+        val result = inboundPersistenceAdapter.findAll(InboundStatus.WAITING, null).toList()
 
         assertThat(result).hasSize(1)
         assertThat(result.first().inboundId).isEqualTo(waiting.inboundId)
+    }
+
+    @Test
+    fun `창고 ID 목록으로 목록을 필터링한다`() = runTest {
+        val warehouseA = createWarehouseId()
+        val warehouseB = createWarehouseId()
+        inboundPersistenceAdapter.save(inbound().warehouseId(warehouseA).build())
+        inboundPersistenceAdapter.save(inbound().warehouseId(warehouseB).build())
+
+        val onlyA = inboundPersistenceAdapter.findAll(null, listOf(warehouseA)).toList()
+        val both = inboundPersistenceAdapter.findAll(null, listOf(warehouseA, warehouseB)).toList()
+        val unfiltered = inboundPersistenceAdapter.findAll(null, null).toList()
+
+        assertThat(onlyA.map { it.warehouseId }).containsExactly(warehouseA)
+        assertThat(both.map { it.warehouseId }).containsExactlyInAnyOrder(warehouseA, warehouseB)
+        assertThat(unfiltered).hasSize(2)
     }
 }

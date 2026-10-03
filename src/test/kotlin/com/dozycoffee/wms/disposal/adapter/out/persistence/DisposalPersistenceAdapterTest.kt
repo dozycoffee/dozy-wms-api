@@ -73,9 +73,25 @@ class DisposalPersistenceAdapterTest {
         approved.approve()
         disposalPersistenceAdapter.save(approved)
 
-        val result = disposalPersistenceAdapter.findAll(DisposalStatus.REQUESTED).toList()
+        val result = disposalPersistenceAdapter.findAll(DisposalStatus.REQUESTED, null).toList()
 
         assertThat(result).hasSize(1)
         assertThat(result.first().disposalId).isEqualTo(savedRequested.disposalId)
+    }
+
+    @Test
+    fun `창고 ID 목록으로 목록을 필터링한다`() = runTest {
+        val warehouseA = createWarehouseId()
+        val warehouseB = createWarehouseId()
+        disposalPersistenceAdapter.save(disposal().warehouseId(warehouseA).build())
+        disposalPersistenceAdapter.save(disposal().warehouseId(warehouseB).build())
+
+        val onlyA = disposalPersistenceAdapter.findAll(null, listOf(warehouseA)).toList()
+        val both = disposalPersistenceAdapter.findAll(null, listOf(warehouseA, warehouseB)).toList()
+        val unfiltered = disposalPersistenceAdapter.findAll(null, null).toList()
+
+        assertThat(onlyA.map { it.warehouseId }).containsExactly(warehouseA)
+        assertThat(both.map { it.warehouseId }).containsExactlyInAnyOrder(warehouseA, warehouseB)
+        assertThat(unfiltered).hasSize(2)
     }
 }

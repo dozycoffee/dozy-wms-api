@@ -13,4 +13,13 @@ interface ReturnRequestR2dbcRepository : CoroutineCrudRepository<ReturnRequestEn
         """
     )
     fun findAllReturnRequests(status: String?): Flow<ReturnRequestEntity>
+
+    @Query(
+        """
+        SELECT * FROM return_request
+        WHERE (:status IS NULL OR status = :status)
+          AND warehouse_id IN (:warehouseIds)
+        """
+    )
+    fun findAllReturnRequestsInWarehouses(status: String?, warehouseIds: List<Long>): Flow<ReturnRequestEntity>
 }

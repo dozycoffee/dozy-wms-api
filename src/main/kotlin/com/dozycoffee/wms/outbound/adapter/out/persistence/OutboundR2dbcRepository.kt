@@ -13,4 +13,13 @@ interface OutboundR2dbcRepository : CoroutineCrudRepository<OutboundEntity, Long
         """
     )
     fun findAllOutbounds(status: String?): Flow<OutboundEntity>
+
+    @Query(
+        """
+        SELECT * FROM outbound
+        WHERE (:status IS NULL OR status = :status)
+          AND warehouse_id IN (:warehouseIds)
+        """
+    )
+    fun findAllOutboundsInWarehouses(status: String?, warehouseIds: List<Long>): Flow<OutboundEntity>
 }

@@ -26,9 +26,15 @@ class StockAuditPersistenceAdapter(
         return stockAuditR2dbcRepository.findById(stockAuditId)?.toDomain()
     }
 
-    override fun findAll(warehouseId: Long?, status: StockAuditStatus?): Flow<StockAudit> {
+    override fun findAll(warehouseIds: List<Long>?, status: StockAuditStatus?): Flow<StockAudit> {
         val statusCode = status?.let { CommonCodes.toCode(STATUS_GROUP, it) }
-        return stockAuditR2dbcRepository.findAllStockAudits(warehouseId, statusCode).map { it.toDomain() }
+        val ids: List<Long>? = warehouseIds?.takeIf { it.isNotEmpty() }
+        val entities = if (ids == null) {
+            stockAuditR2dbcRepository.findAllStockAudits(statusCode)
+        } else {
+            stockAuditR2dbcRepository.findAllStockAuditsInWarehouses(statusCode, ids)
+        }
+        return entities.map { it.toDomain() }
     }
 
     companion object {

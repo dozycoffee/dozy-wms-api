@@ -1,5 +1,9 @@
 package com.dozycoffee.wms.stock_audit.application.service
 
+import com.dozycoffee.wms.global.security.CurrentActorProvider
+import com.dozycoffee.wms.global.security.UserActor
+import com.dozycoffee.wms.global.security.WarehouseAccessGuard
+import com.dozycoffee.wms.global.security.WmsRole
 import com.dozycoffee.wms.inventory.application.port.`in`.AdjustInventoryQuantityUseCase
 import com.dozycoffee.wms.inventory.application.port.`in`.GetInventoryUseCase
 import com.dozycoffee.wms.inventory.application.port.out.InventoryHistoryRepository
@@ -15,13 +19,16 @@ import com.dozycoffee.wms.stock_audit.application.port.out.StockAuditRepository
 import com.dozycoffee.wms.stock_audit.domain.enumeration.StockAuditStatus
 import com.dozycoffee.wms.stock_audit.domain.exception.StockAuditItemsNotFullyCountedException
 import com.dozycoffee.wms.stock_audit.domain.exception.StockAuditNotFoundException
+import com.dozycoffee.wms.stock_audit.domain.exception.StockAuditZoneWarehouseMismatchException
 import com.dozycoffee.wms.stock_audit.domain.model.StockAudit
 import com.dozycoffee.wms.stock_audit.domain.model.StockAuditItem
 import com.dozycoffee.wms.warehouse.application.port.`in`.GetLocationUseCase
+import com.dozycoffee.wms.warehouse.application.port.`in`.GetZoneUseCase
 import com.dozycoffee.wms.warehouse.application.port.`in`.OccupyLocationUseCase
 import com.dozycoffee.wms.warehouse.application.port.`in`.ReleaseLocationUseCase
 import com.dozycoffee.wms.warehouse.application.port.`in`.command.OccupyLocationCommand
 import com.dozycoffee.wms.warehouse.application.port.`in`.command.ReleaseLocationCommand
+import kotlin.math.abs
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.toList
@@ -29,18 +36,20 @@ import kotlinx.coroutines.reactive.awaitSingle
 import org.springframework.beans.factory.annotation.Value
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
-import kotlin.math.abs
 
 @Service
 class StockAuditService(
+    private val warehouseAccessGuard: WarehouseAccessGuard,
     private val stockAuditRepository: StockAuditRepository,
     private val stockAuditItemRepository: StockAuditItemRepository,
+    private val getZoneUseCase: GetZoneUseCase,
     private val getLocationUseCase: GetLocationUseCase,
     private val getInventoryUseCase: GetInventoryUseCase,
     private val adjustInventoryQuantityUseCase: AdjustInventoryQuantityUseCase,
     private val occupyLocationUseCase: OccupyLocationUseCase,
     private val releaseLocationUseCase: ReleaseLocationUseCase,
     private val inventoryHistoryRepository: InventoryHistoryRepository,
+    private val currentActorProvider: CurrentActorProvider,
     @param:Value("\${wms.stock-audit.adjustment-approval-threshold}")
     private val adjustmentApprovalThreshold: Int
 ) : RegisterStockAuditUseCase,
@@ -52,6 +61,9 @@ class StockAuditService(
     /** 실사 등록 — 대상 Zone의 모든 Location에 속한 Inventory를 스냅샷으로 남긴다(품질상태 무관, 물리적 실재 수량 기준) */
     @Transactional
     override suspend fun register(command: RegisterStockAuditCommand): StockAuditResult {
+        warehouseAccessGuard.require(command.warehouseId)
+        val zone = getZoneUseCase.getById(command.zoneId).awaitSingle()
+        if (zone.warehouseId != command.warehouseId) throw StockAuditZoneWarehouseMismatchException()
         val stockAudit = StockAudit.create(command.warehouseId, command.zoneId)
         val saved = stockAuditRepository.save(stockAudit)
         val stockAuditId: Long = requireNotNull(saved.stockAuditId)
@@ -71,25 +83,27 @@ class StockAuditService(
 
     @Transactional(readOnly = true)
     override suspend fun getById(stockAuditId: Long): StockAuditResult {
-        return StockAuditResult.from(findStockAuditOrThrow(stockAuditId))
+        return StockAuditResult.from(findAccessibleStockAuditOrThrow(stockAuditId))
     }
 
     @Transactional(readOnly = true)
     override fun getAll(warehouseId: Long?, status: StockAuditStatus?): Flow<StockAuditResult> {
-        return stockAuditRepository.findAll(warehouseId, status).map { StockAuditResult.from(it) }
+        return warehouseAccessGuard.scoped(warehouseId?.let { listOf(it) }) { warehouseIds ->
+            stockAuditRepository.findAll(warehouseIds, status)
+        }.map { StockAuditResult.from(it) }
     }
 
     @Transactional
-    override suspend fun assign(stockAuditId: Long, assignee: String): StockAuditResult {
-        val stockAudit = findStockAuditOrThrow(stockAuditId)
-        stockAudit.assign(assignee)
+    override suspend fun assign(stockAuditId: Long): StockAuditResult {
+        val stockAudit = findAccessibleStockAuditOrThrow(stockAuditId)
+        stockAudit.assign((currentActorProvider.get() as? UserActor)?.auditName)
         return StockAuditResult.from(stockAuditRepository.save(stockAudit))
     }
 
     /** 실사 완료 — 전 항목 카운트 여부를 확인하고, 스냅샷 이후 미반영 입출고 이력이 있는 항목을 표시한다 */
     @Transactional
     override suspend fun complete(stockAuditId: Long): StockAuditResult {
-        val stockAudit = findStockAuditOrThrow(stockAuditId)
+        val stockAudit = findAccessibleStockAuditOrThrow(stockAuditId)
         val items = stockAuditItemRepository.findAllByStockAuditId(stockAuditId).toList()
 
         if (items.any { !it.isCounted }) {
@@ -116,8 +130,8 @@ class StockAuditService(
      * 여부를 판단한 뒤, 승인 조건을 만족해야만 조정을 실제로 반영한다. 조정량만큼 Location 사용량도 함께 증감한다
      */
     @Transactional
-    override suspend fun close(stockAuditId: Long, approvedBy: String?): StockAuditResult {
-        val stockAudit = findStockAuditOrThrow(stockAuditId)
+    override suspend fun close(stockAuditId: Long): StockAuditResult {
+        val stockAudit = findAccessibleStockAuditOrThrow(stockAuditId)
         val items = stockAuditItemRepository.findAllByStockAuditId(stockAuditId).toList()
 
         val adjustments = items.mapNotNull { item ->
@@ -128,7 +142,7 @@ class StockAuditService(
         }
 
         val requiresApproval = adjustments.any { abs(it.amount) > adjustmentApprovalThreshold }
-        stockAudit.close(requiresApproval, approvedBy)
+        stockAudit.close(requiresApproval, if (requiresApproval) resolveApprover() else null)
 
         for (adjustment in adjustments) {
             adjustInventoryQuantityUseCase.adjust(
@@ -142,6 +156,12 @@ class StockAuditService(
         return StockAuditResult.from(stockAuditRepository.save(stockAudit))
     }
 
+    /** 임계치 초과 조정은 상위 관리자([WmsRole.WAREHOUSE_ADMIN])만 승인할 수 있다. 자격이 없으면 승인자 없음으로 취급한다 */
+    private suspend fun resolveApprover(): String? {
+        val actor = currentActorProvider.get()
+        return (actor as? UserActor)?.takeIf { WmsRole.WAREHOUSE_ADMIN.code in it.roles }?.auditName
+    }
+
     private suspend fun syncLocationUsage(adjustment: Adjustment) {
         if (adjustment.amount > 0) {
             occupyLocationUseCase.occupy(OccupyLocationCommand(adjustment.locationId, adjustment.amount)).awaitSingle()
@@ -150,8 +170,10 @@ class StockAuditService(
         }
     }
 
-    private suspend fun findStockAuditOrThrow(stockAuditId: Long): StockAudit {
-        return stockAuditRepository.findById(stockAuditId) ?: throw StockAuditNotFoundException()
+    private suspend fun findAccessibleStockAuditOrThrow(stockAuditId: Long): StockAudit {
+        val stockAudit = stockAuditRepository.findById(stockAuditId) ?: throw StockAuditNotFoundException()
+        warehouseAccessGuard.require(stockAudit.warehouseId)
+        return stockAudit
     }
 
     private data class Adjustment(val item: StockAuditItem, val amount: Int, val locationId: Long)

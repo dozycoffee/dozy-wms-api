@@ -13,4 +13,13 @@ interface DisposalR2dbcRepository : CoroutineCrudRepository<DisposalEntity, Long
         """
     )
     fun findAllDisposals(status: String?): Flow<DisposalEntity>
+
+    @Query(
+        """
+        SELECT * FROM disposal
+        WHERE (:status IS NULL OR status = :status)
+          AND warehouse_id IN (:warehouseIds)
+        """
+    )
+    fun findAllDisposalsInWarehouses(status: String?, warehouseIds: List<Long>): Flow<DisposalEntity>
 }

@@ -27,5 +27,10 @@ enum class StockAuditErrorCode(
         "STOCK_AUDIT_ITEMS_NOT_FULLY_COUNTED",
         "모든 실사 항목의 카운트가 완료되어야 합니다."
     ),
+    ZONE_WAREHOUSE_MISMATCH(
+        ErrorType.VALIDATION,
+        "STOCK_AUDIT_ZONE_WAREHOUSE_MISMATCH",
+        "실사 대상 Zone이 요청한 창고에 속하지 않습니다."
+    ),
     STOCK_AUDIT_NOT_FOUND(ErrorType.NOT_FOUND, "STOCK_AUDIT_NOT_FOUND", "존재하지 않는 실사입니다.")
 }

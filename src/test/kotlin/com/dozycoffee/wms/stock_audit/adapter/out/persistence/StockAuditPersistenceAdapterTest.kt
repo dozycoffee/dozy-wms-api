@@ -107,9 +107,25 @@ class StockAuditPersistenceAdapterTest {
         inProgress.assign("담당자A")
         stockAuditPersistenceAdapter.save(inProgress)
 
-        val result = stockAuditPersistenceAdapter.findAll(warehouseId, StockAuditStatus.SCHEDULED).toList()
+        val result = stockAuditPersistenceAdapter.findAll(listOf(warehouseId), StockAuditStatus.SCHEDULED).toList()
 
         assertThat(result).hasSize(1)
         assertThat(result.first().stockAuditId).isEqualTo(scheduled.stockAuditId)
+    }
+
+    @Test
+    fun `창고 ID 목록으로 목록을 필터링한다`() = runTest {
+        val (warehouseA, zoneA) = createWarehouseAndZone()
+        val (warehouseB, zoneB) = createWarehouseAndZone()
+        stockAuditPersistenceAdapter.save(stockAudit().warehouseId(warehouseA).zoneId(zoneA).build())
+        stockAuditPersistenceAdapter.save(stockAudit().warehouseId(warehouseB).zoneId(zoneB).build())
+
+        val onlyA = stockAuditPersistenceAdapter.findAll(listOf(warehouseA), null).toList()
+        val both = stockAuditPersistenceAdapter.findAll(listOf(warehouseA, warehouseB), null).toList()
+        val unfiltered = stockAuditPersistenceAdapter.findAll(null, null).toList()
+
+        assertThat(onlyA.map { it.warehouseId }).containsExactly(warehouseA)
+        assertThat(both.map { it.warehouseId }).containsExactlyInAnyOrder(warehouseA, warehouseB)
+        assertThat(unfiltered).hasSize(2)
     }
 }

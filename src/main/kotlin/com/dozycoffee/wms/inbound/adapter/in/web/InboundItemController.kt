@@ -1,5 +1,6 @@
 package com.dozycoffee.wms.inbound.adapter.`in`.web
 
+import com.dozycoffee.wms.global.security.WmsAuthorize
 import com.dozycoffee.wms.inbound.adapter.`in`.web.request.InspectInboundItemRequest
 import com.dozycoffee.wms.inbound.adapter.`in`.web.response.InboundItemResponse
 import com.dozycoffee.wms.inbound.application.port.`in`.GetInboundItemUseCase
@@ -7,6 +8,7 @@ import com.dozycoffee.wms.inbound.application.port.`in`.InspectInboundItemUseCas
 import jakarta.validation.Valid
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
+import org.springframework.security.access.prepost.PreAuthorize
 import org.springframework.web.bind.annotation.GetMapping
 import org.springframework.web.bind.annotation.PatchMapping
 import org.springframework.web.bind.annotation.PathVariable
@@ -23,11 +25,13 @@ class InboundItemController(
 ) {
 
     @GetMapping
+    @PreAuthorize(WmsAuthorize.READ)
     fun getAllByInbound(@RequestParam inboundId: Long): Flow<InboundItemResponse> {
         return getInboundItemUseCase.getAllByInbound(inboundId).map { InboundItemResponse.from(it) }
     }
 
     @PatchMapping("/{inboundItemId}/inspect")
+    @PreAuthorize(WmsAuthorize.INBOUND)
     suspend fun inspect(
         @PathVariable inboundItemId: Long,
         @Valid @RequestBody request: InspectInboundItemRequest

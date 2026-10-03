@@ -26,7 +26,7 @@ import org.springframework.test.context.bean.override.mockito.MockitoBean
 import org.springframework.test.web.reactive.server.WebTestClient
 import java.time.LocalDate
 
-@WithDozyPrincipal
+@WithDozyPrincipal(roles = ["wms:inbound_manager"])
 @WebFluxTest(InboundController::class)
 class InboundControllerTest {
 
@@ -47,6 +47,40 @@ class InboundControllerTest {
 
     private fun sampleResult(status: InboundStatus = InboundStatus.WAITING): InboundResult {
         return InboundResult(1L, 1L, LocalDate.of(2026, 1, 1), status)
+    }
+
+    @Nested
+    inner class 인가 {
+
+        @Test
+        @WithDozyPrincipal(roles = ["wms:outbound_manager"])
+        fun `다른 도메인 담당 role이면 입고 등록은 403이다`() {
+            webTestClient.post().uri("/api/inbounds")
+                .bodyValue(RegisterInboundRequest(1L, LocalDate.of(2026, 1, 1), listOf(RegisterInboundItemRequest(100L, 30))))
+                .exchange()
+                .expectStatus().isForbidden
+                .expectBody().jsonPath("$.code").isEqualTo("FORBIDDEN")
+        }
+
+        @Test
+        @WithDozyPrincipal(roles = ["wms:inventory_viewer"])
+        fun `조회 전용 role은 입고 조회는 가능하다`() {
+            runBlocking { whenever(getInboundUseCase.getById(1L)).thenReturn(sampleResult()) }
+
+            webTestClient.get().uri("/api/inbounds/1").exchange().expectStatus().isOk
+        }
+
+        @Test
+        @WithDozyPrincipal(roles = ["wms:inventory_viewer"])
+        fun `조회 전용 role은 입고 상태 변경이 403이다`() {
+            webTestClient.patch().uri("/api/inbounds/1/processing").exchange().expectStatus().isForbidden
+        }
+
+        @Test
+        @WithDozyPrincipal(roles = ["catalog:menu_editor"])
+        fun `WMS role이 없으면 조회도 403이다`() {
+            webTestClient.get().uri("/api/inbounds").exchange().expectStatus().isForbidden
+        }
     }
 
     @Nested

@@ -6,6 +6,9 @@ import com.dozycoffee.wms.disposal.application.port.`in`.command.RegisterDisposa
 import com.dozycoffee.wms.disposal.application.port.`in`.result.DisposalResult
 import com.dozycoffee.wms.disposal.domain.enumeration.DisposalReason
 import com.dozycoffee.wms.disposal.domain.enumeration.DisposalStatus
+import com.dozycoffee.wms.global.security.OnlyWarehouses
+import com.dozycoffee.wms.global.security.WarehouseAccessDeniedException
+import com.dozycoffee.wms.global.security.WarehouseAccessGuard
 import com.dozycoffee.wms.inventory.application.port.`in`.GetLotUseCase
 import com.dozycoffee.wms.inventory.application.port.`in`.MarkInventoryDefectiveUseCase
 import com.dozycoffee.wms.inventory.application.port.`in`.RegisterInventoryUseCase
@@ -35,6 +38,7 @@ import com.dozycoffee.wms.return_request.domain.model.ReturnItem
 import com.dozycoffee.wms.return_request.domain.model.ReturnRequest
 import com.dozycoffee.wms.return_request.fixture.ReturnItemTestBuilder.Companion.returnItem
 import com.dozycoffee.wms.return_request.fixture.ReturnRequestTestBuilder.Companion.returnRequest
+import com.dozycoffee.wms.support.SwitchableWarehouseAccess
 import com.dozycoffee.wms.warehouse.application.port.`in`.GetLocationUseCase
 import com.dozycoffee.wms.warehouse.application.port.`in`.GetWorkAreaUseCase
 import com.dozycoffee.wms.warehouse.application.port.`in`.GetZoneUseCase
@@ -52,6 +56,7 @@ import com.dozycoffee.wms.warehouse.domain.enumeration.AvailabilityStatus
 import com.dozycoffee.wms.warehouse.domain.enumeration.ZoneCode
 import kotlinx.coroutines.flow.emptyFlow
 import kotlinx.coroutines.flow.flowOf
+import kotlinx.coroutines.flow.toList
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.test.runTest
 import org.assertj.core.api.Assertions.assertThat
@@ -61,8 +66,10 @@ import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.extension.ExtendWith
 import org.mockito.InjectMocks
 import org.mockito.Mock
+import org.mockito.Spy
 import org.mockito.junit.jupiter.MockitoExtension
 import org.mockito.kotlin.any
+import org.mockito.kotlin.never
 import org.mockito.kotlin.verify
 import org.mockito.kotlin.whenever
 import reactor.core.publisher.Flux
@@ -112,6 +119,11 @@ class ReturnRequestServiceTest {
 
     @Mock
     private lateinit var registerDisposalUseCase: RegisterDisposalUseCase
+
+    private val warehouseAccess = SwitchableWarehouseAccess()
+
+    @Spy
+    private var warehouseAccessGuard: WarehouseAccessGuard = WarehouseAccessGuard(warehouseAccess)
 
     @InjectMocks
     private lateinit var returnRequestService: ReturnRequestService
@@ -340,6 +352,57 @@ class ReturnRequestServiceTest {
 
             assertThatThrownBy { runBlocking { returnRequestService.getById(999L) } }
                 .isInstanceOf(ReturnRequestNotFoundException::class.java)
+        }
+    }
+
+    @Nested
+    inner class 창고_접근 {
+
+        @Test
+        fun `접근할 수 없는 창고에는 등록할 수 없다`() = runTest {
+            warehouseAccess.access = OnlyWarehouses(setOf(2L))
+
+            assertThatThrownBy { runBlocking { returnRequestService.register(RegisterReturnRequestCommand(1L, listOf(RegisterReturnItemCommand(10L, 5)))) } }
+                .isInstanceOf(WarehouseAccessDeniedException::class.java)
+            verify(returnRequestRepository, never()).save(any())
+        }
+
+        @Test
+        fun `접근할 수 없는 창고의 문서는 단건 조회할 수 없다`() = runTest {
+            warehouseAccess.access = OnlyWarehouses(setOf(2L))
+            whenever(returnRequestRepository.findById(1L)).thenReturn(returnRequest().returnRequestId(1L).warehouseId(1L).build())
+
+            assertThatThrownBy { runBlocking { returnRequestService.getById(1L) } }
+                .isInstanceOf(WarehouseAccessDeniedException::class.java)
+        }
+
+        @Test
+        fun `목록은 접근 가능한 창고로 좁혀 조회한다`() = runTest {
+            warehouseAccess.access = OnlyWarehouses(setOf(1L, 3L))
+            whenever(returnRequestRepository.findAll(null, listOf(1L, 3L))).thenReturn(flowOf())
+
+            returnRequestService.getAll(null).toList()
+
+            verify(returnRequestRepository).findAll(null, listOf(1L, 3L))
+        }
+
+        @Test
+        fun `접근 가능한 창고가 없으면 저장소를 조회하지 않고 빈 목록을 반환한다`() = runTest {
+            warehouseAccess.access = OnlyWarehouses(emptySet())
+
+            val result = returnRequestService.getAll(null).toList()
+
+            assertThat(result).isEmpty()
+            verify(returnRequestRepository, never()).findAll(any(), any())
+        }
+
+        @Test
+        fun `전체 창고 접근이면 창고 조건 없이 조회한다`() = runTest {
+            whenever(returnRequestRepository.findAll(null, null)).thenReturn(flowOf())
+
+            returnRequestService.getAll(null).toList()
+
+            verify(returnRequestRepository).findAll(null, null)
         }
     }
 }

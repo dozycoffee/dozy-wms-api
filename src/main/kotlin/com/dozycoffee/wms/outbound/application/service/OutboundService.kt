@@ -1,5 +1,6 @@
 package com.dozycoffee.wms.outbound.application.service
 
+import com.dozycoffee.wms.global.security.WarehouseAccessGuard
 import com.dozycoffee.wms.inventory.application.port.`in`.FulfillAllocationUseCase
 import com.dozycoffee.wms.inventory.application.port.`in`.GetAllocationUseCase
 import com.dozycoffee.wms.inventory.application.port.`in`.GetInventoryUseCase
@@ -38,6 +39,7 @@ import org.springframework.transaction.annotation.Transactional
 
 @Service
 class OutboundService(
+    private val warehouseAccessGuard: WarehouseAccessGuard,
     private val outboundRepository: OutboundRepository,
     private val outboundItemRepository: OutboundItemRepository,
     private val getInventoryUseCase: GetInventoryUseCase,
@@ -57,6 +59,7 @@ class OutboundService(
 
     @Transactional
     override suspend fun register(command: RegisterOutboundCommand): OutboundResult {
+        warehouseAccessGuard.require(command.warehouseId)
         val outbound = Outbound.create(command.warehouseId)
         val savedOutbound = outboundRepository.save(outbound)
 
@@ -75,12 +78,12 @@ class OutboundService(
      */
     @Transactional
     override suspend fun startPicking(outboundId: Long): OutboundResult {
-        val outbound = findOutboundOrThrow(outboundId)
+        val outbound = findAccessibleOutboundOrThrow(outboundId)
         val items = outboundItemRepository.findAllByOutboundId(outboundId).toList()
 
         var totalPickedQuantity = 0
         for (item in items) {
-            val pickedQuantity = pickFifo(item)
+            val pickedQuantity = pickFifo(item, outbound.warehouseId)
             item.pick(pickedQuantity)
             outboundItemRepository.save(item)
             totalPickedQuantity += pickedQuantity
@@ -95,7 +98,7 @@ class OutboundService(
 
     @Transactional
     override suspend fun startInspecting(outboundId: Long): OutboundResult {
-        val outbound = findOutboundOrThrow(outboundId)
+        val outbound = findAccessibleOutboundOrThrow(outboundId)
         outbound.startInspecting()
         return OutboundResult.from(outboundRepository.save(outbound))
     }
@@ -103,7 +106,7 @@ class OutboundService(
     /** 검수를 마친 상품의 점유를 이행(fulfill) 확정하고, 물리적으로 반출된 만큼 Location/출고장 점유를 해제한다 */
     @Transactional
     override suspend fun complete(outboundId: Long): OutboundResult {
-        val outbound = findOutboundOrThrow(outboundId)
+        val outbound = findAccessibleOutboundOrThrow(outboundId)
         val items = outboundItemRepository.findAllByOutboundId(outboundId).toList()
 
         var totalPickedQuantity = 0
@@ -128,18 +131,19 @@ class OutboundService(
 
     @Transactional(readOnly = true)
     override suspend fun getById(outboundId: Long): OutboundResult {
-        return OutboundResult.from(findOutboundOrThrow(outboundId))
+        return OutboundResult.from(findAccessibleOutboundOrThrow(outboundId))
     }
 
     @Transactional(readOnly = true)
     override fun getAll(status: OutboundStatus?): Flow<OutboundResult> {
-        return outboundRepository.findAll(status).map { OutboundResult.from(it) }
+        return warehouseAccessGuard.scoped { warehouseIds -> outboundRepository.findAll(status, warehouseIds) }
+            .map { OutboundResult.from(it) }
     }
 
-    private suspend fun pickFifo(item: OutboundItem): Int {
+    private suspend fun pickFifo(item: OutboundItem, warehouseId: Long): Int {
         val expirationDateByLotId = getLotUseCase.getAllByProduct(item.productId).toList()
             .associate { it.lotId to it.expirationDate }
-        val candidates = getInventoryUseCase.getAll(null, item.productId, QualityStatus.NORMAL, null, null).toList()
+        val candidates = getInventoryUseCase.getAll(null, item.productId, QualityStatus.NORMAL, null, listOf(warehouseId)).toList()
             .sortedWith(compareBy(nullsLast()) { expirationDateByLotId[it.lotId] })
 
         var remainingQuantity = item.requestedQuantity
@@ -162,7 +166,9 @@ class OutboundService(
         return item.requestedQuantity - remainingQuantity
     }
 
-    private suspend fun findOutboundOrThrow(outboundId: Long): Outbound {
-        return outboundRepository.findById(outboundId) ?: throw OutboundNotFoundException()
+    private suspend fun findAccessibleOutboundOrThrow(outboundId: Long): Outbound {
+        val outbound = outboundRepository.findById(outboundId) ?: throw OutboundNotFoundException()
+        warehouseAccessGuard.require(outbound.warehouseId)
+        return outbound
     }
 }

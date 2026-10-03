@@ -21,14 +21,14 @@ class LocalProfileSupportTest {
         private val provider = LocalActorProvider()
 
         @Test
-        fun `요청 컨텍스트가 있으면 고정된 개발 사용자를 반환한다`() = runTest {
+        fun `요청 컨텍스트가 있으면 모든 WMS role을 가진 고정 개발 사용자를 반환한다`() = runTest {
             val anonymous = AnonymousAuthenticationToken("key", "anonymous", listOf(SimpleGrantedAuthority("ROLE_ANONYMOUS")))
 
             val actor = mono { provider.get() }
                 .contextWrite(ReactiveSecurityContextHolder.withAuthentication(anonymous))
                 .awaitSingle()
 
-            assertThat(actor).isEqualTo(UserActor(LocalActorProvider.LOCAL_PRINCIPAL_ID, emptySet()))
+            assertThat(actor).isEqualTo(UserActor(LocalActorProvider.LOCAL_PRINCIPAL_ID, WmsRole.entries.map { it.code }.toSet()))
         }
 
         @Test

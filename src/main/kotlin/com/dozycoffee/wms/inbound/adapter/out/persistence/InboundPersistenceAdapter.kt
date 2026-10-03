@@ -30,8 +30,14 @@ class InboundPersistenceAdapter(
         return inboundR2dbcRepository.findById(inboundId)?.toDomain()
     }
 
-    override fun findAll(status: InboundStatus?): Flow<Inbound> {
+    override fun findAll(status: InboundStatus?, warehouseIds: List<Long>?): Flow<Inbound> {
         val statusCode = status?.let { CommonCodes.toCode(STATUS_GROUP, it) }
-        return inboundR2dbcRepository.findAllInbounds(statusCode).map { it.toDomain() }
+        val ids: List<Long>? = warehouseIds?.takeIf { it.isNotEmpty() }
+        val entities = if (ids == null) {
+            inboundR2dbcRepository.findAllInbounds(statusCode)
+        } else {
+            inboundR2dbcRepository.findAllInboundsInWarehouses(statusCode, ids)
+        }
+        return entities.map { it.toDomain() }
     }
 }

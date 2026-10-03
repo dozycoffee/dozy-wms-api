@@ -7,5 +7,5 @@ import kotlinx.coroutines.flow.Flow
 interface InboundRepository {
     suspend fun save(inbound: Inbound): Inbound
     suspend fun findById(inboundId: Long): Inbound?
-    fun findAll(status: InboundStatus?): Flow<Inbound>
+    fun findAll(status: InboundStatus?, warehouseIds: List<Long>?): Flow<Inbound>
 }

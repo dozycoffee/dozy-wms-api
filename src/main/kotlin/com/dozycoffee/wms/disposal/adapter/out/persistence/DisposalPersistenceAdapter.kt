@@ -30,8 +30,14 @@ class DisposalPersistenceAdapter(
         return disposalR2dbcRepository.findById(disposalId)?.toDomain()
     }
 
-    override fun findAll(status: DisposalStatus?): Flow<Disposal> {
+    override fun findAll(status: DisposalStatus?, warehouseIds: List<Long>?): Flow<Disposal> {
         val statusCode = status?.let { CommonCodes.toCode(STATUS_GROUP, it) }
-        return disposalR2dbcRepository.findAllDisposals(statusCode).map { it.toDomain() }
+        val ids: List<Long>? = warehouseIds?.takeIf { it.isNotEmpty() }
+        val entities = if (ids == null) {
+            disposalR2dbcRepository.findAllDisposals(statusCode)
+        } else {
+            disposalR2dbcRepository.findAllDisposalsInWarehouses(statusCode, ids)
+        }
+        return entities.map { it.toDomain() }
     }
 }

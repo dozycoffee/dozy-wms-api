@@ -1,5 +1,6 @@
 package com.dozycoffee.wms.product.adapter.`in`.web
 
+import com.dozycoffee.wms.global.security.WmsAuthorize
 import com.dozycoffee.wms.product.adapter.`in`.web.request.RegisterProductRequest
 import com.dozycoffee.wms.product.adapter.`in`.web.response.ProductResponse
 import com.dozycoffee.wms.product.application.port.`in`.ActivateProductUseCase
@@ -13,6 +14,7 @@ import jakarta.validation.Valid
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 import org.springframework.http.HttpStatus
+import org.springframework.security.access.prepost.PreAuthorize
 import org.springframework.web.bind.annotation.DeleteMapping
 import org.springframework.web.bind.annotation.GetMapping
 import org.springframework.web.bind.annotation.PatchMapping
@@ -35,12 +37,14 @@ class ProductController(
 ) {
 
     @PostMapping
+    @PreAuthorize(WmsAuthorize.ADMIN)
     @ResponseStatus(HttpStatus.CREATED)
     suspend fun register(@Valid @RequestBody request: RegisterProductRequest): ProductResponse {
         return ProductResponse.from(registerProductUseCase.register(request.toCommand()))
     }
 
     @GetMapping
+    @PreAuthorize(WmsAuthorize.READ)
     fun getAll(
         @RequestParam(required = false) category: ProductCategory?,
         @RequestParam(required = false) status: ProductStatus?
@@ -49,21 +53,25 @@ class ProductController(
     }
 
     @GetMapping("/{productId}")
+    @PreAuthorize(WmsAuthorize.READ)
     suspend fun getById(@PathVariable productId: Long): ProductResponse {
         return ProductResponse.from(getProductUseCase.getById(productId))
     }
 
     @PatchMapping("/{productId}/activate")
+    @PreAuthorize(WmsAuthorize.ADMIN)
     suspend fun activate(@PathVariable productId: Long): ProductResponse {
         return ProductResponse.from(activateProductUseCase.activate(productId))
     }
 
     @PatchMapping("/{productId}/deactivate")
+    @PreAuthorize(WmsAuthorize.ADMIN)
     suspend fun deactivate(@PathVariable productId: Long): ProductResponse {
         return ProductResponse.from(deactivateProductUseCase.deactivate(productId))
     }
 
     @DeleteMapping("/{productId}")
+    @PreAuthorize(WmsAuthorize.ADMIN)
     @ResponseStatus(HttpStatus.NO_CONTENT)
     suspend fun delete(@PathVariable productId: Long) {
         deleteProductUseCase.delete(productId)

@@ -13,10 +13,14 @@ import com.dozycoffee.wms.disposal.domain.model.Disposal
 import com.dozycoffee.wms.disposal.domain.model.DisposalItem
 import com.dozycoffee.wms.disposal.fixture.DisposalItemTestBuilder.Companion.disposalItem
 import com.dozycoffee.wms.disposal.fixture.DisposalTestBuilder.Companion.disposal
+import com.dozycoffee.wms.global.security.OnlyWarehouses
+import com.dozycoffee.wms.global.security.WarehouseAccessDeniedException
+import com.dozycoffee.wms.global.security.WarehouseAccessGuard
 import com.dozycoffee.wms.inventory.application.port.`in`.ConfirmInventoryDisposalUseCase
 import com.dozycoffee.wms.inventory.application.port.`in`.GetInventoryUseCase
 import com.dozycoffee.wms.inventory.application.port.`in`.result.InventoryResult
 import com.dozycoffee.wms.inventory.domain.enumeration.QualityStatus
+import com.dozycoffee.wms.support.SwitchableWarehouseAccess
 import com.dozycoffee.wms.warehouse.application.port.`in`.GetWorkAreaUseCase
 import com.dozycoffee.wms.warehouse.application.port.`in`.OccupyWorkAreaUseCase
 import com.dozycoffee.wms.warehouse.application.port.`in`.ReleaseLocationUseCase
@@ -29,6 +33,7 @@ import com.dozycoffee.wms.warehouse.application.port.`in`.result.WorkAreaResult
 import com.dozycoffee.wms.warehouse.domain.enumeration.AreaCode
 import com.dozycoffee.wms.warehouse.domain.enumeration.AvailabilityStatus
 import kotlinx.coroutines.flow.flowOf
+import kotlinx.coroutines.flow.toList
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.test.runTest
 import org.assertj.core.api.Assertions.assertThat
@@ -38,8 +43,10 @@ import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.extension.ExtendWith
 import org.mockito.InjectMocks
 import org.mockito.Mock
+import org.mockito.Spy
 import org.mockito.junit.jupiter.MockitoExtension
 import org.mockito.kotlin.any
+import org.mockito.kotlin.never
 import org.mockito.kotlin.verify
 import org.mockito.kotlin.whenever
 import reactor.core.publisher.Mono
@@ -70,6 +77,11 @@ class DisposalServiceTest {
 
     @Mock
     private lateinit var releaseLocationUseCase: ReleaseLocationUseCase
+
+    private val warehouseAccess = SwitchableWarehouseAccess()
+
+    @Spy
+    private var warehouseAccessGuard: WarehouseAccessGuard = WarehouseAccessGuard(warehouseAccess)
 
     @InjectMocks
     private lateinit var disposalService: DisposalService
@@ -201,6 +213,57 @@ class DisposalServiceTest {
 
             assertThatThrownBy { runBlocking { disposalService.getById(999L) } }
                 .isInstanceOf(DisposalNotFoundException::class.java)
+        }
+    }
+
+    @Nested
+    inner class 창고_접근 {
+
+        @Test
+        fun `접근할 수 없는 창고에는 등록할 수 없다`() = runTest {
+            warehouseAccess.access = OnlyWarehouses(setOf(2L))
+
+            assertThatThrownBy { runBlocking { disposalService.register(RegisterDisposalCommand(1L, listOf(RegisterDisposalItemCommand(10L, 5, DisposalReason.EXPIRED)))) } }
+                .isInstanceOf(WarehouseAccessDeniedException::class.java)
+            verify(disposalRepository, never()).save(any())
+        }
+
+        @Test
+        fun `접근할 수 없는 창고의 문서는 단건 조회할 수 없다`() = runTest {
+            warehouseAccess.access = OnlyWarehouses(setOf(2L))
+            whenever(disposalRepository.findById(1L)).thenReturn(disposal().disposalId(1L).warehouseId(1L).build())
+
+            assertThatThrownBy { runBlocking { disposalService.getById(1L) } }
+                .isInstanceOf(WarehouseAccessDeniedException::class.java)
+        }
+
+        @Test
+        fun `목록은 접근 가능한 창고로 좁혀 조회한다`() = runTest {
+            warehouseAccess.access = OnlyWarehouses(setOf(1L, 3L))
+            whenever(disposalRepository.findAll(null, listOf(1L, 3L))).thenReturn(flowOf())
+
+            disposalService.getAll(null).toList()
+
+            verify(disposalRepository).findAll(null, listOf(1L, 3L))
+        }
+
+        @Test
+        fun `접근 가능한 창고가 없으면 저장소를 조회하지 않고 빈 목록을 반환한다`() = runTest {
+            warehouseAccess.access = OnlyWarehouses(emptySet())
+
+            val result = disposalService.getAll(null).toList()
+
+            assertThat(result).isEmpty()
+            verify(disposalRepository, never()).findAll(any(), any())
+        }
+
+        @Test
+        fun `전체 창고 접근이면 창고 조건 없이 조회한다`() = runTest {
+            whenever(disposalRepository.findAll(null, null)).thenReturn(flowOf())
+
+            disposalService.getAll(null).toList()
+
+            verify(disposalRepository).findAll(null, null)
         }
     }
 }

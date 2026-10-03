@@ -21,7 +21,7 @@ import reactor.core.publisher.Mono
 import org.mockito.kotlin.any
 import org.mockito.Mockito.`when`
 
-@WithDozyPrincipal
+@WithDozyPrincipal(roles = ["wms:warehouse_admin"])
 @WebFluxTest(WorkAreaController::class)
 class WorkAreaControllerTest {
 
