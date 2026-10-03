@@ -14,8 +14,8 @@
 ### 2026-10-03
 
 - F-024: `common_code` 테이블과 패키지를 제거하고 참조 FK 19개를 컬럼별 CHECK 제약으로 대체했다(ADR-0013, ADR-0004 대체). 미배포라 기존 V1~V25 마이그레이션을 V1(테이블·인덱스·CHECK)/V2(외래키) baseline으로 통합했다. 기존 DB는 `./scripts/reset-dev-db.sh`로 초기화해야 한다(Flyway 체크섬 불일치). FK 삭제 때 남던 불필요한 상태 컬럼 인덱스 19개는 baseline에서 제외했다. 아래 이전 로그의 V번호는 통합 전 기준이다.
-  저장 값은 `{GROUP}_{VALUE}` 형식을 유지해 데이터 마이그레이션은 없다. `EnumCheckConstraintMigrationTest`가 CHECK 허용 값과 enum의
-  일치, 테이블 부재를 검증한다. `{GROUP}_` 접두사 제거는 값 UPDATE가 필요해 후속으로 분리했다.
+  저장 값에서 `{GROUP}_` 접두사를 제거하고 enum 상수 이름(`name`)을 그대로 저장한다(`CommonCodes` 유틸과 `*_GROUP` 상수 삭제, `enum.name`/`Enum.valueOf`
+  사용). `EnumCheckConstraintMigrationTest`가 CHECK 허용 값과 enum의 일치, 테이블 부재를 검증한다.
 
 ### 2026-10-02
 

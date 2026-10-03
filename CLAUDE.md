@@ -122,8 +122,7 @@ src
 **Common Code**
 
 - 상태·분류 코드는 `common_code` 테이블 없이, 각 컬럼의 `VARCHAR(50)` + 컬럼별 `CHECK` 제약(`ck_{table}_{column}`)으로 허용 값을 제한한다 ([ADR-0013](docs/adr/0013-replace-common-code-with-check-constraints.md))
-- 코드 형식: `{GROUP}_{VALUE}` (예: `LOT_STATUS_NORMAL`) — `CommonCodes.toCode`/`fromCode`로 enum과 변환한다
-- 애플리케이션 레벨에서는 Kotlin enum으로 정의하고 DB에는 코드 문자열로 저장한다. enum 상수를 추가·변경하면 해당 CHECK 제약을 바꾸는 마이그레이션이 필요하며, `EnumCheckConstraintMigrationTest`가 enum과 CHECK의 일치를 검증한다
+- 애플리케이션 레벨에서는 Kotlin enum으로 정의하고 DB에는 enum 상수 이름(`name`)을 그대로 저장한다(예: `'EXPIRING_SOON'`). 영속성 어댑터에서 `enum.name`/`Enum.valueOf`로 변환한다. enum 상수를 추가·변경하면 해당 CHECK 제약을 바꾸는 마이그레이션이 필요하며, `EnumCheckConstraintMigrationTest`가 enum과 CHECK의 일치를 검증한다
 
 **DTOs**
 

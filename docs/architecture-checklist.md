@@ -33,9 +33,9 @@
 
 ## 상태/분류 코드
 
-- [ ] 상태/분류 컬럼은 `VARCHAR(50)` + 컬럼별 `CHECK` 제약으로 허용 값을 제한하며, 코드 형식은
-      `{GROUP}_{VALUE}`를 따른다 (예: `LOT_STATUS_NORMAL`) (ADR-0013)
-- [ ] 애플리케이션 레벨에서는 Kotlin enum으로 정의하고, DB에는 코드 문자열로 저장한다
+- [ ] 상태/분류 컬럼은 `VARCHAR(50)` + 컬럼별 `CHECK` 제약으로 허용 값을 제한한다 (ADR-0013)
+- [ ] 애플리케이션 레벨에서는 Kotlin enum으로 정의하고, DB에는 enum 상수 이름(`name`) 그대로 저장한다
+      (예: `LotStatus.EXPIRING_SOON` → `'EXPIRING_SOON'`). 변환 유틸을 두지 않고 `name`/`valueOf`를 쓴다
 - [ ] enum 상수를 추가·변경하면 CHECK 제약 마이그레이션과 `EnumCheckConstraintMigrationTest` 목록을 함께 갱신한다
 
 ## DTO
