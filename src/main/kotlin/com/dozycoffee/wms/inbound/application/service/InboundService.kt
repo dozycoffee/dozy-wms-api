@@ -31,6 +31,7 @@ import com.dozycoffee.wms.inventory.application.port.`in`.command.RegisterInvent
 import com.dozycoffee.wms.inventory.application.port.`in`.command.RegisterLotCommand
 import com.dozycoffee.wms.inventory.application.port.`in`.result.InventoryResult
 import com.dozycoffee.wms.inventory.application.port.`in`.result.LotResult
+import com.dozycoffee.wms.inventory.domain.enumeration.InventoryHistoryType
 import com.dozycoffee.wms.product.application.port.`in`.GetProductUseCase
 import com.dozycoffee.wms.warehouse.application.port.`in`.GetLocationUseCase
 import com.dozycoffee.wms.warehouse.application.port.`in`.GetWorkAreaUseCase
@@ -202,7 +203,7 @@ class InboundService(
             occupyLocationUseCase.occupy(OccupyLocationCommand(location.locationId, allocatedQuantity))
             registeredInventories.add(
                 registerInventoryUseCase.register(
-                    RegisterInventoryCommand(lotId, location.locationId, allocatedQuantity, requireNotNull(item.inboundItemId))
+                    RegisterInventoryCommand(lotId, location.locationId, allocatedQuantity, requireNotNull(item.inboundItemId), InventoryHistoryType.INBOUND)
                 )
             )
             remainingQuantity -= allocatedQuantity

@@ -16,6 +16,7 @@ import com.dozycoffee.wms.inventory.application.port.`in`.RegisterLotUseCase
 import com.dozycoffee.wms.inventory.application.port.`in`.command.RegisterInventoryCommand
 import com.dozycoffee.wms.inventory.application.port.`in`.result.InventoryResult
 import com.dozycoffee.wms.inventory.application.port.`in`.result.LotResult
+import com.dozycoffee.wms.inventory.domain.enumeration.InventoryHistoryType
 import com.dozycoffee.wms.inventory.domain.enumeration.LotStatus
 import com.dozycoffee.wms.inventory.domain.enumeration.QualityStatus
 import com.dozycoffee.wms.product.application.port.`in`.GetProductUseCase
@@ -230,7 +231,7 @@ class ReturnRequestServiceTest {
 
             assertThat(result.status).isEqualTo(ReturnRequestStatus.COMPLETED)
             verify(occupyLocationUseCase).occupy(OccupyLocationCommand(1L, 5))
-            verify(registerInventoryUseCase).register(RegisterInventoryCommand(500L, 1L, 5, 1L))
+            verify(registerInventoryUseCase).register(RegisterInventoryCommand(500L, 1L, 5, 1L, InventoryHistoryType.RETURN))
             verify(releaseWorkAreaUseCase).release(ReleaseWorkAreaCommand(1L, 5))
         }
 

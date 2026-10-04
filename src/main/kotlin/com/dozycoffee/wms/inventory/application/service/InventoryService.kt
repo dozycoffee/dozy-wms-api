@@ -59,7 +59,7 @@ class InventoryService(
             quantity = command.quantity
         )
         val saved = inventoryRepository.save(inventory)
-        recordHistory(saved.inventoryId, InventoryHistoryType.INBOUND, command.quantity, command.referenceId)
+        recordHistory(saved.inventoryId, command.historyType, command.quantity, command.referenceId)
         return InventoryResult.from(saved)
     }
 

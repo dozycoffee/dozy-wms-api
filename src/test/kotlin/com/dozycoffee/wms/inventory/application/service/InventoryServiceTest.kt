@@ -65,7 +65,7 @@ class InventoryServiceTest {
 
         @Test
         fun `존재하는 Lot을 참조하면 Lot의 상품으로 재고를 등록한다`() = runTest {
-            val command = RegisterInventoryCommand(1L, 1L, 10, 100L)
+            val command = RegisterInventoryCommand(1L, 1L, 10, 100L, InventoryHistoryType.INBOUND)
             val existingLot = lot().lotId(1L).productId(7L).build()
             val saved: Inventory = inventory().inventoryId(1L).productId(7L).lotId(1L).build()
             whenever(lotRepository.findById(1L)).thenReturn(existingLot)
@@ -89,8 +89,24 @@ class InventoryServiceTest {
         }
 
         @Test
+        fun `반품 유형으로 등록하면 재고 이력이 RETURN으로 기록된다`() = runTest {
+            val command = RegisterInventoryCommand(1L, 1L, 5, 200L, InventoryHistoryType.RETURN)
+            whenever(lotRepository.findById(1L)).thenReturn(lot().lotId(1L).productId(7L).build())
+            whenever(inventoryRepository.save(any())).thenReturn(inventory().inventoryId(1L).productId(7L).lotId(1L).build())
+            whenever(inventoryHistoryRepository.save(any())).thenAnswer { it.getArgument(0) }
+
+            inventoryService.register(command)
+
+            val historyCaptor = argumentCaptor<InventoryHistory>()
+            verify(inventoryHistoryRepository).save(historyCaptor.capture())
+            assertThat(historyCaptor.firstValue.historyType).isEqualTo(InventoryHistoryType.RETURN)
+            assertThat(historyCaptor.firstValue.quantityChange).isEqualTo(5)
+            assertThat(historyCaptor.firstValue.referenceId).isEqualTo(200L)
+        }
+
+        @Test
         fun `존재하지 않는 Lot을 참조하면 예외를 던진다`() = runTest {
-            val command = RegisterInventoryCommand(999L, 1L, 10, 100L)
+            val command = RegisterInventoryCommand(999L, 1L, 10, 100L, InventoryHistoryType.INBOUND)
             whenever(lotRepository.findById(999L)).thenReturn(null)
 
             assertThatThrownBy { runBlocking { inventoryService.register(command) } }
