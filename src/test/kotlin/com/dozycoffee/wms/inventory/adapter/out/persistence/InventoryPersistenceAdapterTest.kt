@@ -206,6 +206,34 @@ class InventoryPersistenceAdapterTest {
     }
 
     @Test
+    fun `유통기한 순 정렬에서 유통기한이 없는 재고는 맨 뒤로 가고 같은 값끼리는 입고 순이다`() = runTest {
+        val locationId = createLocation()
+        val productId = requireNotNull(productPersistenceAdapter.save(product().build()).productId)
+        val noExpiryLotId = requireNotNull(
+            lotPersistenceAdapter.save(lot().productId(productId).lotNumber("LOT-NONE").expirationDate(null).build()).lotId
+        )
+        val datedLotId = requireNotNull(
+            lotPersistenceAdapter.save(
+                lot().productId(productId).lotNumber("LOT-DATED").expirationDate(LocalDate.of(2027, 12, 31)).build()
+            ).lotId
+        )
+        val noExpiryFirst = inventoryPersistenceAdapter.save(
+            inventory().productId(productId).lotId(noExpiryLotId).locationId(locationId).build()
+        )
+        val dated = inventoryPersistenceAdapter.save(
+            inventory().productId(productId).lotId(datedLotId).locationId(locationId).build()
+        )
+        val noExpirySecond = inventoryPersistenceAdapter.save(
+            inventory().productId(productId).lotId(noExpiryLotId).locationId(locationId).build()
+        )
+
+        val result = inventoryPersistenceAdapter.findAll(null, productId, null, InventorySortBy.EXPIRATION_DATE, null).toList()
+
+        assertThat(result.map { it.inventoryId })
+            .containsExactly(dated.inventoryId, noExpiryFirst.inventoryId, noExpirySecond.inventoryId)
+    }
+
+    @Test
     fun `입고일 오름차순으로 정렬 조회한다`() = runTest {
         val locationId = createLocation()
         val productId = requireNotNull(productPersistenceAdapter.save(product().build()).productId)
