@@ -7,6 +7,7 @@ import com.dozycoffee.wms.inventory.application.port.`in`.ScanExpirationUseCase
 import com.dozycoffee.wms.inventory.application.port.`in`.command.RegisterInventoryCommand
 import com.dozycoffee.wms.inventory.application.port.`in`.command.RegisterLotCommand
 import com.dozycoffee.wms.inventory.application.port.`in`.result.ExpirationScanResult
+import com.dozycoffee.wms.inventory.domain.enumeration.InventoryHistoryType
 import com.dozycoffee.wms.warehouse.application.port.`in`.OccupyLocationUseCase
 import com.dozycoffee.wms.warehouse.application.port.`in`.command.OccupyLocationCommand
 import org.springframework.r2dbc.core.DatabaseClient
@@ -45,7 +46,7 @@ internal class InventorySeeder(
             val locationId: Long = context.locationIdByCode.getValue(spec.locationCode)
             occupyLocationUseCase.occupy(OccupyLocationCommand(locationId, spec.quantity))
             val inventory = registerInventoryUseCase.register(
-                RegisterInventoryCommand(lot.lotId, locationId, spec.quantity, INITIAL_REFERENCE_ID)
+                RegisterInventoryCommand(lot.lotId, locationId, spec.quantity, INITIAL_REFERENCE_ID, InventoryHistoryType.INBOUND)
             )
             if (spec.defective) {
                 markInventoryDefectiveUseCase.markDefective(inventory.inventoryId)

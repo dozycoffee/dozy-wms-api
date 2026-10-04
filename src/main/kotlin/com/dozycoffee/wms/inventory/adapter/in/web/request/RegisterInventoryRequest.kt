@@ -1,6 +1,7 @@
 package com.dozycoffee.wms.inventory.adapter.`in`.web.request
 
 import com.dozycoffee.wms.inventory.application.port.`in`.command.RegisterInventoryCommand
+import com.dozycoffee.wms.inventory.domain.enumeration.InventoryHistoryType
 import jakarta.validation.constraints.Min
 import jakarta.validation.constraints.NotNull
 
@@ -15,7 +16,8 @@ data class RegisterInventoryRequest(
             requireNotNull(lotId),
             requireNotNull(locationId),
             requireNotNull(quantity),
-            requireNotNull(referenceId)
+            requireNotNull(referenceId),
+            InventoryHistoryType.INBOUND
         )
     }
 }
