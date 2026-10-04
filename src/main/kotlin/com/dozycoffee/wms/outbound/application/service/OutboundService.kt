@@ -7,6 +7,7 @@ import com.dozycoffee.wms.inventory.application.port.`in`.GetInventoryUseCase
 import com.dozycoffee.wms.inventory.application.port.`in`.GetLotUseCase
 import com.dozycoffee.wms.inventory.application.port.`in`.HoldInventoryUseCase
 import com.dozycoffee.wms.inventory.application.port.`in`.command.HoldInventoryCommand
+import com.dozycoffee.wms.inventory.application.port.`in`.result.InventoryResult
 import com.dozycoffee.wms.inventory.domain.enumeration.AllocationReferenceType
 import com.dozycoffee.wms.inventory.domain.enumeration.QualityStatus
 import com.dozycoffee.wms.outbound.application.port.`in`.CompleteOutboundUseCase
@@ -30,6 +31,7 @@ import com.dozycoffee.wms.warehouse.application.port.`in`.command.OccupyWorkArea
 import com.dozycoffee.wms.warehouse.application.port.`in`.command.ReleaseLocationCommand
 import com.dozycoffee.wms.warehouse.application.port.`in`.command.ReleaseWorkAreaCommand
 import com.dozycoffee.wms.warehouse.domain.enumeration.AreaCode
+import java.time.LocalDate
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.toList
@@ -143,7 +145,10 @@ class OutboundService(
         val expirationDateByLotId = getLotUseCase.getAllByProduct(item.productId).toList()
             .associate { it.lotId to it.expirationDate }
         val candidates = getInventoryUseCase.getAll(null, item.productId, QualityStatus.NORMAL, null, listOf(warehouseId)).toList()
-            .sortedWith(compareBy(nullsLast()) { expirationDateByLotId[it.lotId] })
+            .sortedWith(
+                compareBy<InventoryResult, LocalDate?>(nullsLast()) { expirationDateByLotId[it.lotId] }
+                    .thenBy { it.inventoryId }
+            )
 
         var remainingQuantity = item.requestedQuantity
         for (inventory in candidates) {

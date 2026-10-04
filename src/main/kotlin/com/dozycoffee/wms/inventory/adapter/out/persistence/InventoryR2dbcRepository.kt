@@ -44,7 +44,9 @@ private const val FIND_ALL_ACTIVE_SELECT: String = """
 private const val FIND_ALL_ACTIVE_ORDER: String = """
         ORDER BY
           CASE WHEN :sortBy = 'QUANTITY' THEN i.quantity END ASC,
+          CASE WHEN :sortBy = 'EXPIRATION_DATE' THEN l.expiration_date IS NULL END ASC,
           CASE WHEN :sortBy = 'EXPIRATION_DATE' THEN l.expiration_date END ASC,
+          CASE WHEN :sortBy = 'EXPIRATION_DATE' THEN i.created_at END ASC,
           CASE WHEN :sortBy = 'INBOUND_DATE' THEN i.created_at END ASC,
           i.inventory_id ASC
 """
