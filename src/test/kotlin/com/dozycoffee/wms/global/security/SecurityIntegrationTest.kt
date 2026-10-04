@@ -52,6 +52,25 @@ class SecurityIntegrationTest {
     }
 
     @Test
+    fun `401 응답 본문의 traceId는 X-Trace-Id 응답 헤더와 같다`() {
+        val result = get(null).expectStatus().isUnauthorized.expectBody().returnResult()
+
+        val header: String? = result.responseHeaders.getFirst("X-Trace-Id")
+        assertThat(header).matches("[0-9a-f]{32}")
+        assertThat(String(requireNotNull(result.responseBody))).contains("\"traceId\":\"$header\"")
+    }
+
+    @Test
+    fun `요청의 X-Trace-Id는 401 응답까지 그대로 이어진다`() {
+        webTestClient.get().uri("/api/products")
+            .header("X-Trace-Id", "caller-trace-0001")
+            .exchange()
+            .expectStatus().isUnauthorized
+            .expectHeader().valueEquals("X-Trace-Id", "caller-trace-0001")
+            .expectBody().jsonPath("$.traceId").isEqualTo("caller-trace-0001")
+    }
+
+    @Test
     fun `유효한 직원 토큰으로 호출하면 200을 반환한다`() {
         get(tokens.issue(roles = listOf("wms:inventory_viewer"))).expectStatus().isOk
     }

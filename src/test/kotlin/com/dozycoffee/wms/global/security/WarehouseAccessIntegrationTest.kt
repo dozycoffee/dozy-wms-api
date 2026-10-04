@@ -101,7 +101,7 @@ class WarehouseAccessIntegrationTest {
             .header("Authorization", bearer(manager, "wms:inbound_manager"))
             .exchange()
             .expectStatus().isForbidden
-            .expectBody().jsonPath("$.errorCode").isEqualTo("COMMON_WAREHOUSE_ACCESS_DENIED")
+            .expectBody().jsonPath("$.code").isEqualTo("COMMON_WAREHOUSE_ACCESS_DENIED")
     }
 
     @Test

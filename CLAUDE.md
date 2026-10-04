@@ -108,7 +108,10 @@ src
 
 - `ErrorCode` (interface) → domain-specific enum implementing it (e.g., `ProductErrorCode`) → typed `BusinessException`
   subclasses (e.g., `ProductNotFoundException`)
-- `@RestControllerAdvice` 기반 `GlobalExceptionHandler`가 `BusinessException` → `ErrorResponseDto { errorCode, message, timestamp }` 로 변환
+- `@RestControllerAdvice` 기반 `GlobalExceptionHandler`(WebFlux `ResponseEntityExceptionHandler` 상속)가 모든 예외를 `dozy-auth` 규약의 RFC 9457 Problem Details(`type`, `title`, `status`, `detail`, `instance`, `code`, `traceId`, 검증 실패 시 `errors[]`)로 변환한다 ([ADR-0015](docs/adr/0015-align-error-response-with-dozy-auth.md))
+- 응답의 `code`는 `ErrorCode.code`다 — 클라이언트는 `code`로만 분기한다. 범용 코드(`VALIDATION_FAILED`, `INTERNAL_ERROR` 등)는 `dozy-auth` 에러 코드 표의 이름을 쓰고, 도메인 코드는 도메인 접두사를 유지한다(`PRODUCT_NOT_FOUND`). 500은 내부 정보를 응답에 싣지 않는다
+- `TraceIdWebFilter`가 모든 응답에 `X-Trace-Id`를 싣고 에러 응답의 `traceId`와 일치시킨다
+- 단순 필드 검증(null, 빈 값, 범위)은 `ErrorCode`만 등록하고 `InvalidDomainValueException`으로 던진다. 호출부나 테스트가 타입으로 구분할 규칙 위반(상태 전이, 용량·수량 부족, NotFound, Duplicate 등)은 전용 예외 클래스를 만든다
 - WebFilter/Security 레벨 예외가 필요한 경우 `WebExceptionHandler` 추가
 
 **Entities**

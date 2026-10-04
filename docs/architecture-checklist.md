@@ -17,6 +17,11 @@
       구조를 따른다
 - [ ] `GlobalExceptionHandler`(`@RestControllerAdvice`)가 처리하도록 커스텀 예외를 개별 Controller에서
       직접 catch하지 않는다
+- [ ] 에러 응답은 `dozy-auth` 규약의 Problem Details(`code`, `traceId` 포함)다 — 별도 에러 응답 DTO를 만들지
+      않는다 (ADR-0015)
+- [ ] 새 `ErrorCode`의 `code`는 도메인 접두사를 유지하고(`PRODUCT_NOT_FOUND`), 접두사 없는 코드는 `dozy-auth` 에러 코드
+      표의 범용 코드로만 쓴다
+- [ ] 단순 필드 검증은 `InvalidDomainValueException`, 타입으로 구분할 규칙 위반은 전용 예외 클래스를 만든다
 - [ ] WebFilter/Security 레벨에서 발생하는 예외는 `WebExceptionHandler`로 처리한다
 
 ## Entity
