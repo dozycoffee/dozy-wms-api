@@ -9,17 +9,6 @@ class StockAuditStatusTest {
 
     @ParameterizedTest
     @CsvSource(
-        "SCHEDULED, 실사 예정",
-        "IN_PROGRESS, 실사 진행중",
-        "COMPLETED, 실사 완료",
-        "CLOSED, 조정 마감"
-    )
-    fun `실사 상태는 설명을 갖는다`(status: StockAuditStatus, expectedDescription: String) {
-        assertThat(status.description).isEqualTo(expectedDescription)
-    }
-
-    @ParameterizedTest
-    @CsvSource(
         "SCHEDULED, IN_PROGRESS, true",
         "SCHEDULED, COMPLETED, false",
         "SCHEDULED, CLOSED, false",

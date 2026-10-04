@@ -9,16 +9,6 @@ class ReturnRequestStatusTest {
 
     @ParameterizedTest
     @CsvSource(
-        "RECEIVED, 반품 접수",
-        "INSPECTING, 검수 중",
-        "COMPLETED, 반품 완료"
-    )
-    fun `반품 상태는 설명을 갖는다`(status: ReturnRequestStatus, expectedDescription: String) {
-        assertThat(status.description).isEqualTo(expectedDescription)
-    }
-
-    @ParameterizedTest
-    @CsvSource(
         "RECEIVED, INSPECTING, true",
         "RECEIVED, COMPLETED, false",
         "RECEIVED, RECEIVED, false",

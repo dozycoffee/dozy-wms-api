@@ -1,9 +1,9 @@
 package com.dozycoffee.wms.disposal.domain.enumeration
 
-enum class DisposalStatus(val description: String) {
-    REQUESTED("폐기 요청"),
-    APPROVED("폐기 승인"),
-    COMPLETED("폐기 완료");
+enum class DisposalStatus {
+    REQUESTED,
+    APPROVED,
+    COMPLETED;
 
     fun canTransitionTo(target: DisposalStatus): Boolean = when (this) {
         REQUESTED -> target == APPROVED

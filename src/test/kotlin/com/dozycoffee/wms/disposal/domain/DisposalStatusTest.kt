@@ -9,16 +9,6 @@ class DisposalStatusTest {
 
     @ParameterizedTest
     @CsvSource(
-        "REQUESTED, 폐기 요청",
-        "APPROVED, 폐기 승인",
-        "COMPLETED, 폐기 완료"
-    )
-    fun `폐기 상태는 설명을 갖는다`(status: DisposalStatus, expectedDescription: String) {
-        assertThat(status.description).isEqualTo(expectedDescription)
-    }
-
-    @ParameterizedTest
-    @CsvSource(
         "REQUESTED, APPROVED, true",
         "REQUESTED, COMPLETED, false",
         "REQUESTED, REQUESTED, false",
