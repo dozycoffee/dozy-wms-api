@@ -7,6 +7,8 @@ import com.dozycoffee.wms.warehouse.domain.enumeration.ZoneCode
 import com.dozycoffee.wms.warehouse.domain.exception.ZoneNotFoundException
 import com.dozycoffee.wms.warehouse.domain.model.Zone
 import com.dozycoffee.wms.warehouse.fixture.ZoneTestBuilder.Companion.zone
+import com.dozycoffee.wms.support.duplicateKeyViolation
+import com.dozycoffee.wms.warehouse.domain.exception.DuplicateZoneCodeException
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.test.runTest
 import org.assertj.core.api.Assertions.assertThat
@@ -43,6 +45,14 @@ class ZoneServiceTest {
             assertThat(result.zoneId).isEqualTo(1L)
             assertThat(result.zoneCode).isEqualTo(ZoneCode.A)
             assertThat(result.zoneStatus).isEqualTo(AvailabilityStatus.AVAILABLE)
+        }
+
+        @Test
+        fun `같은 창고에 같은 구역 코드를 저장하면 중복 구역 코드 예외를 던진다`() = runTest {
+            whenever(zoneRepository.save(any())).thenThrow(duplicateKeyViolation())
+
+            assertThatThrownBy { runBlocking { zoneService.register(RegisterZoneCommand(1L, ZoneCode.A)) } }
+                .isInstanceOf(DuplicateZoneCodeException::class.java)
         }
     }
 

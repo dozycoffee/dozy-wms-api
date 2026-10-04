@@ -1,5 +1,6 @@
 package com.dozycoffee.wms.warehouse.application.service
 
+import com.dozycoffee.wms.global.persistence.translatingDuplicateKey
 import com.dozycoffee.wms.warehouse.application.port.`in`.GetLocationUseCase
 import com.dozycoffee.wms.warehouse.application.port.`in`.OccupyLocationUseCase
 import com.dozycoffee.wms.warehouse.application.port.`in`.RegisterLocationUseCase
@@ -10,6 +11,7 @@ import com.dozycoffee.wms.warehouse.application.port.`in`.command.ReleaseLocatio
 import com.dozycoffee.wms.warehouse.application.port.`in`.result.LocationResult
 import com.dozycoffee.wms.warehouse.application.port.out.LocationRepository
 import com.dozycoffee.wms.warehouse.domain.enumeration.AvailabilityStatus
+import com.dozycoffee.wms.warehouse.domain.exception.DuplicateLocationCodeException
 import com.dozycoffee.wms.warehouse.domain.exception.LocationNotFoundException
 import com.dozycoffee.wms.warehouse.domain.model.Location
 import kotlinx.coroutines.flow.Flow
@@ -30,7 +32,7 @@ class LocationService(
             command.maxCapacity,
             AvailabilityStatus.AVAILABLE
         )
-        return LocationResult.from(locationRepository.save(location))
+        return LocationResult.from(translatingDuplicateKey({ DuplicateLocationCodeException() }) { locationRepository.save(location) })
     }
 
     @Transactional

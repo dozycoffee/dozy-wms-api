@@ -1,5 +1,6 @@
 package com.dozycoffee.wms.warehouse.application.service
 
+import com.dozycoffee.wms.global.persistence.translatingDuplicateKey
 import com.dozycoffee.wms.warehouse.application.port.`in`.GetZoneUseCase
 import com.dozycoffee.wms.warehouse.application.port.`in`.RegisterZoneUseCase
 import com.dozycoffee.wms.warehouse.application.port.`in`.command.RegisterZoneCommand
@@ -7,6 +8,7 @@ import com.dozycoffee.wms.warehouse.application.port.`in`.result.ZoneResult
 import com.dozycoffee.wms.warehouse.application.port.out.ZoneRepository
 import com.dozycoffee.wms.warehouse.domain.enumeration.AvailabilityStatus
 import com.dozycoffee.wms.warehouse.domain.enumeration.ZoneCode
+import com.dozycoffee.wms.warehouse.domain.exception.DuplicateZoneCodeException
 import com.dozycoffee.wms.warehouse.domain.exception.ZoneNotFoundException
 import com.dozycoffee.wms.warehouse.domain.model.Zone
 import org.springframework.stereotype.Service
@@ -20,7 +22,7 @@ class ZoneService(
     @Transactional
     override suspend fun register(command: RegisterZoneCommand): ZoneResult {
         val zone = Zone.create(command.warehouseId, command.zoneCode, AvailabilityStatus.AVAILABLE)
-        return ZoneResult.from(zoneRepository.save(zone))
+        return ZoneResult.from(translatingDuplicateKey({ DuplicateZoneCodeException() }) { zoneRepository.save(zone) })
     }
 
     @Transactional(readOnly = true)

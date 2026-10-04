@@ -6,6 +6,8 @@ import com.dozycoffee.wms.warehouse.domain.exception.WarehouseNotFoundException
 import com.dozycoffee.wms.warehouse_member.application.port.out.WarehouseMemberRepository
 import com.dozycoffee.wms.warehouse_member.domain.exception.WarehouseMemberNotFoundException
 import com.dozycoffee.wms.warehouse_member.domain.model.WarehouseMember
+import com.dozycoffee.wms.support.duplicateKeyViolation
+import com.dozycoffee.wms.warehouse_member.domain.exception.WarehouseMemberAlreadyAssignedException
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.toList
 import kotlinx.coroutines.runBlocking
@@ -67,6 +69,16 @@ class WarehouseMemberServiceTest {
 
             assertThat(result.warehouseMemberId).isEqualTo(10L)
             verify(warehouseMemberRepository, never()).save(any())
+        }
+
+        @Test
+        fun `동시에 같은 배정이 저장돼 유니크 위반이 나면 이미 배정됨 예외를 던진다`() = runTest {
+            whenever(getWarehouseUseCase.getById(1L)).thenReturn(warehouseResult())
+            whenever(warehouseMemberRepository.findByWarehouseIdAndPrincipalId(1L, principalId)).thenReturn(null)
+            whenever(warehouseMemberRepository.save(any())).thenThrow(duplicateKeyViolation())
+
+            assertThatThrownBy { runBlocking { service.assign(1L, principalId) } }
+                .isInstanceOf(WarehouseMemberAlreadyAssignedException::class.java)
         }
 
         @Test
