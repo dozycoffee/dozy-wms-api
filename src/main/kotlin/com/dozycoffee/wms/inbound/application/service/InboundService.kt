@@ -77,7 +77,7 @@ class InboundService(
         warehouseAccessGuard.require(command.warehouseId)
         val zoneCodeByItem = command.items.associateWith {
             val product = getProductUseCase.getById(it.productId)
-            ZoneCode.valueOf(product.category.zoneCode)
+            product.category.zoneCode
         }
         val requiredQuantityByZoneCode = command.items
             .groupBy { zoneCodeByItem.getValue(it) }

@@ -42,7 +42,6 @@ import com.dozycoffee.wms.warehouse.application.port.`in`.command.OccupyLocation
 import com.dozycoffee.wms.warehouse.application.port.`in`.command.OccupyWorkAreaCommand
 import com.dozycoffee.wms.warehouse.application.port.`in`.command.ReleaseWorkAreaCommand
 import com.dozycoffee.wms.warehouse.domain.enumeration.AreaCode
-import com.dozycoffee.wms.warehouse.domain.enumeration.ZoneCode
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.toList
@@ -173,7 +172,7 @@ class ReturnRequestService(
      */
     private suspend fun distributeToLocations(warehouseId: Long, item: ReturnItem, lotId: Long): List<InventoryResult> {
         val product = getProductUseCase.getById(item.productId)
-        val zoneCode = ZoneCode.valueOf(product.category.zoneCode)
+        val zoneCode = product.category.zoneCode
         val zone = getZoneUseCase.getByWarehouseIdAndZoneCode(warehouseId, zoneCode)
 
         var remainingQuantity = requireNotNull(item.actualQuantity)
