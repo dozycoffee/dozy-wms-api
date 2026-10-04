@@ -15,7 +15,6 @@ import com.dozycoffee.wms.warehouse.domain.exception.WorkAreaNotFoundException
 import com.dozycoffee.wms.warehouse.domain.model.WorkArea
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
-import reactor.core.publisher.Mono
 
 @Service
 class WorkAreaService(
@@ -23,41 +22,38 @@ class WorkAreaService(
 ) : RegisterWorkAreaUseCase, OccupyWorkAreaUseCase, ReleaseWorkAreaUseCase, GetWorkAreaUseCase {
 
     @Transactional
-    override fun register(command: RegisterWorkAreaCommand): Mono<WorkAreaResult> {
+    override suspend fun register(command: RegisterWorkAreaCommand): WorkAreaResult {
         val workArea = WorkArea.create(command.warehouseId, command.areaCode, AvailabilityStatus.AVAILABLE)
-        return workAreaRepository.save(workArea).map { WorkAreaResult.from(it) }
+        return WorkAreaResult.from(workAreaRepository.save(workArea))
     }
 
     @Transactional
-    override fun occupy(command: OccupyWorkAreaCommand): Mono<WorkAreaResult> {
-        return findWorkAreaOrThrow(command.workAreaId)
-            .doOnNext { it.occupy(command.amount) }
-            .flatMap { workAreaRepository.save(it) }
-            .map { WorkAreaResult.from(it) }
+    override suspend fun occupy(command: OccupyWorkAreaCommand): WorkAreaResult {
+        val workArea = findWorkAreaOrThrow(command.workAreaId)
+        workArea.occupy(command.amount)
+        return WorkAreaResult.from(workAreaRepository.save(workArea))
     }
 
     @Transactional
-    override fun release(command: ReleaseWorkAreaCommand): Mono<WorkAreaResult> {
-        return findWorkAreaOrThrow(command.workAreaId)
-            .doOnNext { it.release(command.amount) }
-            .flatMap { workAreaRepository.save(it) }
-            .map { WorkAreaResult.from(it) }
+    override suspend fun release(command: ReleaseWorkAreaCommand): WorkAreaResult {
+        val workArea = findWorkAreaOrThrow(command.workAreaId)
+        workArea.release(command.amount)
+        return WorkAreaResult.from(workAreaRepository.save(workArea))
     }
 
     @Transactional(readOnly = true)
-    override fun getById(workAreaId: Long): Mono<WorkAreaResult> {
-        return findWorkAreaOrThrow(workAreaId).map { WorkAreaResult.from(it) }
+    override suspend fun getById(workAreaId: Long): WorkAreaResult {
+        return WorkAreaResult.from(findWorkAreaOrThrow(workAreaId))
     }
 
     @Transactional(readOnly = true)
-    override fun getByWarehouseIdAndAreaCode(warehouseId: Long, areaCode: AreaCode): Mono<WorkAreaResult> {
-        return workAreaRepository.findByWarehouseIdAndAreaCode(warehouseId, areaCode)
-            .switchIfEmpty(Mono.error(WorkAreaNotFoundException()))
-            .map { WorkAreaResult.from(it) }
+    override suspend fun getByWarehouseIdAndAreaCode(warehouseId: Long, areaCode: AreaCode): WorkAreaResult {
+        val workArea = workAreaRepository.findByWarehouseIdAndAreaCode(warehouseId, areaCode)
+            ?: throw WorkAreaNotFoundException()
+        return WorkAreaResult.from(workArea)
     }
 
-    private fun findWorkAreaOrThrow(workAreaId: Long): Mono<WorkArea> {
-        return workAreaRepository.findById(workAreaId)
-            .switchIfEmpty(Mono.error(WorkAreaNotFoundException()))
+    private suspend fun findWorkAreaOrThrow(workAreaId: Long): WorkArea {
+        return workAreaRepository.findById(workAreaId) ?: throw WorkAreaNotFoundException()
     }
 }

@@ -58,7 +58,6 @@ import org.mockito.kotlin.never
 import org.mockito.kotlin.times
 import org.mockito.kotlin.verify
 import org.mockito.kotlin.whenever
-import reactor.core.publisher.Mono
 
 @ExtendWith(MockitoExtension::class)
 class OutboundServiceTest {
@@ -165,8 +164,8 @@ class OutboundServiceTest {
                 )
             )
             whenever(holdInventoryUseCase.hold(any())).thenReturn(allocationResult(900L, 1L, 5))
-            whenever(getWorkAreaUseCase.getByWarehouseIdAndAreaCode(1L, AreaCode.OUTBOUND)).thenReturn(Mono.just(workAreaResult(0)))
-            whenever(occupyWorkAreaUseCase.occupy(any())).thenReturn(Mono.just(workAreaResult(15)))
+            whenever(getWorkAreaUseCase.getByWarehouseIdAndAreaCode(1L, AreaCode.OUTBOUND)).thenReturn(workAreaResult(0))
+            whenever(occupyWorkAreaUseCase.occupy(any())).thenReturn(workAreaResult(15))
             whenever(outboundItemRepository.save(any())).thenAnswer { it.getArgument(0) }
             whenever(outboundRepository.save(any())).thenAnswer { it.getArgument(0) }
 
@@ -193,8 +192,8 @@ class OutboundServiceTest {
             whenever(getLotUseCase.getAllByProduct(100L)).thenReturn(flowOf(lotResult(10L, LocalDate.of(2026, 1, 1))))
             whenever(getInventoryUseCase.getAll(null, 100L, QualityStatus.NORMAL, null, listOf(1L))).thenReturn(flowOf(inventoryResult(1L, 10L, 100L, 10)))
             whenever(holdInventoryUseCase.hold(any())).thenReturn(allocationResult(900L, 1L, 10))
-            whenever(getWorkAreaUseCase.getByWarehouseIdAndAreaCode(1L, AreaCode.OUTBOUND)).thenReturn(Mono.just(workAreaResult(0)))
-            whenever(occupyWorkAreaUseCase.occupy(any())).thenReturn(Mono.just(workAreaResult(10)))
+            whenever(getWorkAreaUseCase.getByWarehouseIdAndAreaCode(1L, AreaCode.OUTBOUND)).thenReturn(workAreaResult(0))
+            whenever(occupyWorkAreaUseCase.occupy(any())).thenReturn(workAreaResult(10))
             whenever(outboundItemRepository.save(any())).thenAnswer { it.getArgument(0) }
             whenever(outboundRepository.save(any())).thenAnswer { it.getArgument(0) }
 
@@ -247,9 +246,9 @@ class OutboundServiceTest {
             whenever(getInventoryUseCase.getById(1L)).thenReturn(inventoryResult(1L, 10L, 100L, 0))
             whenever(getInventoryUseCase.getById(2L)).thenReturn(inventoryResult(2L, 20L, 200L, 0))
             whenever(fulfillAllocationUseCase.fulfill(any())).thenReturn(allocationResult(901L, 1L, 5))
-            whenever(releaseLocationUseCase.release(any())).thenReturn(Mono.just(locationResult(100L)))
-            whenever(getWorkAreaUseCase.getByWarehouseIdAndAreaCode(1L, AreaCode.OUTBOUND)).thenReturn(Mono.just(workAreaResult(15)))
-            whenever(releaseWorkAreaUseCase.release(any())).thenReturn(Mono.just(workAreaResult(0)))
+            whenever(releaseLocationUseCase.release(any())).thenReturn(locationResult(100L))
+            whenever(getWorkAreaUseCase.getByWarehouseIdAndAreaCode(1L, AreaCode.OUTBOUND)).thenReturn(workAreaResult(15))
+            whenever(releaseWorkAreaUseCase.release(any())).thenReturn(workAreaResult(0))
             whenever(outboundRepository.save(any())).thenAnswer { it.getArgument(0) }
 
             val result = outboundService.complete(1L)

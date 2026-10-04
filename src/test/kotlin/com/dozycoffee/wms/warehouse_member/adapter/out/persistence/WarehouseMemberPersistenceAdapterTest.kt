@@ -7,6 +7,7 @@ import com.dozycoffee.wms.warehouse.adapter.out.persistence.WarehouseR2dbcReposi
 import com.dozycoffee.wms.warehouse.fixture.WarehouseTestBuilder.Companion.warehouse
 import com.dozycoffee.wms.warehouse_member.domain.model.WarehouseMember
 import kotlinx.coroutines.flow.toList
+import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.test.runTest
 import org.assertj.core.api.Assertions.assertThat
 import org.assertj.core.api.Assertions.assertThatThrownBy
@@ -42,12 +43,12 @@ class WarehouseMemberPersistenceAdapterTest {
     @AfterEach
     fun cleanUp() {
         runTest { warehouseMemberR2dbcRepository.deleteAll() }
-        warehouseR2dbcRepository.deleteAll().block()
+        runTest {
+            warehouseR2dbcRepository.deleteAll()
+        }
     }
 
-    private fun createWarehouse(): Long = requireNotNull(
-        warehousePersistenceAdapter.save(warehouse().build()).map { requireNotNull(it.warehouseId) }.block()
-    )
+    private suspend fun createWarehouse(): Long = requireNotNull(warehousePersistenceAdapter.save(warehouse().build()).warehouseId)
 
     @Test
     fun `배정을 저장하면 ID가 채번되고 정보가 왕복된다`() = runTest {

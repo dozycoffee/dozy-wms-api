@@ -51,18 +51,15 @@ class StockAuditPersistenceAdapterTest {
     @AfterEach
     fun cleanUp() {
         runTest { stockAuditR2dbcRepository.deleteAll() }
-        zoneR2dbcRepository.deleteAll().block()
-        warehouseR2dbcRepository.deleteAll().block()
+        runTest {
+            zoneR2dbcRepository.deleteAll()
+            warehouseR2dbcRepository.deleteAll()
+        }
     }
 
-    private fun createWarehouseAndZone(): Pair<Long, Long> {
-        val warehouseId: Long = requireNotNull(
-            warehousePersistenceAdapter.save(warehouse().build()).map { requireNotNull(it.warehouseId) }.block()
-        )
-        val zoneId: Long = requireNotNull(
-            zonePersistenceAdapter.save(zone().warehouseId(warehouseId).build())
-                .map { requireNotNull(it.zoneId) }.block()
-        )
+    private suspend fun createWarehouseAndZone(): Pair<Long, Long> {
+        val warehouseId: Long = requireNotNull(warehousePersistenceAdapter.save(warehouse().build()).warehouseId)
+        val zoneId: Long = requireNotNull(zonePersistenceAdapter.save(zone().warehouseId(warehouseId).build()).zoneId)
         return warehouseId to zoneId
     }
 

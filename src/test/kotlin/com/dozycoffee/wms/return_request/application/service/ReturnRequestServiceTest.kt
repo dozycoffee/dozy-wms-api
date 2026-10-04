@@ -72,8 +72,6 @@ import org.mockito.kotlin.any
 import org.mockito.kotlin.never
 import org.mockito.kotlin.verify
 import org.mockito.kotlin.whenever
-import reactor.core.publisher.Flux
-import reactor.core.publisher.Mono
 
 @ExtendWith(MockitoExtension::class)
 class ReturnRequestServiceTest {
@@ -176,8 +174,8 @@ class ReturnRequestServiceTest {
             val item: ReturnItem = returnItem().returnItemId(1L).returnRequestId(1L).expectedQuantity(5).build()
             whenever(returnRequestRepository.findById(1L)).thenReturn(existingReturnRequest)
             whenever(returnItemRepository.findAllByReturnRequestId(1L)).thenReturn(flowOf(item))
-            whenever(getWorkAreaUseCase.getByWarehouseIdAndAreaCode(1L, AreaCode.RETURN)).thenReturn(Mono.just(workAreaResult(0)))
-            whenever(occupyWorkAreaUseCase.occupy(any())).thenReturn(Mono.just(workAreaResult(5)))
+            whenever(getWorkAreaUseCase.getByWarehouseIdAndAreaCode(1L, AreaCode.RETURN)).thenReturn(workAreaResult(0))
+            whenever(occupyWorkAreaUseCase.occupy(any())).thenReturn(workAreaResult(5))
             whenever(returnRequestRepository.save(any())).thenAnswer { it.getArgument(0) }
 
             val result = returnRequestService.startInspecting(1L)
@@ -214,17 +212,17 @@ class ReturnRequestServiceTest {
             whenever(returnItemRepository.findAllByReturnRequestId(1L)).thenReturn(flowOf(item))
             whenever(getProductUseCase.getById(100L)).thenReturn(productResult(100L))
             whenever(getZoneUseCase.getByWarehouseIdAndZoneCode(1L, ZoneCode.A))
-                .thenReturn(Mono.just(zoneResult(10L, ZoneCode.A)))
+                .thenReturn(zoneResult(10L, ZoneCode.A))
             whenever(getLotUseCase.getAllByProduct(100L)).thenReturn(emptyFlow())
             val registeredLot = LotResult(500L, "LOT-1", 100L, null, null, LotStatus.NORMAL)
             whenever(registerLotUseCase.register(any())).thenReturn(registeredLot)
             whenever(getLocationUseCase.getByZoneId(10L))
-                .thenReturn(Flux.just(locationResult(1L, 10L, 70, 10)))
-            whenever(occupyLocationUseCase.occupy(any())).thenReturn(Mono.just(locationResult(1L, 10L, 70, 15)))
+                .thenReturn(flowOf(locationResult(1L, 10L, 70, 10)))
+            whenever(occupyLocationUseCase.occupy(any())).thenReturn(locationResult(1L, 10L, 70, 15))
             whenever(registerInventoryUseCase.register(any()))
                 .thenReturn(InventoryResult(1L, 100L, 500L, 1L, 5, 0, 5, QualityStatus.NORMAL))
-            whenever(getWorkAreaUseCase.getByWarehouseIdAndAreaCode(1L, AreaCode.RETURN)).thenReturn(Mono.just(workAreaResult(5)))
-            whenever(releaseWorkAreaUseCase.release(any())).thenReturn(Mono.just(workAreaResult(0)))
+            whenever(getWorkAreaUseCase.getByWarehouseIdAndAreaCode(1L, AreaCode.RETURN)).thenReturn(workAreaResult(5))
+            whenever(releaseWorkAreaUseCase.release(any())).thenReturn(workAreaResult(0))
             whenever(returnRequestRepository.save(any())).thenAnswer { it.getArgument(0) }
 
             val command = CompleteReturnRequestCommand(1L, listOf(ReturnItemLotAssignmentCommand(1L, "LOT-1", null, null)))
@@ -252,21 +250,21 @@ class ReturnRequestServiceTest {
             whenever(returnItemRepository.findAllByReturnRequestId(1L)).thenReturn(flowOf(item))
             whenever(getProductUseCase.getById(100L)).thenReturn(productResult(100L))
             whenever(getZoneUseCase.getByWarehouseIdAndZoneCode(1L, ZoneCode.A))
-                .thenReturn(Mono.just(zoneResult(10L, ZoneCode.A)))
+                .thenReturn(zoneResult(10L, ZoneCode.A))
             whenever(getLotUseCase.getAllByProduct(100L)).thenReturn(emptyFlow())
             val registeredLot = LotResult(500L, "LOT-1", 100L, null, null, LotStatus.NORMAL)
             whenever(registerLotUseCase.register(any())).thenReturn(registeredLot)
             whenever(getLocationUseCase.getByZoneId(10L))
-                .thenReturn(Flux.just(locationResult(1L, 10L, 70, 10)))
-            whenever(occupyLocationUseCase.occupy(any())).thenReturn(Mono.just(locationResult(1L, 10L, 70, 15)))
+                .thenReturn(flowOf(locationResult(1L, 10L, 70, 10)))
+            whenever(occupyLocationUseCase.occupy(any())).thenReturn(locationResult(1L, 10L, 70, 15))
             val registeredInventory = InventoryResult(1L, 100L, 500L, 1L, 5, 0, 5, QualityStatus.NORMAL)
             whenever(registerInventoryUseCase.register(any())).thenReturn(registeredInventory)
             whenever(markInventoryDefectiveUseCase.markDefective(1L))
                 .thenReturn(registeredInventory.copy(qualityStatus = QualityStatus.DEFECTIVE))
             whenever(registerDisposalUseCase.register(any()))
                 .thenReturn(DisposalResult(900L, 1L, DisposalStatus.REQUESTED))
-            whenever(getWorkAreaUseCase.getByWarehouseIdAndAreaCode(1L, AreaCode.RETURN)).thenReturn(Mono.just(workAreaResult(5)))
-            whenever(releaseWorkAreaUseCase.release(any())).thenReturn(Mono.just(workAreaResult(0)))
+            whenever(getWorkAreaUseCase.getByWarehouseIdAndAreaCode(1L, AreaCode.RETURN)).thenReturn(workAreaResult(5))
+            whenever(releaseWorkAreaUseCase.release(any())).thenReturn(workAreaResult(0))
             whenever(returnRequestRepository.save(any())).thenAnswer { it.getArgument(0) }
 
             val command = CompleteReturnRequestCommand(1L, listOf(ReturnItemLotAssignmentCommand(1L, "LOT-1", null, null)))
@@ -305,13 +303,13 @@ class ReturnRequestServiceTest {
             whenever(returnItemRepository.findAllByReturnRequestId(1L)).thenReturn(flowOf(item))
             whenever(getProductUseCase.getById(100L)).thenReturn(productResult(100L))
             whenever(getZoneUseCase.getByWarehouseIdAndZoneCode(1L, ZoneCode.A))
-                .thenReturn(Mono.just(zoneResult(10L, ZoneCode.A)))
+                .thenReturn(zoneResult(10L, ZoneCode.A))
             whenever(getLotUseCase.getAllByProduct(100L)).thenReturn(emptyFlow())
             whenever(registerLotUseCase.register(any()))
                 .thenReturn(LotResult(500L, "LOT-1", 100L, null, null, LotStatus.NORMAL))
             whenever(getLocationUseCase.getByZoneId(10L))
-                .thenReturn(Flux.just(locationResult(1L, 10L, 70, 10)))
-            whenever(occupyLocationUseCase.occupy(any())).thenReturn(Mono.just(locationResult(1L, 10L, 70, 70)))
+                .thenReturn(flowOf(locationResult(1L, 10L, 70, 10)))
+            whenever(occupyLocationUseCase.occupy(any())).thenReturn(locationResult(1L, 10L, 70, 70))
             whenever(registerInventoryUseCase.register(any()))
                 .thenReturn(InventoryResult(1L, 100L, 500L, 1L, 60, 0, 60, QualityStatus.NORMAL))
 

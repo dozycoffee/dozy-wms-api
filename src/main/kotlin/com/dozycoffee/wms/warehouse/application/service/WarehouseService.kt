@@ -12,7 +12,6 @@ import com.dozycoffee.wms.warehouse.domain.exception.WarehouseNotFoundException
 import com.dozycoffee.wms.warehouse.domain.model.Warehouse
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
-import reactor.core.publisher.Mono
 
 @Service
 class WarehouseService(
@@ -20,7 +19,7 @@ class WarehouseService(
 ) : RegisterWarehouseUseCase, ActivateWarehouseUseCase, DeactivateWarehouseUseCase, GetWarehouseUseCase {
 
     @Transactional
-    override fun register(command: RegisterWarehouseCommand): Mono<WarehouseResult> {
+    override suspend fun register(command: RegisterWarehouseCommand): WarehouseResult {
         val warehouse = Warehouse.create(
             command.warehouseName,
             command.address,
@@ -28,32 +27,29 @@ class WarehouseService(
             command.longitude,
             AvailabilityStatus.AVAILABLE
         )
-        return warehouseRepository.save(warehouse).map { WarehouseResult.from(it) }
+        return WarehouseResult.from(warehouseRepository.save(warehouse))
     }
 
     @Transactional
-    override fun activate(warehouseId: Long): Mono<WarehouseResult> {
-        return findWarehouseOrThrow(warehouseId)
-            .doOnNext { it.activate() }
-            .flatMap { warehouseRepository.save(it) }
-            .map { WarehouseResult.from(it) }
+    override suspend fun activate(warehouseId: Long): WarehouseResult {
+        val warehouse = findWarehouseOrThrow(warehouseId)
+        warehouse.activate()
+        return WarehouseResult.from(warehouseRepository.save(warehouse))
     }
 
     @Transactional
-    override fun deactivate(warehouseId: Long): Mono<WarehouseResult> {
-        return findWarehouseOrThrow(warehouseId)
-            .doOnNext { it.deactivate() }
-            .flatMap { warehouseRepository.save(it) }
-            .map { WarehouseResult.from(it) }
+    override suspend fun deactivate(warehouseId: Long): WarehouseResult {
+        val warehouse = findWarehouseOrThrow(warehouseId)
+        warehouse.deactivate()
+        return WarehouseResult.from(warehouseRepository.save(warehouse))
     }
 
     @Transactional(readOnly = true)
-    override fun getById(warehouseId: Long): Mono<WarehouseResult> {
-        return findWarehouseOrThrow(warehouseId).map { WarehouseResult.from(it) }
+    override suspend fun getById(warehouseId: Long): WarehouseResult {
+        return WarehouseResult.from(findWarehouseOrThrow(warehouseId))
     }
 
-    private fun findWarehouseOrThrow(warehouseId: Long): Mono<Warehouse> {
-        return warehouseRepository.findById(warehouseId)
-            .switchIfEmpty(Mono.error(WarehouseNotFoundException()))
+    private suspend fun findWarehouseOrThrow(warehouseId: Long): Warehouse {
+        return warehouseRepository.findById(warehouseId) ?: throw WarehouseNotFoundException()
     }
 }

@@ -73,8 +73,6 @@ import org.mockito.kotlin.any
 import org.mockito.kotlin.never
 import org.mockito.kotlin.verify
 import org.mockito.kotlin.whenever
-import reactor.core.publisher.Flux
-import reactor.core.publisher.Mono
 
 @ExtendWith(MockitoExtension::class)
 class InboundServiceTest {
@@ -161,9 +159,9 @@ class InboundServiceTest {
             )
             whenever(getProductUseCase.getById(100L)).thenReturn(productResult(100L, ProductCategory.BEAN))
             whenever(getZoneUseCase.getByWarehouseIdAndZoneCode(1L, ZoneCode.A))
-                .thenReturn(Mono.just(zoneResult(10L, ZoneCode.A)))
+                .thenReturn(zoneResult(10L, ZoneCode.A))
             whenever(getLocationUseCase.getByZoneId(10L))
-                .thenReturn(Flux.just(locationResult(1L, 10L, 70, 10)))
+                .thenReturn(flowOf(locationResult(1L, 10L, 70, 10)))
             val savedInbound: Inbound = inbound().inboundId(1L).status(InboundStatus.WAITING).build()
             whenever(inboundRepository.save(any())).thenReturn(savedInbound)
 
@@ -183,9 +181,9 @@ class InboundServiceTest {
             )
             whenever(getProductUseCase.getById(100L)).thenReturn(productResult(100L, ProductCategory.BEAN))
             whenever(getZoneUseCase.getByWarehouseIdAndZoneCode(1L, ZoneCode.A))
-                .thenReturn(Mono.just(zoneResult(10L, ZoneCode.A)))
+                .thenReturn(zoneResult(10L, ZoneCode.A))
             whenever(getLocationUseCase.getByZoneId(10L))
-                .thenReturn(Flux.just(locationResult(1L, 10L, 70, 10)))
+                .thenReturn(flowOf(locationResult(1L, 10L, 70, 10)))
 
             assertThatThrownBy { runBlocking { inboundService.register(command) } }
                 .isInstanceOf(InsufficientZoneCapacityException::class.java)
@@ -203,8 +201,8 @@ class InboundServiceTest {
             whenever(inboundItemRepository.findAllByInboundId(1L))
                 .thenReturn(flowOf(inboundItem().inboundItemId(1L).inboundId(1L).expectedQuantity(30).build()))
             whenever(getWorkAreaUseCase.getByWarehouseIdAndAreaCode(1L, AreaCode.INBOUND))
-                .thenReturn(Mono.just(workAreaResult(0)))
-            whenever(occupyWorkAreaUseCase.occupy(any())).thenReturn(Mono.just(workAreaResult(30)))
+                .thenReturn(workAreaResult(0))
+            whenever(occupyWorkAreaUseCase.occupy(any())).thenReturn(workAreaResult(30))
             whenever(inboundRepository.save(any())).thenAnswer { it.getArgument(0) }
 
             val result = inboundService.startProcessing(1L)
@@ -238,13 +236,13 @@ class InboundServiceTest {
             val registeredLot = LotResult(500L, "LOT-1", 100L, null, null, LotStatus.NORMAL)
             whenever(registerLotUseCase.register(any())).thenReturn(registeredLot)
             whenever(getLocationUseCase.getByZoneId(10L))
-                .thenReturn(Flux.just(locationResult(1L, 10L, 70, 10)))
-            whenever(occupyLocationUseCase.occupy(any())).thenReturn(Mono.just(locationResult(1L, 10L, 70, 40)))
+                .thenReturn(flowOf(locationResult(1L, 10L, 70, 10)))
+            whenever(occupyLocationUseCase.occupy(any())).thenReturn(locationResult(1L, 10L, 70, 40))
             whenever(registerInventoryUseCase.register(any()))
                 .thenReturn(InventoryResult(1L, 100L, 500L, 1L, 30, 0, 30, QualityStatus.NORMAL))
             whenever(getWorkAreaUseCase.getByWarehouseIdAndAreaCode(1L, AreaCode.INBOUND))
-                .thenReturn(Mono.just(workAreaResult(30)))
-            whenever(releaseWorkAreaUseCase.release(any())).thenReturn(Mono.just(workAreaResult(0)))
+                .thenReturn(workAreaResult(30))
+            whenever(releaseWorkAreaUseCase.release(any())).thenReturn(workAreaResult(0))
             whenever(inboundRepository.save(any())).thenAnswer { it.getArgument(0) }
 
             val command = CompleteInboundCommand(1L, listOf(LotAssignmentCommand(1L, "LOT-1", null, null)))
@@ -294,8 +292,8 @@ class InboundServiceTest {
             val registeredLot = LotResult(500L, "LOT-1", 100L, null, null, LotStatus.NORMAL)
             whenever(registerLotUseCase.register(any())).thenReturn(registeredLot)
             whenever(getLocationUseCase.getByZoneId(10L))
-                .thenReturn(Flux.just(locationResult(1L, 10L, 70, 10)))
-            whenever(occupyLocationUseCase.occupy(any())).thenReturn(Mono.just(locationResult(1L, 10L, 70, 40)))
+                .thenReturn(flowOf(locationResult(1L, 10L, 70, 10)))
+            whenever(occupyLocationUseCase.occupy(any())).thenReturn(locationResult(1L, 10L, 70, 40))
             val registeredInventory = InventoryResult(1L, 100L, 500L, 1L, 30, 0, 30, QualityStatus.NORMAL)
             whenever(registerInventoryUseCase.register(any())).thenReturn(registeredInventory)
             whenever(markInventoryDefectiveUseCase.markDefective(1L))
@@ -303,8 +301,8 @@ class InboundServiceTest {
             whenever(registerDisposalUseCase.register(any()))
                 .thenReturn(DisposalResult(900L, 1L, DisposalStatus.REQUESTED))
             whenever(getWorkAreaUseCase.getByWarehouseIdAndAreaCode(1L, AreaCode.INBOUND))
-                .thenReturn(Mono.just(workAreaResult(30)))
-            whenever(releaseWorkAreaUseCase.release(any())).thenReturn(Mono.just(workAreaResult(0)))
+                .thenReturn(workAreaResult(30))
+            whenever(releaseWorkAreaUseCase.release(any())).thenReturn(workAreaResult(0))
             whenever(inboundRepository.save(any())).thenAnswer { it.getArgument(0) }
 
             val command = CompleteInboundCommand(1L, listOf(LotAssignmentCommand(1L, "LOT-1", null, null)))

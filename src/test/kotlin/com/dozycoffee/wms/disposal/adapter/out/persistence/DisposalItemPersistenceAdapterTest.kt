@@ -103,27 +103,19 @@ class DisposalItemPersistenceAdapterTest {
             inventoryR2dbcRepository.deleteAll()
             lotR2dbcRepository.deleteAll()
             productR2dbcRepository.deleteAll()
+            locationR2dbcRepository.deleteAll()
+            zoneR2dbcRepository.deleteAll()
+            warehouseR2dbcRepository.deleteAll()
         }
-        locationR2dbcRepository.deleteAll().block()
-        zoneR2dbcRepository.deleteAll().block()
-        warehouseR2dbcRepository.deleteAll().block()
     }
 
-    private fun createWarehouseId(): Long {
-        return requireNotNull(
-            warehousePersistenceAdapter.save(warehouse().build()).map { requireNotNull(it.warehouseId) }.block()
-        )
+    private suspend fun createWarehouseId(): Long {
+        return requireNotNull(warehousePersistenceAdapter.save(warehouse().build()).warehouseId)
     }
 
-    private fun createLocationId(warehouseId: Long): Long {
-        val zoneId: Long = requireNotNull(
-            zonePersistenceAdapter.save(zone().warehouseId(warehouseId).build())
-                .map { requireNotNull(it.zoneId) }.block()
-        )
-        return requireNotNull(
-            locationPersistenceAdapter.save(location().zoneId(zoneId).build())
-                .map { requireNotNull(it.locationId) }.block()
-        )
+    private suspend fun createLocationId(warehouseId: Long): Long {
+        val zoneId: Long = requireNotNull(zonePersistenceAdapter.save(zone().warehouseId(warehouseId).build()).zoneId)
+        return requireNotNull(locationPersistenceAdapter.save(location().zoneId(zoneId).build()).locationId)
     }
 
     private var productSequence = 0

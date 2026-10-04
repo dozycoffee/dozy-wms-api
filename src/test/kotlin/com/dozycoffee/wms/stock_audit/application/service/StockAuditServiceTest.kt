@@ -58,8 +58,6 @@ import org.mockito.kotlin.any
 import org.mockito.kotlin.argumentCaptor
 import org.mockito.kotlin.verify
 import org.mockito.kotlin.whenever
-import reactor.core.publisher.Flux
-import reactor.core.publisher.Mono
 
 @ExtendWith(MockitoExtension::class)
 class StockAuditServiceTest {
@@ -136,7 +134,7 @@ class StockAuditServiceTest {
 
         @Test
         fun `Zone이 요청한 창고에 속하지 않으면 예외를 던지고 저장하지 않는다`() = runTest {
-            whenever(getZoneUseCase.getById(10L)).thenReturn(Mono.just(zoneResult(10L, 2L)))
+            whenever(getZoneUseCase.getById(10L)).thenReturn(zoneResult(10L, 2L))
 
             assertThatThrownBy { runBlocking { stockAuditService.register(RegisterStockAuditCommand(1L, 10L)) } }
                 .isInstanceOf(StockAuditZoneWarehouseMismatchException::class.java)
@@ -146,11 +144,11 @@ class StockAuditServiceTest {
         @Test
         fun `대상 Zone의 모든 Location에 속한 재고를 스냅샷으로 등록한다`() = runTest {
             val command = RegisterStockAuditCommand(1L, 10L)
-            whenever(getZoneUseCase.getById(10L)).thenReturn(Mono.just(zoneResult(10L, 1L)))
+            whenever(getZoneUseCase.getById(10L)).thenReturn(zoneResult(10L, 1L))
             val savedAudit: StockAudit = stockAudit().stockAuditId(1L).warehouseId(1L).zoneId(10L).build()
             whenever(stockAuditRepository.save(any())).thenReturn(savedAudit)
             whenever(getLocationUseCase.getByZoneId(10L))
-                .thenReturn(Flux.just(locationResult(100L, 10L), locationResult(200L, 10L)))
+                .thenReturn(flowOf(locationResult(100L, 10L), locationResult(200L, 10L)))
             whenever(getInventoryUseCase.getAll(100L, null, null, null, null))
                 .thenReturn(flowOf(inventoryResult(1L, 20, 100L)))
             whenever(getInventoryUseCase.getAll(200L, null, null, null, null))
@@ -268,7 +266,7 @@ class StockAuditServiceTest {
             whenever(stockAuditItemRepository.findAllByStockAuditId(1L)).thenReturn(flowOf(item))
             whenever(getInventoryUseCase.getById(50L)).thenReturn(inventoryResult(50L, 20, 100L))
             whenever(adjustInventoryQuantityUseCase.adjust(50L, 15, 10L)).thenReturn(inventoryResult(50L, 15, 100L))
-            whenever(releaseLocationUseCase.release(any())).thenReturn(Mono.just(locationResult(100L, 1L)))
+            whenever(releaseLocationUseCase.release(any())).thenReturn(locationResult(100L, 1L))
             whenever(stockAuditRepository.save(any())).thenAnswer { it.getArgument(0) }
 
             val result = stockAuditService.close(1L)
@@ -288,7 +286,7 @@ class StockAuditServiceTest {
             whenever(stockAuditItemRepository.findAllByStockAuditId(1L)).thenReturn(flowOf(item))
             whenever(getInventoryUseCase.getById(50L)).thenReturn(inventoryResult(50L, 20, 100L))
             whenever(adjustInventoryQuantityUseCase.adjust(50L, 15, 10L)).thenReturn(inventoryResult(50L, 15, 100L))
-            whenever(releaseLocationUseCase.release(any())).thenReturn(Mono.just(locationResult(100L, 1L)))
+            whenever(releaseLocationUseCase.release(any())).thenReturn(locationResult(100L, 1L))
             whenever(stockAuditRepository.save(any())).thenAnswer { it.getArgument(0) }
 
             stockAuditService.close(1L)
@@ -307,7 +305,7 @@ class StockAuditServiceTest {
             whenever(stockAuditItemRepository.findAllByStockAuditId(1L)).thenReturn(flowOf(item))
             whenever(getInventoryUseCase.getById(50L)).thenReturn(inventoryResult(50L, 20, 100L))
             whenever(adjustInventoryQuantityUseCase.adjust(50L, 24, 10L)).thenReturn(inventoryResult(50L, 24, 100L))
-            whenever(occupyLocationUseCase.occupy(any())).thenReturn(Mono.just(locationResult(100L, 1L)))
+            whenever(occupyLocationUseCase.occupy(any())).thenReturn(locationResult(100L, 1L))
             whenever(stockAuditRepository.save(any())).thenAnswer { it.getArgument(0) }
 
             stockAuditService.close(1L)
@@ -326,7 +324,7 @@ class StockAuditServiceTest {
             whenever(stockAuditItemRepository.findAllByStockAuditId(1L)).thenReturn(flowOf(item))
             whenever(getInventoryUseCase.getById(50L)).thenReturn(inventoryResult(50L, 20, 100L))
             whenever(adjustInventoryQuantityUseCase.adjust(50L, 24, 10L)).thenReturn(inventoryResult(50L, 24, 100L))
-            whenever(occupyLocationUseCase.occupy(any())).thenReturn(Mono.error(LocationCapacityExceededException()))
+            whenever(occupyLocationUseCase.occupy(any())).thenThrow(LocationCapacityExceededException())
 
             assertThatThrownBy { runBlocking { stockAuditService.close(1L) } }
                 .isInstanceOf(LocationCapacityExceededException::class.java)
@@ -375,7 +373,7 @@ class StockAuditServiceTest {
             whenever(stockAuditItemRepository.findAllByStockAuditId(1L)).thenReturn(flowOf(item))
             whenever(getInventoryUseCase.getById(50L)).thenReturn(inventoryResult(50L, 30, 100L))
             whenever(adjustInventoryQuantityUseCase.adjust(50L, 15, 10L)).thenReturn(inventoryResult(50L, 15, 100L))
-            whenever(releaseLocationUseCase.release(any())).thenReturn(Mono.just(locationResult(100L, 1L)))
+            whenever(releaseLocationUseCase.release(any())).thenReturn(locationResult(100L, 1L))
             whenever(stockAuditRepository.save(any())).thenAnswer { it.getArgument(0) }
 
             actor = UserActor(ADMIN_ID, setOf("warehouse_admin"))
@@ -413,7 +411,7 @@ class StockAuditServiceTest {
             whenever(stockAuditItemRepository.findAllByStockAuditId(1L)).thenReturn(flowOf(item))
             whenever(getInventoryUseCase.getById(50L)).thenReturn(inventoryResult(50L, 20, 100L))
             whenever(adjustInventoryQuantityUseCase.adjust(50L, 15, 10L)).thenReturn(inventoryResult(50L, 15, 100L))
-            whenever(releaseLocationUseCase.release(any())).thenReturn(Mono.just(locationResult(100L, 1L)))
+            whenever(releaseLocationUseCase.release(any())).thenReturn(locationResult(100L, 1L))
             whenever(stockAuditRepository.save(any())).thenAnswer { it.getArgument(0) }
             actor = UserActor(ADMIN_ID, setOf("warehouse_admin"))
 

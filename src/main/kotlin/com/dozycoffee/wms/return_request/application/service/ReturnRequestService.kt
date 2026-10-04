@@ -46,7 +46,6 @@ import com.dozycoffee.wms.warehouse.domain.enumeration.ZoneCode
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.toList
-import kotlinx.coroutines.reactive.awaitSingle
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
 
@@ -95,8 +94,8 @@ class ReturnRequestService(
         val totalExpectedQuantity = returnItemRepository.findAllByReturnRequestId(returnRequestId).toList()
             .sumOf { it.expectedQuantity }
 
-        val workArea = getWorkAreaUseCase.getByWarehouseIdAndAreaCode(returnRequest.warehouseId, AreaCode.RETURN).awaitSingle()
-        occupyWorkAreaUseCase.occupy(OccupyWorkAreaCommand(workArea.workAreaId, totalExpectedQuantity)).awaitSingle()
+        val workArea = getWorkAreaUseCase.getByWarehouseIdAndAreaCode(returnRequest.warehouseId, AreaCode.RETURN)
+        occupyWorkAreaUseCase.occupy(OccupyWorkAreaCommand(workArea.workAreaId, totalExpectedQuantity))
 
         returnRequest.startInspecting()
         return ReturnRequestResult.from(returnRequestRepository.save(returnRequest))
@@ -139,8 +138,8 @@ class ReturnRequestService(
         }
 
         val totalExpectedQuantity = items.sumOf { it.expectedQuantity }
-        val workArea = getWorkAreaUseCase.getByWarehouseIdAndAreaCode(returnRequest.warehouseId, AreaCode.RETURN).awaitSingle()
-        releaseWorkAreaUseCase.release(ReleaseWorkAreaCommand(workArea.workAreaId, totalExpectedQuantity)).awaitSingle()
+        val workArea = getWorkAreaUseCase.getByWarehouseIdAndAreaCode(returnRequest.warehouseId, AreaCode.RETURN)
+        releaseWorkAreaUseCase.release(ReleaseWorkAreaCommand(workArea.workAreaId, totalExpectedQuantity))
 
         returnRequest.complete()
         return ReturnRequestResult.from(returnRequestRepository.save(returnRequest))
@@ -175,10 +174,10 @@ class ReturnRequestService(
     private suspend fun distributeToLocations(warehouseId: Long, item: ReturnItem, lotId: Long): List<InventoryResult> {
         val product = getProductUseCase.getById(item.productId)
         val zoneCode = ZoneCode.valueOf(product.category.zoneCode)
-        val zone = getZoneUseCase.getByWarehouseIdAndZoneCode(warehouseId, zoneCode).awaitSingle()
+        val zone = getZoneUseCase.getByWarehouseIdAndZoneCode(warehouseId, zoneCode)
 
         var remainingQuantity = requireNotNull(item.actualQuantity)
-        val locations = getLocationUseCase.getByZoneId(zone.zoneId).collectList().awaitSingle()
+        val locations = getLocationUseCase.getByZoneId(zone.zoneId).toList()
             .sortedByDescending { it.maxCapacity - it.usedCapacity }
 
         val registeredInventories = mutableListOf<InventoryResult>()
@@ -188,7 +187,7 @@ class ReturnRequestService(
             if (availableCapacity <= 0) continue
 
             val allocatedQuantity = minOf(availableCapacity, remainingQuantity)
-            occupyLocationUseCase.occupy(OccupyLocationCommand(location.locationId, allocatedQuantity)).awaitSingle()
+            occupyLocationUseCase.occupy(OccupyLocationCommand(location.locationId, allocatedQuantity))
             registeredInventories.add(
                 registerInventoryUseCase.register(
                     RegisterInventoryCommand(lotId, location.locationId, allocatedQuantity, requireNotNull(item.returnItemId))

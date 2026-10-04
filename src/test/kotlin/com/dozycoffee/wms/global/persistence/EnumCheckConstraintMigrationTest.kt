@@ -17,7 +17,6 @@ import com.dozycoffee.wms.return_request.domain.enumeration.ReturnRequestStatus
 import com.dozycoffee.wms.stock_audit.domain.enumeration.StockAuditStatus
 import com.dozycoffee.wms.support.SystemActorProvider
 import com.dozycoffee.wms.warehouse.domain.enumeration.AvailabilityStatus
-import kotlinx.coroutines.reactive.awaitFirstOrNull
 import kotlinx.coroutines.runBlocking
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.DynamicTest
@@ -27,6 +26,7 @@ import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.data.r2dbc.test.autoconfigure.DataR2dbcTest
 import org.springframework.context.annotation.Import
 import org.springframework.r2dbc.core.DatabaseClient
+import org.springframework.r2dbc.core.awaitOneOrNull
 
 @DataR2dbcTest
 @Import(SystemActorProvider::class)
@@ -51,7 +51,7 @@ class EnumCheckConstraintMigrationTest {
         val count: Long = databaseClient.sql(
             "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = DATABASE() AND table_name = 'common_code'"
         ).map { row -> row.get(0, Number::class.java)?.toLong() ?: -1L }
-            .one().awaitFirstOrNull() ?: -1L
+            .awaitOneOrNull() ?: -1L
         assertThat(count).isZero()
     }
 
@@ -60,7 +60,7 @@ class EnumCheckConstraintMigrationTest {
             "SELECT check_clause FROM information_schema.check_constraints WHERE constraint_schema = DATABASE() AND constraint_name = :name"
         ).bind("name", constraintName)
             .map { row -> row.get(0, String::class.java) ?: "" }
-            .one().awaitFirstOrNull() ?: error("CHECK 제약이 없다: $constraintName")
+            .awaitOneOrNull() ?: error("CHECK 제약이 없다: $constraintName")
         return Regex("[A-Z][A-Z_]*[A-Z]").findAll(clause).map { it.value }.toSet()
     }
 

@@ -22,7 +22,6 @@ import org.mockito.kotlin.any
 import org.mockito.kotlin.never
 import org.mockito.kotlin.verify
 import org.mockito.kotlin.whenever
-import reactor.core.publisher.Mono
 import java.util.UUID
 
 @ExtendWith(MockitoExtension::class)
@@ -46,7 +45,7 @@ class WarehouseMemberServiceTest {
 
         @Test
         fun `배정이 없으면 새로 저장한다`() = runTest {
-            whenever(getWarehouseUseCase.getById(1L)).thenReturn(Mono.just(warehouseResult()))
+            whenever(getWarehouseUseCase.getById(1L)).thenReturn(warehouseResult())
             whenever(warehouseMemberRepository.findByWarehouseIdAndPrincipalId(1L, principalId)).thenReturn(null)
             whenever(warehouseMemberRepository.save(any()))
                 .thenReturn(WarehouseMember.reconstitute(10L, 1L, principalId))
@@ -60,7 +59,7 @@ class WarehouseMemberServiceTest {
 
         @Test
         fun `이미 배정돼 있으면 저장하지 않고 기존 배정을 반환한다`() = runTest {
-            whenever(getWarehouseUseCase.getById(1L)).thenReturn(Mono.just(warehouseResult()))
+            whenever(getWarehouseUseCase.getById(1L)).thenReturn(warehouseResult())
             whenever(warehouseMemberRepository.findByWarehouseIdAndPrincipalId(1L, principalId))
                 .thenReturn(WarehouseMember.reconstitute(10L, 1L, principalId))
 
@@ -72,7 +71,7 @@ class WarehouseMemberServiceTest {
 
         @Test
         fun `존재하지 않는 창고에는 배정할 수 없다`() = runTest {
-            whenever(getWarehouseUseCase.getById(1L)).thenReturn(Mono.error(WarehouseNotFoundException()))
+            whenever(getWarehouseUseCase.getById(1L)).thenThrow(WarehouseNotFoundException())
 
             assertThatThrownBy { runBlocking { service.assign(1L, principalId) } }
                 .isInstanceOf(WarehouseNotFoundException::class.java)

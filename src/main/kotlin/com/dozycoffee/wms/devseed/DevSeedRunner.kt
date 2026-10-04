@@ -1,6 +1,5 @@
 package com.dozycoffee.wms.devseed
 
-import kotlinx.coroutines.reactive.awaitSingle
 import kotlinx.coroutines.runBlocking
 import org.slf4j.LoggerFactory
 import org.springframework.boot.ApplicationArguments
@@ -8,6 +7,7 @@ import org.springframework.boot.ApplicationRunner
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty
 import org.springframework.context.annotation.Profile
 import org.springframework.r2dbc.core.DatabaseClient
+import org.springframework.r2dbc.core.awaitOne
 import org.springframework.stereotype.Component
 import org.springframework.transaction.reactive.TransactionalOperator
 import org.springframework.transaction.reactive.executeAndAwait
@@ -61,8 +61,7 @@ internal class DevSeedRunner(
     private suspend fun isAlreadySeeded(): Boolean {
         val warehouseCount: Long = databaseClient.sql("SELECT COUNT(*) FROM warehouse")
             .map { row -> row.get(0, Number::class.java)?.toLong() ?: 0L }
-            .one()
-            .awaitSingle()
+            .awaitOne()
         return warehouseCount > 0
     }
 

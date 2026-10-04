@@ -11,15 +11,15 @@ import com.dozycoffee.wms.warehouse.application.port.`in`.result.WorkAreaResult
 import com.dozycoffee.wms.warehouse.domain.enumeration.AreaCode
 import com.dozycoffee.wms.warehouse.domain.enumeration.AvailabilityStatus
 import com.dozycoffee.wms.warehouse.domain.exception.WorkAreaCapacityExceededException
+import kotlinx.coroutines.runBlocking
 import org.junit.jupiter.api.Nested
 import org.junit.jupiter.api.Test
+import org.mockito.kotlin.whenever
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.webflux.test.autoconfigure.WebFluxTest
 import org.springframework.test.context.bean.override.mockito.MockitoBean
 import org.springframework.test.web.reactive.server.WebTestClient
-import reactor.core.publisher.Mono
 import org.mockito.kotlin.any
-import org.mockito.Mockito.`when`
 
 @WithDozyPrincipal(roles = ["wms:warehouse_admin"])
 @WebFluxTest(WorkAreaController::class)
@@ -49,7 +49,7 @@ class WorkAreaControllerTest {
 
         @Test
         fun `유효한 요청이면 201과 등록된 작업구역을 반환한다`() {
-            `when`(registerWorkAreaUseCase.register(any())).thenReturn(Mono.just(sampleResult(0)))
+            runBlocking { whenever(registerWorkAreaUseCase.register(any())).thenReturn(sampleResult(0)) }
 
             webTestClient.post().uri("/api/warehouses/{warehouseId}/work-areas", 1L)
                 .bodyValue(RegisterWorkAreaRequest(AreaCode.INBOUND))
@@ -65,7 +65,7 @@ class WorkAreaControllerTest {
 
         @Test
         fun `존재하면 200을 반환한다`() {
-            `when`(getWorkAreaUseCase.getById(1L)).thenReturn(Mono.just(sampleResult(0)))
+            runBlocking { whenever(getWorkAreaUseCase.getById(1L)).thenReturn(sampleResult(0)) }
 
             webTestClient.get().uri("/api/work-areas/{workAreaId}", 1L)
                 .exchange()
@@ -78,7 +78,7 @@ class WorkAreaControllerTest {
 
         @Test
         fun `점유 요청이 유효하면 200과 증가한 점유량을 반환한다`() {
-            `when`(occupyWorkAreaUseCase.occupy(any())).thenReturn(Mono.just(sampleResult(10)))
+            runBlocking { whenever(occupyWorkAreaUseCase.occupy(any())).thenReturn(sampleResult(10)) }
 
             webTestClient.patch().uri("/api/work-areas/{workAreaId}/occupy", 1L)
                 .bodyValue(AmountRequest(10))
@@ -98,7 +98,7 @@ class WorkAreaControllerTest {
 
         @Test
         fun `최대 용량을 초과하는 점유 요청이면 409를 반환한다`() {
-            `when`(occupyWorkAreaUseCase.occupy(any())).thenReturn(Mono.error(WorkAreaCapacityExceededException()))
+            runBlocking { whenever(occupyWorkAreaUseCase.occupy(any())).thenThrow(WorkAreaCapacityExceededException()) }
 
             webTestClient.patch().uri("/api/work-areas/{workAreaId}/occupy", 1L)
                 .bodyValue(AmountRequest(100))
@@ -108,7 +108,7 @@ class WorkAreaControllerTest {
 
         @Test
         fun `반출 요청이 유효하면 200과 감소한 점유량을 반환한다`() {
-            `when`(releaseWorkAreaUseCase.release(any())).thenReturn(Mono.just(sampleResult(5)))
+            runBlocking { whenever(releaseWorkAreaUseCase.release(any())).thenReturn(sampleResult(5)) }
 
             webTestClient.patch().uri("/api/work-areas/{workAreaId}/release", 1L)
                 .bodyValue(AmountRequest(5))
@@ -124,7 +124,7 @@ class WorkAreaControllerTest {
 
         @Test
         fun `존재하면 200과 작업구역 정보를 반환한다`() {
-            `when`(getWorkAreaUseCase.getByWarehouseIdAndAreaCode(1L, AreaCode.INBOUND)).thenReturn(Mono.just(sampleResult(0)))
+            runBlocking { whenever(getWorkAreaUseCase.getByWarehouseIdAndAreaCode(1L, AreaCode.INBOUND)).thenReturn(sampleResult(0)) }
 
             webTestClient.get().uri("/api/warehouses/{warehouseId}/work-areas/{areaCode}", 1L, "INBOUND")
                 .exchange()

@@ -4,32 +4,30 @@ import com.dozycoffee.wms.warehouse.application.port.out.ZoneRepository
 import com.dozycoffee.wms.warehouse.domain.enumeration.ZoneCode
 import com.dozycoffee.wms.warehouse.domain.model.Zone
 import org.springframework.stereotype.Component
-import reactor.core.publisher.Mono
 
 @Component
 class ZonePersistenceAdapter(
     private val zoneR2dbcRepository: ZoneR2dbcRepository
 ) : ZoneRepository {
 
-    override fun save(zone: Zone): Mono<Zone> {
+    override suspend fun save(zone: Zone): Zone {
         val entity = ZoneEntity.from(zone)
         val zoneId = zone.zoneId
-            ?: return zoneR2dbcRepository.save(entity).map { it.toDomain() }
-        return zoneR2dbcRepository.findById(zoneId)
-            .doOnNext { entity.copyAuditFieldsFrom(it) }
-            .then(zoneR2dbcRepository.save(entity))
-            .map { it.toDomain() }
+        if (zoneId != null) {
+            zoneR2dbcRepository.findById(zoneId)?.let { entity.copyAuditFieldsFrom(it) }
+        }
+        return zoneR2dbcRepository.save(entity).toDomain()
     }
 
-    override fun findById(zoneId: Long): Mono<Zone> {
-        return zoneR2dbcRepository.findById(zoneId).map { it.toDomain() }
+    override suspend fun findById(zoneId: Long): Zone? {
+        return zoneR2dbcRepository.findById(zoneId)?.toDomain()
     }
 
-    override fun findByWarehouseIdAndZoneCode(warehouseId: Long, zoneCode: ZoneCode): Mono<Zone> {
-        return zoneR2dbcRepository.findByWarehouseIdAndZoneCode(warehouseId, zoneCode.name).map { it.toDomain() }
+    override suspend fun findByWarehouseIdAndZoneCode(warehouseId: Long, zoneCode: ZoneCode): Zone? {
+        return zoneR2dbcRepository.findByWarehouseIdAndZoneCode(warehouseId, zoneCode.name)?.toDomain()
     }
 
-    override fun delete(zone: Zone): Mono<Void> {
-        return zoneR2dbcRepository.delete(ZoneEntity.from(zone))
+    override suspend fun delete(zone: Zone) {
+        zoneR2dbcRepository.delete(ZoneEntity.from(zone))
     }
 }

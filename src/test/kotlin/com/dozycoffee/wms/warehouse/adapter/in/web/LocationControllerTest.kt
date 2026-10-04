@@ -11,17 +11,17 @@ import com.dozycoffee.wms.warehouse.application.port.`in`.result.LocationResult
 import com.dozycoffee.wms.warehouse.domain.enumeration.AvailabilityStatus
 import com.dozycoffee.wms.warehouse.domain.exception.InsufficientLocationCapacityException
 import com.dozycoffee.wms.warehouse.domain.exception.LocationNotFoundException
+import kotlinx.coroutines.flow.flowOf
+import kotlinx.coroutines.runBlocking
 import org.junit.jupiter.api.Nested
 import org.junit.jupiter.api.Test
+import org.mockito.kotlin.whenever
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.webflux.test.autoconfigure.WebFluxTest
 import org.springframework.test.context.bean.override.mockito.MockitoBean
 import org.springframework.test.web.reactive.server.WebTestClient
-import reactor.core.publisher.Flux
-import reactor.core.publisher.Mono
 import org.mockito.kotlin.any
 import org.mockito.kotlin.eq
-import org.mockito.Mockito.`when`
 
 @WithDozyPrincipal(roles = ["wms:warehouse_admin"])
 @WebFluxTest(LocationController::class)
@@ -51,7 +51,7 @@ class LocationControllerTest {
 
         @Test
         fun `유효한 요청이면 201과 등록된 위치를 반환한다`() {
-            `when`(registerLocationUseCase.register(any())).thenReturn(Mono.just(sampleResult(0)))
+            runBlocking { whenever(registerLocationUseCase.register(any())).thenReturn(sampleResult(0)) }
 
             webTestClient.post().uri("/api/zones/{zoneId}/locations", 1L)
                 .bodyValue(RegisterLocationRequest("A-01", 70))
@@ -75,7 +75,7 @@ class LocationControllerTest {
 
         @Test
         fun `존재하지 않으면 404를 반환한다`() {
-            `when`(getLocationUseCase.getById(eq(999L))).thenReturn(Mono.error(LocationNotFoundException()))
+            runBlocking { whenever(getLocationUseCase.getById(eq(999L))).thenThrow(LocationNotFoundException()) }
 
             webTestClient.get().uri("/api/locations/{locationId}", 999L)
                 .exchange()
@@ -88,8 +88,10 @@ class LocationControllerTest {
 
         @Test
         fun `Zone에 속한 위치 목록을 반환한다`() {
-            `when`(getLocationUseCase.getByZoneId(eq(1L)))
-                .thenReturn(Flux.just(sampleResult(0), sampleResult(10)))
+            runBlocking {
+                whenever(getLocationUseCase.getByZoneId(eq(1L)))
+                    .thenReturn(flowOf(sampleResult(0), sampleResult(10)))
+            }
 
             webTestClient.get().uri("/api/zones/{zoneId}/locations", 1L)
                 .exchange()
@@ -104,7 +106,7 @@ class LocationControllerTest {
 
         @Test
         fun `점유 요청이 유효하면 200을 반환한다`() {
-            `when`(occupyLocationUseCase.occupy(any())).thenReturn(Mono.just(sampleResult(30)))
+            runBlocking { whenever(occupyLocationUseCase.occupy(any())).thenReturn(sampleResult(30)) }
 
             webTestClient.patch().uri("/api/locations/{locationId}/occupy", 1L)
                 .bodyValue(AmountRequest(30))
@@ -116,7 +118,7 @@ class LocationControllerTest {
 
         @Test
         fun `사용량보다 많은 반출 요청이면 409를 반환한다`() {
-            `when`(releaseLocationUseCase.release(any())).thenReturn(Mono.error(InsufficientLocationCapacityException()))
+            runBlocking { whenever(releaseLocationUseCase.release(any())).thenThrow(InsufficientLocationCapacityException()) }
 
             webTestClient.patch().uri("/api/locations/{locationId}/release", 1L)
                 .bodyValue(AmountRequest(100))

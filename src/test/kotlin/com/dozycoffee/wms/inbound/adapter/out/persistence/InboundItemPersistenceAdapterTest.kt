@@ -71,21 +71,17 @@ class InboundItemPersistenceAdapterTest {
             inboundItemR2dbcRepository.deleteAll()
             inboundR2dbcRepository.deleteAll()
             productR2dbcRepository.deleteAll()
+            zoneR2dbcRepository.deleteAll()
+            warehouseR2dbcRepository.deleteAll()
         }
-        zoneR2dbcRepository.deleteAll().block()
-        warehouseR2dbcRepository.deleteAll().block()
     }
 
-    private fun createWarehouseId(): Long {
-        return requireNotNull(
-            warehousePersistenceAdapter.save(warehouse().build()).map { requireNotNull(it.warehouseId) }.block()
-        )
+    private suspend fun createWarehouseId(): Long {
+        return requireNotNull(warehousePersistenceAdapter.save(warehouse().build()).warehouseId)
     }
 
-    private fun createZoneId(warehouseId: Long): Long {
-        return requireNotNull(
-            zonePersistenceAdapter.save(zone().warehouseId(warehouseId).build()).map { requireNotNull(it.zoneId) }.block()
-        )
+    private suspend fun createZoneId(warehouseId: Long): Long {
+        return requireNotNull(zonePersistenceAdapter.save(zone().warehouseId(warehouseId).build()).zoneId)
     }
 
     private suspend fun createProductId(): Long {

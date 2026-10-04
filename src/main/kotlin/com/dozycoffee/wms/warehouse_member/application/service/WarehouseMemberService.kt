@@ -10,7 +10,6 @@ import com.dozycoffee.wms.warehouse_member.domain.exception.WarehouseMemberNotFo
 import com.dozycoffee.wms.warehouse_member.domain.model.WarehouseMember
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
-import kotlinx.coroutines.reactive.awaitSingle
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
 import java.util.UUID
@@ -23,7 +22,7 @@ class WarehouseMemberService(
 
     @Transactional
     override suspend fun assign(warehouseId: Long, principalId: UUID): WarehouseMemberResult {
-        getWarehouseUseCase.getById(warehouseId).awaitSingle()
+        getWarehouseUseCase.getById(warehouseId)
         val member = warehouseMemberRepository.findByWarehouseIdAndPrincipalId(warehouseId, principalId)
             ?: warehouseMemberRepository.save(WarehouseMember.create(warehouseId, principalId))
         return WarehouseMemberResult.from(member)
