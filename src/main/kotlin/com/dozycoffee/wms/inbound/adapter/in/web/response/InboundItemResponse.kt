@@ -1,7 +1,8 @@
 package com.dozycoffee.wms.inbound.adapter.`in`.web.response
 
 import com.dozycoffee.wms.inbound.application.port.`in`.result.InboundItemResult
-import com.dozycoffee.wms.inbound.domain.enumeration.InspectionResult
+import com.dozycoffee.wms.inbound.domain.enumeration.InspectionStatus
+import java.time.LocalDate
 
 data class InboundItemResponse(
     val inboundItemId: Long,
@@ -9,9 +10,12 @@ data class InboundItemResponse(
     val productId: Long,
     val zoneId: Long,
     val expectedQuantity: Int,
+    val expectedLotNumber: String?,
+    val expectedExpirationDate: LocalDate?,
     val actualQuantity: Int?,
-    val inspectionResult: InspectionResult,
-    val quantityDiscrepancy: Int?
+    val inspectionStatus: InspectionStatus,
+    val quantityDiscrepancy: Int?,
+    val receipts: List<InboundReceiptResponse>
 ) {
     companion object {
         fun from(result: InboundItemResult): InboundItemResponse {
@@ -21,9 +25,12 @@ data class InboundItemResponse(
                 result.productId,
                 result.zoneId,
                 result.expectedQuantity,
+                result.expectedLotNumber,
+                result.expectedExpirationDate,
                 result.actualQuantity,
-                result.inspectionResult,
-                result.quantityDiscrepancy
+                result.inspectionStatus,
+                result.quantityDiscrepancy,
+                result.receipts.map { InboundReceiptResponse.from(it) }
             )
         }
     }

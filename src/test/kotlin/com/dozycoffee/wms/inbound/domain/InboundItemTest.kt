@@ -1,19 +1,23 @@
 package com.dozycoffee.wms.inbound.domain
 
 import com.dozycoffee.wms.global.error.InvalidDomainValueException
-import com.dozycoffee.wms.inbound.domain.enumeration.InspectionResult
+import com.dozycoffee.wms.inbound.domain.enumeration.DefectReason
+import com.dozycoffee.wms.inbound.domain.enumeration.InspectionStatus
 import com.dozycoffee.wms.inbound.domain.exception.InboundItemAlreadyInspectedException
 import com.dozycoffee.wms.inbound.domain.exception.InboundItemErrorCode
-import com.dozycoffee.wms.inbound.domain.exception.InvalidActualQuantityException
-import com.dozycoffee.wms.inbound.domain.exception.InvalidInspectionResultException
+import com.dozycoffee.wms.inbound.domain.exception.InboundOverReceivedException
+import com.dozycoffee.wms.inbound.domain.exception.InboundReceiptErrorCode
+import com.dozycoffee.wms.inbound.domain.exception.LotExpirationConflictException
 import com.dozycoffee.wms.inbound.domain.model.InboundItem
 import com.dozycoffee.wms.inbound.fixture.InboundItemTestBuilder.Companion.inboundItem
+import com.dozycoffee.wms.inbound.fixture.InboundReceiptTestBuilder.Companion.inboundReceipt
 import org.assertj.core.api.Assertions.assertThat
 import org.assertj.core.api.Assertions.assertThatThrownBy
 import org.junit.jupiter.api.Nested
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.ValueSource
+import java.time.LocalDate
 
 class InboundItemTest {
 
@@ -29,8 +33,18 @@ class InboundItemTest {
             assertThat(item.zoneId).isEqualTo(1L)
             assertThat(item.expectedQuantity).isEqualTo(10)
             assertThat(item.actualQuantity).isNull()
-            assertThat(item.inspectionResult).isEqualTo(InspectionResult.PENDING)
+            assertThat(item.inspectionStatus).isEqualTo(InspectionStatus.PENDING)
             assertThat(item.quantityDiscrepancy).isNull()
+        }
+
+        @Test
+        fun `예정 로트 정보는 선택이며 공백 로트 번호는 없는 것으로 본다`() {
+            val withLot: InboundItem = inboundItem().expectedLotNumber("LOT-9").expectedExpirationDate(LocalDate.of(2027, 1, 1)).build()
+            val blankLot: InboundItem = inboundItem().expectedLotNumber(" ").build()
+
+            assertThat(withLot.expectedLotNumber).isEqualTo("LOT-9")
+            assertThat(withLot.expectedExpirationDate).isEqualTo(LocalDate.of(2027, 1, 1))
+            assertThat(blankLot.expectedLotNumber).isNull()
         }
 
         @Test
@@ -67,16 +81,16 @@ class InboundItemTest {
     inner class 입고_상품_재구성 {
 
         @Test
-        fun `저장된 ID와 검수 결과로 입고 상품을 재구성한다`() {
+        fun `저장된 ID와 검수 상태로 입고 상품을 재구성한다`() {
             val item: InboundItem = inboundItem()
                 .inboundItemId(100L)
                 .actualQuantity(8)
-                .inspectionResult(InspectionResult.NORMAL)
+                .inspectionStatus(InspectionStatus.INSPECTED)
                 .build()
 
             assertThat(item.inboundItemId).isEqualTo(100L)
             assertThat(item.actualQuantity).isEqualTo(8)
-            assertThat(item.inspectionResult).isEqualTo(InspectionResult.NORMAL)
+            assertThat(item.inspectionStatus).isEqualTo(InspectionStatus.INSPECTED)
         }
     }
 
@@ -84,23 +98,93 @@ class InboundItemTest {
     inner class 검수 {
 
         @Test
-        fun `정상 판정 시 실제 수량과 결과가 기록된다`() {
+        fun `수령 라인 수량 합이 실제 수량으로 기록되고 검수 완료 상태가 된다`() {
             val item: InboundItem = inboundItem().inboundItemId(1L).expectedQuantity(10).build()
 
-            item.inspect(actualQuantity = 10, result = InspectionResult.NORMAL)
+            item.inspect(listOf(inboundReceipt().quantity(10).build()))
 
             assertThat(item.actualQuantity).isEqualTo(10)
-            assertThat(item.inspectionResult).isEqualTo(InspectionResult.NORMAL)
+            assertThat(item.inspectionStatus).isEqualTo(InspectionStatus.INSPECTED)
             assertThat(item.quantityDiscrepancy).isZero()
         }
 
         @Test
-        fun `실제 수량이 예정 수량과 다르면 차이가 기록된다`() {
+        fun `한 상품에 로트가 여러 개이면 수량이 합산된다`() {
             val item: InboundItem = inboundItem().inboundItemId(1L).expectedQuantity(10).build()
 
-            item.inspect(actualQuantity = 7, result = InspectionResult.DEFECTIVE)
+            item.inspect(
+                listOf(
+                    inboundReceipt().lotNumber("LOT-A").quantity(6).build(),
+                    inboundReceipt().lotNumber("LOT-B").quantity(4).build()
+                )
+            )
+
+            assertThat(item.actualQuantity).isEqualTo(10)
+        }
+
+        @Test
+        fun `같은 로트의 정상 라인과 불량 라인을 함께 기록할 수 있다`() {
+            val item: InboundItem = inboundItem().inboundItemId(1L).expectedQuantity(10).build()
+
+            item.inspect(
+                listOf(
+                    inboundReceipt().quantity(8).normal().build(),
+                    inboundReceipt().quantity(2).defective(DefectReason.DAMAGED).build()
+                )
+            )
+
+            assertThat(item.actualQuantity).isEqualTo(10)
+        }
+
+        @Test
+        fun `수령 합계가 예정 수량보다 적으면 차이가 기록된다`() {
+            val item: InboundItem = inboundItem().inboundItemId(1L).expectedQuantity(10).build()
+
+            item.inspect(listOf(inboundReceipt().quantity(7).build()))
 
             assertThat(item.quantityDiscrepancy).isEqualTo(-3)
+        }
+
+        @Test
+        fun `수령 라인이 없으면 미도착으로 수량 0이 기록된다`() {
+            val item: InboundItem = inboundItem().inboundItemId(1L).expectedQuantity(10).build()
+
+            item.inspect(emptyList())
+
+            assertThat(item.actualQuantity).isZero()
+            assertThat(item.inspectionStatus).isEqualTo(InspectionStatus.INSPECTED)
+            assertThat(item.quantityDiscrepancy).isEqualTo(-10)
+        }
+
+        @Test
+        fun `수령 합계가 예정 수량을 초과하면 예외를 던진다`() {
+            val item: InboundItem = inboundItem().inboundItemId(1L).expectedQuantity(10).build()
+
+            assertThatThrownBy {
+                item.inspect(
+                    listOf(
+                        inboundReceipt().lotNumber("LOT-A").quantity(6).build(),
+                        inboundReceipt().lotNumber("LOT-B").quantity(5).build()
+                    )
+                )
+            }
+                .isInstanceOf(InboundOverReceivedException::class.java)
+                .hasMessage(InboundReceiptErrorCode.OVER_RECEIVED.message)
+            assertThat(item.inspectionStatus).isEqualTo(InspectionStatus.PENDING)
+        }
+
+        @Test
+        fun `같은 로트 번호에 서로 다른 유통기한이 있으면 예외를 던진다`() {
+            val item: InboundItem = inboundItem().inboundItemId(1L).expectedQuantity(10).build()
+
+            assertThatThrownBy {
+                item.inspect(
+                    listOf(
+                        inboundReceipt().lotNumber("LOT-A").expirationDate(LocalDate.of(2027, 1, 1)).quantity(5).build(),
+                        inboundReceipt().lotNumber("LOT-A").expirationDate(LocalDate.of(2027, 2, 1)).quantity(5).build()
+                    )
+                )
+            }.isInstanceOf(LotExpirationConflictException::class.java)
         }
 
         @Test
@@ -108,31 +192,12 @@ class InboundItemTest {
             val item: InboundItem = inboundItem()
                 .inboundItemId(1L)
                 .actualQuantity(10)
-                .inspectionResult(InspectionResult.NORMAL)
+                .inspectionStatus(InspectionStatus.INSPECTED)
                 .build()
 
-            assertThatThrownBy { item.inspect(actualQuantity = 10, result = InspectionResult.NORMAL) }
+            assertThatThrownBy { item.inspect(listOf(inboundReceipt().build())) }
                 .isInstanceOf(InboundItemAlreadyInspectedException::class.java)
                 .hasMessage(InboundItemErrorCode.ALREADY_INSPECTED.message)
-        }
-
-        @ParameterizedTest
-        @ValueSource(ints = [-1, -10])
-        fun `실제 수량이 음수이면 예외를 던진다`(invalidQuantity: Int) {
-            val item: InboundItem = inboundItem().inboundItemId(1L).build()
-
-            assertThatThrownBy { item.inspect(actualQuantity = invalidQuantity, result = InspectionResult.NORMAL) }
-                .isInstanceOf(InvalidActualQuantityException::class.java)
-                .hasMessage(InboundItemErrorCode.INVALID_ACTUAL_QUANTITY.message)
-        }
-
-        @Test
-        fun `검수 결과로 PENDING을 전달하면 예외를 던진다`() {
-            val item: InboundItem = inboundItem().inboundItemId(1L).build()
-
-            assertThatThrownBy { item.inspect(actualQuantity = 10, result = InspectionResult.PENDING) }
-                .isInstanceOf(InvalidInspectionResultException::class.java)
-                .hasMessage(InboundItemErrorCode.INVALID_INSPECTION_RESULT.message)
         }
     }
 }

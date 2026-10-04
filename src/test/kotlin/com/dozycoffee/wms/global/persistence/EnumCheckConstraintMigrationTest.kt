@@ -3,7 +3,9 @@ package com.dozycoffee.wms.global.persistence
 import com.dozycoffee.wms.disposal.domain.enumeration.DisposalReason
 import com.dozycoffee.wms.disposal.domain.enumeration.DisposalStatus
 import com.dozycoffee.wms.inbound.domain.enumeration.InboundStatus
+import com.dozycoffee.wms.inbound.domain.enumeration.DefectReason
 import com.dozycoffee.wms.inbound.domain.enumeration.InspectionResult
+import com.dozycoffee.wms.inbound.domain.enumeration.InspectionStatus
 import com.dozycoffee.wms.inventory.domain.enumeration.AllocationReferenceType
 import com.dozycoffee.wms.inventory.domain.enumeration.AllocationStatus
 import com.dozycoffee.wms.inventory.domain.enumeration.InventoryHistoryType
@@ -79,7 +81,9 @@ class EnumCheckConstraintMigrationTest {
             ConstraintSpec("ck_allocation_reference_type", AllocationReferenceType::class.java),
             ConstraintSpec("ck_allocation_status", AllocationStatus::class.java),
             ConstraintSpec("ck_inbound_status", InboundStatus::class.java),
-            ConstraintSpec("ck_inbound_item_inspection_result", InspectionResult::class.java),
+            ConstraintSpec("ck_inbound_item_inspection_status", InspectionStatus::class.java),
+            ConstraintSpec("ck_inbound_receipt_inspection_result", InspectionResult::class.java),
+            ConstraintSpec("ck_inbound_receipt_defect_reason", DefectReason::class.java),
             ConstraintSpec("ck_outbound_status", OutboundStatus::class.java),
             ConstraintSpec("ck_return_request_status", ReturnRequestStatus::class.java),
             ConstraintSpec("ck_return_item_inspection_result", ReturnInspectionResult::class.java),

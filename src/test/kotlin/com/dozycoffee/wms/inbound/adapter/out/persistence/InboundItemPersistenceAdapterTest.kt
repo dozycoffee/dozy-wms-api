@@ -2,7 +2,7 @@ package com.dozycoffee.wms.inbound.adapter.out.persistence
 
 import com.dozycoffee.wms.global.config.R2dbcConfig
 import com.dozycoffee.wms.support.SystemActorProvider
-import com.dozycoffee.wms.inbound.domain.enumeration.InspectionResult
+import com.dozycoffee.wms.inbound.domain.enumeration.InspectionStatus
 import com.dozycoffee.wms.inbound.fixture.InboundItemTestBuilder.Companion.inboundItem
 import com.dozycoffee.wms.inbound.fixture.InboundTestBuilder.Companion.inbound
 import com.dozycoffee.wms.product.adapter.out.persistence.ProductPersistenceAdapter
@@ -14,6 +14,7 @@ import com.dozycoffee.wms.warehouse.adapter.out.persistence.ZonePersistenceAdapt
 import com.dozycoffee.wms.warehouse.adapter.out.persistence.ZoneR2dbcRepository
 import com.dozycoffee.wms.warehouse.fixture.WarehouseTestBuilder.Companion.warehouse
 import com.dozycoffee.wms.warehouse.fixture.ZoneTestBuilder.Companion.zone
+import java.time.LocalDate
 import kotlinx.coroutines.flow.toList
 import kotlinx.coroutines.test.runTest
 import org.assertj.core.api.Assertions.assertThat
@@ -110,7 +111,29 @@ class InboundItemPersistenceAdapterTest {
         assertThat(found?.productId).isEqualTo(productId)
         assertThat(found?.zoneId).isEqualTo(zoneId)
         assertThat(found?.expectedQuantity).isEqualTo(20)
-        assertThat(found?.inspectionResult).isEqualTo(InspectionResult.PENDING)
+        assertThat(found?.inspectionStatus).isEqualTo(InspectionStatus.PENDING)
+    }
+
+    @Test
+    fun `예정 로트 정보와 검수 상태가 왕복된다`() = runTest {
+        val warehouseId = createWarehouseId()
+        val zoneId = createZoneId(warehouseId)
+        val productId = createProductId()
+        val inboundId = createInboundId(warehouseId)
+        val newItem = inboundItem()
+            .inboundId(inboundId).productId(productId).zoneId(zoneId).expectedQuantity(20)
+            .expectedLotNumber("LOT-9").expectedExpirationDate(LocalDate.of(2027, 1, 1))
+            .build()
+        val saved = inboundItemPersistenceAdapter.save(newItem)
+        saved.inspect(emptyList())
+        inboundItemPersistenceAdapter.save(saved)
+
+        val found = inboundItemPersistenceAdapter.findById(requireNotNull(saved.inboundItemId))
+
+        assertThat(found?.expectedLotNumber).isEqualTo("LOT-9")
+        assertThat(found?.expectedExpirationDate).isEqualTo(LocalDate.of(2027, 1, 1))
+        assertThat(found?.actualQuantity).isZero()
+        assertThat(found?.inspectionStatus).isEqualTo(InspectionStatus.INSPECTED)
     }
 
     @Test

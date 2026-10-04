@@ -1,7 +1,8 @@
 package com.dozycoffee.wms.inbound.fixture
 
-import com.dozycoffee.wms.inbound.domain.enumeration.InspectionResult
+import com.dozycoffee.wms.inbound.domain.enumeration.InspectionStatus
 import com.dozycoffee.wms.inbound.domain.model.InboundItem
+import java.time.LocalDate
 
 class InboundItemTestBuilder {
 
@@ -11,7 +12,9 @@ class InboundItemTestBuilder {
     private var zoneId: Long? = 1L
     private var expectedQuantity: Int = 10
     private var actualQuantity: Int? = null
-    private var inspectionResult: InspectionResult = InspectionResult.PENDING
+    private var expectedLotNumber: String? = null
+    private var expectedExpirationDate: LocalDate? = null
+    private var inspectionStatus: InspectionStatus = InspectionStatus.PENDING
 
     companion object {
         fun inboundItem(): InboundItemTestBuilder = InboundItemTestBuilder()
@@ -47,8 +50,18 @@ class InboundItemTestBuilder {
         return this
     }
 
-    fun inspectionResult(inspectionResult: InspectionResult): InboundItemTestBuilder {
-        this.inspectionResult = inspectionResult
+    fun expectedLotNumber(expectedLotNumber: String?): InboundItemTestBuilder {
+        this.expectedLotNumber = expectedLotNumber
+        return this
+    }
+
+    fun expectedExpirationDate(expectedExpirationDate: LocalDate?): InboundItemTestBuilder {
+        this.expectedExpirationDate = expectedExpirationDate
+        return this
+    }
+
+    fun inspectionStatus(inspectionStatus: InspectionStatus): InboundItemTestBuilder {
+        this.inspectionStatus = inspectionStatus
         return this
     }
 
@@ -61,15 +74,19 @@ class InboundItemTestBuilder {
                 productId = requireNotNull(productId) { "productId는 재구성 시 필수입니다." },
                 zoneId = requireNotNull(zoneId) { "zoneId는 재구성 시 필수입니다." },
                 expectedQuantity = expectedQuantity,
+                expectedLotNumber = expectedLotNumber,
+                expectedExpirationDate = expectedExpirationDate,
                 actualQuantity = actualQuantity,
-                inspectionResult = inspectionResult
+                inspectionStatus = inspectionStatus
             )
         }
         return InboundItem.create(
             inboundId = inboundId,
             productId = productId,
             zoneId = zoneId,
-            expectedQuantity = expectedQuantity
+            expectedQuantity = expectedQuantity,
+            expectedLotNumber = expectedLotNumber,
+            expectedExpirationDate = expectedExpirationDate
         )
     }
 }

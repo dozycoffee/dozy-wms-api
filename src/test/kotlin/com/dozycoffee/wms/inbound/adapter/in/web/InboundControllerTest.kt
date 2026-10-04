@@ -1,8 +1,6 @@
 package com.dozycoffee.wms.inbound.adapter.`in`.web
 
 import com.dozycoffee.auth.test.WithDozyPrincipal
-import com.dozycoffee.wms.inbound.adapter.`in`.web.request.CompleteInboundRequest
-import com.dozycoffee.wms.inbound.adapter.`in`.web.request.LotAssignmentRequest
 import com.dozycoffee.wms.inbound.adapter.`in`.web.request.RegisterInboundItemRequest
 import com.dozycoffee.wms.inbound.adapter.`in`.web.request.RegisterInboundRequest
 import com.dozycoffee.wms.inbound.application.port.`in`.CompleteInboundUseCase
@@ -196,7 +194,6 @@ class InboundControllerTest {
             }
 
             webTestClient.patch().uri("/api/inbounds/{inboundId}/complete", 1L)
-                .bodyValue(CompleteInboundRequest(listOf(LotAssignmentRequest(1L, "LOT-1", null, null))))
                 .exchange()
                 .expectStatus().isOk
                 .expectBody()

@@ -10,27 +10,25 @@ import com.dozycoffee.wms.inbound.application.port.`in`.GetInboundUseCase
 import com.dozycoffee.wms.inbound.application.port.`in`.RegisterInboundUseCase
 import com.dozycoffee.wms.inbound.application.port.`in`.StartInboundProcessingUseCase
 import com.dozycoffee.wms.inbound.application.port.`in`.command.CompleteInboundCommand
-import com.dozycoffee.wms.inbound.application.port.`in`.command.LotAssignmentCommand
 import com.dozycoffee.wms.inbound.application.port.`in`.command.RegisterInboundCommand
 import com.dozycoffee.wms.inbound.application.port.`in`.result.InboundResult
 import com.dozycoffee.wms.inbound.application.port.out.InboundItemRepository
+import com.dozycoffee.wms.inbound.application.port.out.InboundReceiptRepository
 import com.dozycoffee.wms.inbound.application.port.out.InboundRepository
 import com.dozycoffee.wms.inbound.domain.enumeration.InboundStatus
+import com.dozycoffee.wms.inbound.domain.enumeration.DefectReason
 import com.dozycoffee.wms.inbound.domain.enumeration.InspectionResult
+import com.dozycoffee.wms.inbound.domain.enumeration.InspectionStatus
 import com.dozycoffee.wms.inbound.domain.exception.InboundNotFoundException
 import com.dozycoffee.wms.inbound.domain.exception.InsufficientZoneCapacityException
-import com.dozycoffee.wms.inbound.domain.exception.MissingLotAssignmentException
 import com.dozycoffee.wms.inbound.domain.exception.NotAllItemsInspectedException
 import com.dozycoffee.wms.inbound.domain.model.Inbound
 import com.dozycoffee.wms.inbound.domain.model.InboundItem
-import com.dozycoffee.wms.inventory.application.port.`in`.GetLotUseCase
+import com.dozycoffee.wms.inbound.domain.model.InboundReceipt
 import com.dozycoffee.wms.inventory.application.port.`in`.MarkInventoryDefectiveUseCase
 import com.dozycoffee.wms.inventory.application.port.`in`.RegisterInventoryUseCase
-import com.dozycoffee.wms.inventory.application.port.`in`.RegisterLotUseCase
 import com.dozycoffee.wms.inventory.application.port.`in`.command.RegisterInventoryCommand
-import com.dozycoffee.wms.inventory.application.port.`in`.command.RegisterLotCommand
 import com.dozycoffee.wms.inventory.application.port.`in`.result.InventoryResult
-import com.dozycoffee.wms.inventory.application.port.`in`.result.LotResult
 import com.dozycoffee.wms.inventory.domain.enumeration.InventoryHistoryType
 import com.dozycoffee.wms.product.application.port.`in`.GetProductUseCase
 import com.dozycoffee.wms.warehouse.application.port.`in`.GetLocationUseCase
@@ -55,6 +53,7 @@ class InboundService(
     private val warehouseAccessGuard: WarehouseAccessGuard,
     private val inboundRepository: InboundRepository,
     private val inboundItemRepository: InboundItemRepository,
+    private val inboundReceiptRepository: InboundReceiptRepository,
     private val getProductUseCase: GetProductUseCase,
     private val getZoneUseCase: GetZoneUseCase,
     private val getLocationUseCase: GetLocationUseCase,
@@ -62,8 +61,7 @@ class InboundService(
     private val getWorkAreaUseCase: GetWorkAreaUseCase,
     private val occupyWorkAreaUseCase: OccupyWorkAreaUseCase,
     private val releaseWorkAreaUseCase: ReleaseWorkAreaUseCase,
-    private val getLotUseCase: GetLotUseCase,
-    private val registerLotUseCase: RegisterLotUseCase,
+    private val inboundLotResolver: InboundLotResolver,
     private val registerInventoryUseCase: RegisterInventoryUseCase,
     private val markInventoryDefectiveUseCase: MarkInventoryDefectiveUseCase,
     private val registerDisposalUseCase: RegisterDisposalUseCase
@@ -102,7 +100,14 @@ class InboundService(
         command.items.forEach { item ->
             val zoneId = requireNotNull(zoneIdByCode[zoneCodeByItem.getValue(item)])
             inboundItemRepository.save(
-                InboundItem.create(savedInbound.inboundId, item.productId, zoneId, item.expectedQuantity)
+                InboundItem.create(
+                    savedInbound.inboundId,
+                    item.productId,
+                    zoneId,
+                    item.expectedQuantity,
+                    item.expectedLotNumber,
+                    item.expectedExpirationDate
+                )
             )
         }
 
@@ -123,8 +128,8 @@ class InboundService(
     }
 
     /**
-     * 정상/불량 판정 상품 모두 Lot을 확정하고 Zone 내 Location에 분산 배치해 Inventory로 등록한다.
-     * 불량 판정 상품은 등록 직후 DEFECTIVE로 전환하고 Disposal(REQUESTED, INSPECTION_DEFECT)로 연계한다 —
+     * 수령 라인마다 Lot을 확정하고 Zone 내 Location에 분산 배치해 Inventory로 등록한다.
+     * 불량 라인은 등록 직후 DEFECTIVE로 전환하고 Disposal(REQUESTED)로 연계한다 —
      * 폐기 처리장 점유 등 물리적 처리는 이후 Disposal 승인/완료 단계에서 이뤄진다.
      */
     @Transactional
@@ -132,23 +137,30 @@ class InboundService(
         val inbound = findAccessibleInboundOrThrow(command.inboundId)
         val items = inboundItemRepository.findAllByInboundId(command.inboundId).toList()
 
-        if (items.any { it.inspectionResult == InspectionResult.PENDING }) {
+        if (items.any { it.inspectionStatus == InspectionStatus.PENDING }) {
             throw NotAllItemsInspectedException()
         }
 
-        val lotAssignmentByItemId = command.lotAssignments.associateBy { it.inboundItemId }
+        val receiptsByItemId: Map<Long, List<InboundReceipt>> = inboundReceiptRepository
+            .findAllByInboundItemIds(items.mapNotNull { it.inboundItemId })
+            .groupBy { it.inboundItemId }
         val defectiveDisposalItems = mutableListOf<RegisterDisposalItemCommand>()
         items.forEach { item ->
-            val assignment = lotAssignmentByItemId[item.inboundItemId] ?: throw MissingLotAssignmentException()
-            val lot = resolveLot(item.productId, assignment)
-            val registeredInventories = distributeToLocations(item, lot.lotId)
+            receiptsByItemId[item.inboundItemId].orEmpty().forEach { receipt ->
+                val lot = inboundLotResolver.resolve(item.productId, receipt)
+                val registeredInventories = distributeToLocations(item, lot.lotId, receipt.quantity)
 
-            if (item.inspectionResult == InspectionResult.DEFECTIVE) {
-                registeredInventories.forEach { inventory ->
-                    markInventoryDefectiveUseCase.markDefective(inventory.inventoryId)
-                    defectiveDisposalItems.add(
-                        RegisterDisposalItemCommand(inventory.inventoryId, inventory.quantity, DisposalReason.INSPECTION_DEFECT)
-                    )
+                if (receipt.inspectionResult == InspectionResult.DEFECTIVE) {
+                    registeredInventories.forEach { inventory ->
+                        markInventoryDefectiveUseCase.markDefective(inventory.inventoryId)
+                        defectiveDisposalItems.add(
+                            RegisterDisposalItemCommand(
+                                inventory.inventoryId,
+                                inventory.quantity,
+                                toDisposalReason(requireNotNull(receipt.defectReason))
+                            )
+                        )
+                    }
                 }
             }
         }
@@ -176,20 +188,9 @@ class InboundService(
             .map { InboundResult.from(it) }
     }
 
-    private suspend fun resolveLot(productId: Long, assignment: LotAssignmentCommand): LotResult {
-        val existingLot = getLotUseCase.getAllByProduct(productId).toList()
-            .find { it.lotNumber == assignment.lotNumber }
-        if (existingLot != null) {
-            return existingLot
-        }
-        return registerLotUseCase.register(
-            RegisterLotCommand(assignment.lotNumber, productId, assignment.manufactureDate, assignment.expirationDate)
-        )
-    }
-
     /** Zone 내 잔여 capacity가 큰 Location부터 채우는 First-Fit 방식으로 여러 Location에 분산 배치한다 */
-    private suspend fun distributeToLocations(item: InboundItem, lotId: Long): List<InventoryResult> {
-        var remainingQuantity = requireNotNull(item.actualQuantity)
+    private suspend fun distributeToLocations(item: InboundItem, lotId: Long, quantity: Int): List<InventoryResult> {
+        var remainingQuantity = quantity
         val locations = getLocationUseCase.getByZoneId(item.zoneId).toList()
             .sortedByDescending { it.maxCapacity - it.usedCapacity }
 
@@ -213,6 +214,10 @@ class InboundService(
             throw InsufficientZoneCapacityException()
         }
         return registeredInventories
+    }
+
+    private fun toDisposalReason(defectReason: DefectReason): DisposalReason {
+        return if (defectReason == DefectReason.EXPIRED) DisposalReason.EXPIRED else DisposalReason.INSPECTION_DEFECT
     }
 
     private suspend fun findAccessibleInboundOrThrow(inboundId: Long): Inbound {
