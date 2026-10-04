@@ -6,8 +6,9 @@ import com.dozycoffee.wms.inbound.application.port.`in`.InspectInboundItemUseCas
 import com.dozycoffee.wms.inbound.application.port.`in`.RegisterInboundUseCase
 import com.dozycoffee.wms.inbound.application.port.`in`.StartInboundProcessingUseCase
 import com.dozycoffee.wms.inbound.application.port.`in`.command.CompleteInboundCommand
+import com.dozycoffee.wms.inbound.application.port.`in`.command.InboundReceiptCommand
 import com.dozycoffee.wms.inbound.application.port.`in`.command.InspectInboundItemCommand
-import com.dozycoffee.wms.inbound.application.port.`in`.command.LotAssignmentCommand
+import com.dozycoffee.wms.inbound.domain.enumeration.DefectReason
 import com.dozycoffee.wms.inbound.application.port.`in`.command.RegisterInboundCommand
 import com.dozycoffee.wms.inbound.application.port.`in`.command.RegisterInboundItemCommand
 import com.dozycoffee.wms.inbound.domain.enumeration.InspectionResult
@@ -65,7 +66,7 @@ internal class OperationFlowSeeder(
         val productCode: String,
         val expectedQuantity: Int,
         val actualQuantity: Int? = null,
-        val inspectionResult: InspectionResult = InspectionResult.PENDING,
+        val inspectionResult: InspectionResult = InspectionResult.NORMAL,
         val lotNumber: String? = null,
         val expirationOffsetDays: Long? = null
     )
@@ -104,8 +105,8 @@ internal class OperationFlowSeeder(
         )
         startInboundProcessingUseCase.startProcessing(processing.inboundId)
         val itemIdByProduct: Map<Long, Long> = inboundItemIdByProduct(processing.inboundId)
-        inspectInbound(context, itemIdByProduct, InboundLine("SYR-002", 50, 50, InspectionResult.NORMAL))
-        inspectInbound(context, itemIdByProduct, InboundLine("PWD-002", 40, 40, InspectionResult.DEFECTIVE))
+        inspectInbound(context, today, itemIdByProduct, InboundLine("SYR-002", 50, 50, InspectionResult.NORMAL, "SYR002-L2", 350))
+        inspectInbound(context, today, itemIdByProduct, InboundLine("PWD-002", 40, 40, InspectionResult.DEFECTIVE, "PWD002-L2", 250))
     }
 
     suspend fun seedOutbounds(context: SeedContext, baselineInventoryIds: Map<String, Long>) {
@@ -172,28 +173,29 @@ internal class OperationFlowSeeder(
         val inbound = registerInbound(context, arrivalDate, lines)
         startInboundProcessingUseCase.startProcessing(inbound.inboundId)
         val itemIdByProduct: Map<Long, Long> = inboundItemIdByProduct(inbound.inboundId)
-        lines.forEach { inspectInbound(context, itemIdByProduct, it) }
-        completeInboundUseCase.complete(
-            CompleteInboundCommand(
-                inbound.inboundId,
-                lines.map { line ->
-                    LotAssignmentCommand(
-                        itemIdByProduct.getValue(context.productIdByCode.getValue(line.productCode)),
-                        requireNotNull(line.lotNumber),
-                        today.minusDays(RECEIVED_LOT_AGE_DAYS),
-                        line.expirationOffsetDays?.let { today.plusDays(it) }
-                    )
-                }
-            )
-        )
+        lines.forEach { inspectInbound(context, today, itemIdByProduct, it) }
+        completeInboundUseCase.complete(CompleteInboundCommand(inbound.inboundId))
     }
 
-    private suspend fun inspectInbound(context: SeedContext, itemIdByProduct: Map<Long, Long>, line: InboundLine) {
+    private suspend fun inspectInbound(
+        context: SeedContext,
+        today: LocalDate,
+        itemIdByProduct: Map<Long, Long>,
+        line: InboundLine
+    ) {
         inspectInboundItemUseCase.inspect(
             InspectInboundItemCommand(
                 itemIdByProduct.getValue(context.productIdByCode.getValue(line.productCode)),
-                requireNotNull(line.actualQuantity),
-                line.inspectionResult
+                listOf(
+                    InboundReceiptCommand(
+                        requireNotNull(line.lotNumber),
+                        today.minusDays(RECEIVED_LOT_AGE_DAYS),
+                        line.expirationOffsetDays?.let { today.plusDays(it) },
+                        requireNotNull(line.actualQuantity),
+                        line.inspectionResult,
+                        if (line.inspectionResult == InspectionResult.DEFECTIVE) DefectReason.DAMAGED else null
+                    )
+                )
             )
         )
     }

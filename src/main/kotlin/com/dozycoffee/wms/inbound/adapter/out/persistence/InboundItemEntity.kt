@@ -1,10 +1,11 @@
 package com.dozycoffee.wms.inbound.adapter.out.persistence
 
 import com.dozycoffee.wms.global.common.BaseEntity
-import com.dozycoffee.wms.inbound.domain.enumeration.InspectionResult
+import com.dozycoffee.wms.inbound.domain.enumeration.InspectionStatus
 import com.dozycoffee.wms.inbound.domain.model.InboundItem
 import org.springframework.data.annotation.Id
 import org.springframework.data.relational.core.mapping.Table
+import java.time.LocalDate
 
 @Table("inbound_item")
 class InboundItemEntity private constructor() : BaseEntity() {
@@ -25,10 +26,16 @@ class InboundItemEntity private constructor() : BaseEntity() {
     var expectedQuantity: Int = 0
         private set
 
+    var expectedLotNumber: String? = null
+        private set
+
+    var expectedExpirationDate: LocalDate? = null
+        private set
+
     var actualQuantity: Int? = null
         private set
 
-    var inspectionResult: String? = null
+    var inspectionStatus: String? = null
         private set
 
     fun toDomain(): InboundItem {
@@ -38,8 +45,10 @@ class InboundItemEntity private constructor() : BaseEntity() {
             requireNotNull(productId),
             requireNotNull(zoneId),
             expectedQuantity,
+            expectedLotNumber,
+            expectedExpirationDate,
             actualQuantity,
-            InspectionResult.valueOf(requireNotNull(inspectionResult))
+            InspectionStatus.valueOf(requireNotNull(inspectionStatus))
         )
     }
 
@@ -51,8 +60,10 @@ class InboundItemEntity private constructor() : BaseEntity() {
             entity.productId = domain.productId
             entity.zoneId = domain.zoneId
             entity.expectedQuantity = domain.expectedQuantity
+            entity.expectedLotNumber = domain.expectedLotNumber
+            entity.expectedExpirationDate = domain.expectedExpirationDate
             entity.actualQuantity = domain.actualQuantity
-            entity.inspectionResult = domain.inspectionResult.name
+            entity.inspectionStatus = domain.inspectionStatus.name
             return entity
         }
     }

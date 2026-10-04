@@ -230,7 +230,7 @@ class DevSeedRunnerTest {
     companion object {
         private val TABLES_IN_DELETE_ORDER: List<String> = listOf(
             "stock_audit_item", "stock_audit", "inventory_history", "disposal_item", "disposal",
-            "return_item", "return_request", "outbound_item", "outbound", "inbound_item", "inbound",
+            "return_item", "return_request", "outbound_item", "outbound", "inbound_receipt", "inbound_item", "inbound",
             "allocation", "inventory", "lot", "product", "location", "work_area", "zone", "warehouse"
         )
     }

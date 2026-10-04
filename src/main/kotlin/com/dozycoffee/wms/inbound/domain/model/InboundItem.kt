@@ -3,11 +3,12 @@ package com.dozycoffee.wms.inbound.domain.model
 import com.dozycoffee.wms.global.common.BaseEntity
 import com.dozycoffee.wms.global.error.DomainValidator.requireNonNull
 import com.dozycoffee.wms.global.error.InvalidDomainValueException
-import com.dozycoffee.wms.inbound.domain.enumeration.InspectionResult
+import com.dozycoffee.wms.inbound.domain.enumeration.InspectionStatus
 import com.dozycoffee.wms.inbound.domain.exception.InboundItemAlreadyInspectedException
 import com.dozycoffee.wms.inbound.domain.exception.InboundItemErrorCode
-import com.dozycoffee.wms.inbound.domain.exception.InvalidActualQuantityException
-import com.dozycoffee.wms.inbound.domain.exception.InvalidInspectionResultException
+import com.dozycoffee.wms.inbound.domain.exception.InboundOverReceivedException
+import com.dozycoffee.wms.inbound.domain.exception.LotExpirationConflictException
+import java.time.LocalDate
 
 class InboundItem private constructor(
     val inboundItemId: Long?,
@@ -15,14 +16,16 @@ class InboundItem private constructor(
     val productId: Long,
     val zoneId: Long,
     val expectedQuantity: Int,
+    val expectedLotNumber: String?,
+    val expectedExpirationDate: LocalDate?,
     actualQuantity: Int?,
-    inspectionResult: InspectionResult
+    inspectionStatus: InspectionStatus
 ) : BaseEntity() {
 
     var actualQuantity: Int? = actualQuantity
         private set
 
-    var inspectionResult: InspectionResult = inspectionResult
+    var inspectionStatus: InspectionStatus = inspectionStatus
         private set
 
     /** 예정 수량과 실제 입고 수량의 차이 — 검수 전에는 null */
@@ -35,7 +38,9 @@ class InboundItem private constructor(
             inboundId: Long?,
             productId: Long?,
             zoneId: Long?,
-            expectedQuantity: Int
+            expectedQuantity: Int,
+            expectedLotNumber: String? = null,
+            expectedExpirationDate: LocalDate? = null
         ): InboundItem {
             val validInboundId: Long = requireNonNull(inboundId, InboundItemErrorCode.INVALID_INBOUND_ID)
             val validProductId: Long = requireNonNull(productId, InboundItemErrorCode.INVALID_PRODUCT_ID)
@@ -47,8 +52,10 @@ class InboundItem private constructor(
                 productId = validProductId,
                 zoneId = validZoneId,
                 expectedQuantity = expectedQuantity,
+                expectedLotNumber = expectedLotNumber?.takeIf { it.isNotBlank() },
+                expectedExpirationDate = expectedExpirationDate,
                 actualQuantity = null,
-                inspectionResult = InspectionResult.PENDING
+                inspectionStatus = InspectionStatus.PENDING
             )
         }
 
@@ -58,8 +65,10 @@ class InboundItem private constructor(
             productId: Long,
             zoneId: Long,
             expectedQuantity: Int,
+            expectedLotNumber: String?,
+            expectedExpirationDate: LocalDate?,
             actualQuantity: Int?,
-            inspectionResult: InspectionResult
+            inspectionStatus: InspectionStatus
         ): InboundItem {
             return InboundItem(
                 inboundItemId,
@@ -67,8 +76,10 @@ class InboundItem private constructor(
                 productId,
                 zoneId,
                 expectedQuantity,
+                expectedLotNumber,
+                expectedExpirationDate,
                 actualQuantity,
-                inspectionResult
+                inspectionStatus
             )
         }
 
@@ -79,30 +90,36 @@ class InboundItem private constructor(
         }
     }
 
-    /** 실제 입고 수량과 파손·유통기한·품질 확인 결과를 기록해 정상/불량을 확정한다 */
-    fun inspect(actualQuantity: Int, result: InspectionResult) {
+    /**
+     * 수령 라인 전체를 한 번에 받아 검수를 확정한다. 빈 목록은 미도착(수령 0)이다.
+     * 같은 로트 번호의 라인끼리는 유통기한이 같아야 하고, 수량 합이 예정 수량을 넘을 수 없다.
+     */
+    fun inspect(receipts: List<InboundReceipt>) {
         validateNotAlreadyInspected()
-        validateActualQuantity(actualQuantity)
-        validateInspectionResult(result)
-        this.actualQuantity = actualQuantity
-        this.inspectionResult = result
+        validateConsistentLotExpiration(receipts)
+        val totalQuantity: Int = receipts.sumOf { it.quantity }
+        validateNotOverReceived(totalQuantity)
+        this.actualQuantity = totalQuantity
+        this.inspectionStatus = InspectionStatus.INSPECTED
     }
 
     private fun validateNotAlreadyInspected() {
-        if (inspectionResult != InspectionResult.PENDING) {
+        if (inspectionStatus != InspectionStatus.PENDING) {
             throw InboundItemAlreadyInspectedException()
         }
     }
 
-    private fun validateActualQuantity(actualQuantity: Int) {
-        if (actualQuantity < 0) {
-            throw InvalidActualQuantityException()
+    private fun validateConsistentLotExpiration(receipts: List<InboundReceipt>) {
+        val inconsistent: Boolean = receipts.groupBy { it.lotNumber }
+            .any { (_, lines) -> lines.map { it.expirationDate }.distinct().size > 1 }
+        if (inconsistent) {
+            throw LotExpirationConflictException()
         }
     }
 
-    private fun validateInspectionResult(result: InspectionResult) {
-        if (result == InspectionResult.PENDING) {
-            throw InvalidInspectionResultException()
+    private fun validateNotOverReceived(totalQuantity: Int) {
+        if (totalQuantity > expectedQuantity) {
+            throw InboundOverReceivedException()
         }
     }
 }

@@ -1,9 +1,9 @@
 package com.dozycoffee.wms.inbound.adapter.`in`.web
 
-import com.dozycoffee.wms.inbound.adapter.`in`.web.request.CompleteInboundRequest
 import com.dozycoffee.wms.inbound.adapter.`in`.web.request.RegisterInboundRequest
 import com.dozycoffee.wms.inbound.adapter.`in`.web.response.InboundResponse
 import com.dozycoffee.wms.inbound.application.port.`in`.CompleteInboundUseCase
+import com.dozycoffee.wms.inbound.application.port.`in`.command.CompleteInboundCommand
 import com.dozycoffee.wms.inbound.application.port.`in`.GetInboundUseCase
 import com.dozycoffee.wms.inbound.application.port.`in`.RegisterInboundUseCase
 import com.dozycoffee.wms.inbound.application.port.`in`.StartInboundProcessingUseCase
@@ -60,10 +60,7 @@ class InboundController(
 
     @PatchMapping("/{inboundId}/complete")
     @PreAuthorize(WmsAuthorize.INBOUND)
-    suspend fun complete(
-        @PathVariable inboundId: Long,
-        @Valid @RequestBody request: CompleteInboundRequest
-    ): InboundResponse {
-        return InboundResponse.from(completeInboundUseCase.complete(request.toCommand(inboundId)))
+    suspend fun complete(@PathVariable inboundId: Long): InboundResponse {
+        return InboundResponse.from(completeInboundUseCase.complete(CompleteInboundCommand(inboundId)))
     }
 }

@@ -1,12 +1,16 @@
 package com.dozycoffee.wms.inbound.adapter.`in`.web
 
 import com.dozycoffee.auth.test.WithDozyPrincipal
+import com.dozycoffee.wms.inbound.adapter.`in`.web.request.InboundReceiptRequest
 import com.dozycoffee.wms.inbound.adapter.`in`.web.request.InspectInboundItemRequest
 import com.dozycoffee.wms.inbound.application.port.`in`.GetInboundItemUseCase
 import com.dozycoffee.wms.inbound.application.port.`in`.InspectInboundItemUseCase
 import com.dozycoffee.wms.inbound.application.port.`in`.result.InboundItemResult
+import com.dozycoffee.wms.inbound.application.port.`in`.result.InboundReceiptResult
 import com.dozycoffee.wms.inbound.domain.enumeration.InspectionResult
+import com.dozycoffee.wms.inbound.domain.enumeration.InspectionStatus
 import com.dozycoffee.wms.inbound.domain.exception.InboundItemAlreadyInspectedException
+import com.dozycoffee.wms.inbound.domain.exception.InboundOverReceivedException
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.runBlocking
 import org.junit.jupiter.api.Nested
@@ -31,9 +35,17 @@ class InboundItemControllerTest {
     @MockitoBean
     private lateinit var getInboundItemUseCase: GetInboundItemUseCase
 
-    private fun sampleResult(inspectionResult: InspectionResult = InspectionResult.PENDING): InboundItemResult {
-        return InboundItemResult(1L, 1L, 100L, 10L, 30, null, inspectionResult, null)
+    private fun sampleResult(inspectionStatus: InspectionStatus = InspectionStatus.PENDING): InboundItemResult {
+        val receipts = if (inspectionStatus == InspectionStatus.INSPECTED) {
+            listOf(InboundReceiptResult(5L, "LOT-1", null, null, 30, InspectionResult.NORMAL, null))
+        } else {
+            emptyList()
+        }
+        return InboundItemResult(1L, 1L, 100L, 10L, 30, null, null, null, inspectionStatus, null, receipts)
     }
+
+    private fun validReceipt(): InboundReceiptRequest =
+        InboundReceiptRequest("LOT-1", null, null, 30, InspectionResult.NORMAL, null)
 
     @Nested
     inner class 검수 {
@@ -41,15 +53,17 @@ class InboundItemControllerTest {
         @Test
         fun `유효한 요청이면 200과 검수 결과를 반환한다`() {
             runBlocking {
-                whenever(inspectInboundItemUseCase.inspect(any())).thenReturn(sampleResult(InspectionResult.NORMAL))
+                whenever(inspectInboundItemUseCase.inspect(any())).thenReturn(sampleResult(InspectionStatus.INSPECTED))
             }
 
             webTestClient.patch().uri("/api/inbound-items/{inboundItemId}/inspect", 1L)
-                .bodyValue(InspectInboundItemRequest(30, InspectionResult.NORMAL))
+                .bodyValue(InspectInboundItemRequest(listOf(validReceipt())))
                 .exchange()
                 .expectStatus().isOk
                 .expectBody()
-                .jsonPath("$.inspectionResult").isEqualTo("NORMAL")
+                .jsonPath("$.inspectionStatus").isEqualTo("INSPECTED")
+                .jsonPath("$.receipts[0].lotNumber").isEqualTo("LOT-1")
+                .jsonPath("$.receipts[0].inspectionResult").isEqualTo("NORMAL")
         }
 
         @Test
@@ -59,17 +73,51 @@ class InboundItemControllerTest {
             }
 
             webTestClient.patch().uri("/api/inbound-items/{inboundItemId}/inspect", 1L)
-                .bodyValue(InspectInboundItemRequest(30, InspectionResult.NORMAL))
+                .bodyValue(InspectInboundItemRequest(listOf(validReceipt())))
                 .exchange()
                 .expectStatus().isEqualTo(409)
         }
 
         @Test
-        fun `필수값이 비어있으면 400을 반환한다`() {
+        fun `수령 라인 목록이 없으면 400을 반환한다`() {
             webTestClient.patch().uri("/api/inbound-items/{inboundItemId}/inspect", 1L)
-                .bodyValue(InspectInboundItemRequest(null, null))
+                .bodyValue(InspectInboundItemRequest(null))
                 .exchange()
                 .expectStatus().isBadRequest
+        }
+
+        @Test
+        fun `수령 라인의 필수값이 비어있으면 400을 반환한다`() {
+            webTestClient.patch().uri("/api/inbound-items/{inboundItemId}/inspect", 1L)
+                .bodyValue(InspectInboundItemRequest(listOf(InboundReceiptRequest(" ", null, null, 0, null, null))))
+                .exchange()
+                .expectStatus().isBadRequest
+        }
+
+        @Test
+        fun `수령 라인이 비어 있는 미도착 검수는 허용한다`() {
+            runBlocking {
+                whenever(inspectInboundItemUseCase.inspect(any())).thenReturn(sampleResult(InspectionStatus.INSPECTED))
+            }
+
+            webTestClient.patch().uri("/api/inbound-items/{inboundItemId}/inspect", 1L)
+                .bodyValue(InspectInboundItemRequest(emptyList()))
+                .exchange()
+                .expectStatus().isOk
+        }
+
+        @Test
+        fun `수량이 예정을 초과하면 409를 반환한다`() {
+            runBlocking {
+                whenever(inspectInboundItemUseCase.inspect(any())).thenThrow(InboundOverReceivedException())
+            }
+
+            webTestClient.patch().uri("/api/inbound-items/{inboundItemId}/inspect", 1L)
+                .bodyValue(InspectInboundItemRequest(listOf(validReceipt())))
+                .exchange()
+                .expectStatus().isEqualTo(409)
+                .expectBody()
+                .jsonPath("$.code").isEqualTo("INBOUND_RECEIPT_OVER_RECEIVED")
         }
     }
 
