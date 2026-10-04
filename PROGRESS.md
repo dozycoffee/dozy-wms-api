@@ -21,6 +21,8 @@
   필수이며 폐기 연계 사유(`EXPIRED`/`INSPECTION_DEFECT`)로 매핑된다. 입고 예정에서 예정 로트·유통기한을 선택 입력할 수 있다.
   `complete()`는 `lotAssignments`를 받지 않고 수령 라인으로 Lot과 Inventory를 만든다. `V4__add_inbound_receipt.sql`로 스키마를 바꿨다.
   전체 테스트 통과.
+- 유통기한이 NULL인 Lot이 재고 목록 `sortBy=EXPIRATION_DATE`에서 맨 앞에 나오던 문제를 별도 `fix`로 분리했다(#105). 출고 FIFO 피킹은
+  Kotlin `nullsLast()`라 영향이 없었다.
 - F-026: 에러 응답을 `dozy-auth`의 RFC 9457 Problem Details 규약(`code`, `traceId`, `errors[]`)에 맞췄다(ADR-0015).
   `ErrorResponseDto`를 제거하고 `GlobalExceptionHandler`가 WebFlux `ResponseEntityExceptionHandler`를 상속하도록 바꿨다.
   변경 전에는 깨진 JSON·405·415·매핑 없는 404가 모두 500 `COMMON_INTERNAL_SERVER_ERROR`로 응답됐음을 재현으로 확인했고, 이제
@@ -80,6 +82,5 @@
 3. (신규) 창고 배정 변경 시 요청마다 조회하는 비용 점검
 4. `dozy-admin-console`의 `httpClient`가 에러 메시지를 `detail`(없으면 `code` 기반 문구)로 읽도록 갱신 (F-026 후속, 콘솔 저장소 작업)
 5. 유니크 제약 위반(`DataIntegrityViolationException`)을 409로 변환: 사전 중복 조회를 동시 요청이 통과하면 여전히 500이다. 변환할 `code`가 `dozy-auth` 에러 코드 표에 없어 규약 확정 후 진행
-6. (신규) 유통기한이 NULL인 Lot의 재고 목록 정렬: `sortBy=EXPIRATION_DATE`의 SQL `ASC`가 MySQL에서 NULL을 맨 앞에 두어 유통기한 없는 재고가 목록 위에 나온다. 출고 FIFO 피킹은 Kotlin `nullsLast()`라 영향이 없지만 동일 값 간 순서가 정렬 안정성에 기대고 있어 보조 키를 명시한다 (별도 `fix`)
-7. F-019: 실측 병목 확인 시 착수
-8. (최후순위) F-014 이벤트 전환 1단계 → F-018 아웃박스·브로커: 원자성 상실, AFTER_COMMIT 유실 리스크와 서비스 분리 구체화 후 재검토
+6. F-019: 실측 병목 확인 시 착수
+7. (최후순위) F-014 이벤트 전환 1단계 → F-018 아웃박스·브로커: 원자성 상실, AFTER_COMMIT 유실 리스크와 서비스 분리 구체화 후 재검토
