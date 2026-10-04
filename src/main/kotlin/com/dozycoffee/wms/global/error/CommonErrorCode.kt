@@ -6,7 +6,7 @@ enum class CommonErrorCode(
     override val message: String
 ) : ErrorCode {
 
-    INVALID_INPUT(ErrorType.VALIDATION, "COMMON_INVALID_INPUT", "잘못된 입력값입니다."),
+    VALIDATION_FAILED(ErrorType.VALIDATION, "VALIDATION_FAILED", "요청 값이 올바르지 않습니다."),
     WAREHOUSE_ACCESS_DENIED(ErrorType.FORBIDDEN, "COMMON_WAREHOUSE_ACCESS_DENIED", "접근 권한이 없는 창고입니다."),
-    INTERNAL_SERVER_ERROR(ErrorType.INTERNAL, "COMMON_INTERNAL_SERVER_ERROR", "서버 내부 오류가 발생했습니다.")
+    INTERNAL_ERROR(ErrorType.INTERNAL, "INTERNAL_ERROR", "서버 내부 오류가 발생했습니다.")
 }
