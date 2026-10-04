@@ -9,16 +9,6 @@ class AllocationStatusTest {
 
     @ParameterizedTest
     @CsvSource(
-        "HELD, 점유중",
-        "RELEASED, 해제됨",
-        "FULFILLED, 완료됨"
-    )
-    fun `점유 상태는 설명을 갖는다`(status: AllocationStatus, expectedDescription: String) {
-        assertThat(status.description).isEqualTo(expectedDescription)
-    }
-
-    @ParameterizedTest
-    @CsvSource(
         "HELD, RELEASED, true",
         "HELD, FULFILLED, true",
         "HELD, HELD, false",

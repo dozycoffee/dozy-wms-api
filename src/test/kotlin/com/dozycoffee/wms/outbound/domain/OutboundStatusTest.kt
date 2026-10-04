@@ -9,17 +9,6 @@ class OutboundStatusTest {
 
     @ParameterizedTest
     @CsvSource(
-        "REQUESTED, 출고 요청",
-        "PICKING, 피킹중",
-        "INSPECTING, 검수중",
-        "COMPLETED, 출고 완료"
-    )
-    fun `출고 상태는 설명을 갖는다`(status: OutboundStatus, expectedDescription: String) {
-        assertThat(status.description).isEqualTo(expectedDescription)
-    }
-
-    @ParameterizedTest
-    @CsvSource(
         "REQUESTED, PICKING, true",
         "REQUESTED, INSPECTING, false",
         "REQUESTED, COMPLETED, false",

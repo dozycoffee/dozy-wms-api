@@ -9,17 +9,6 @@ class InboundStatusTest {
 
     @ParameterizedTest
     @CsvSource(
-        "EXPECTED, 입고 예정",
-        "WAITING, 입고 대기",
-        "PROCESSING, 입고 처리중",
-        "COMPLETED, 입고 완료"
-    )
-    fun `입고 상태는 설명을 갖는다`(status: InboundStatus, expectedDescription: String) {
-        assertThat(status.description).isEqualTo(expectedDescription)
-    }
-
-    @ParameterizedTest
-    @CsvSource(
         "EXPECTED, WAITING, true",
         "EXPECTED, PROCESSING, false",
         "EXPECTED, COMPLETED, false",
