@@ -3,7 +3,7 @@
 ## 현재 상태
 
 - 전체 도메인(warehouse, product, inventory, inbound, outbound, return_request, disposal,
-  stock_audit)의 Hexagonal 3계층(도메인/서비스/영속성/REST)이 구현돼 있다. Flyway 마이그레이션은 미배포 단계라 V1(테이블)·V2(외래키) baseline 두 파일로 통합했다. 개발용 목 데이터 시더(`devseed`)가 있다.
+  stock_audit)의 Hexagonal 3계층(도메인/서비스/영속성/REST)이 구현돼 있다. Flyway 마이그레이션은 V1(테이블)·V2(외래키) baseline 이후 V3, V4가 추가돼 있다. 개발용 목 데이터 시더(`devseed`)가 있다.
 - 인증은 ADR-0012 기준으로 `Actor`(누구인가)와 `WarehouseAccess`(어느 창고)를 분리하는 단계다. 감사 주체와 창고
   범위는 타입으로 분리됐고, dozy-auth 스타터 연동(토큰 검증, role 인가)은 F-017로 진행 중이다.
 - 에러 응답은 `dozy-auth` 규약의 RFC 9457 Problem Details(`code`, `traceId`, `errors[]`)로 통일돼 있고 모든 응답에
@@ -15,6 +15,12 @@
 
 ### 2026-10-04
 
+- F-015: 입고 검수를 수령 라인(`InboundReceipt`) 단위로 전환했다(ADR-0016). 한 입고 상품에 로트가 여러 개일 수 있고 같은 로트의
+  정상/불량 라인을 나눠 기록할 수 있다(일부 파손). 검수 시점에 `Product.shelfLifeDays` 유무로 유통기한 필수/불가를 판단하고,
+  유통기한이 지난 라인의 정상 판정·예정 수량 초과·같은 로트 번호의 유통기한 불일치를 거부한다. 불량 라인은 `DefectReason`이
+  필수이며 폐기 연계 사유(`EXPIRED`/`INSPECTION_DEFECT`)로 매핑된다. 입고 예정에서 예정 로트·유통기한을 선택 입력할 수 있다.
+  `complete()`는 `lotAssignments`를 받지 않고 수령 라인으로 Lot과 Inventory를 만든다. `V4__add_inbound_receipt.sql`로 스키마를 바꿨다.
+  전체 테스트 통과.
 - F-026: 에러 응답을 `dozy-auth`의 RFC 9457 Problem Details 규약(`code`, `traceId`, `errors[]`)에 맞췄다(ADR-0015).
   `ErrorResponseDto`를 제거하고 `GlobalExceptionHandler`가 WebFlux `ResponseEntityExceptionHandler`를 상속하도록 바꿨다.
   변경 전에는 깨진 JSON·405·415·매핑 없는 404가 모두 500 `COMMON_INTERNAL_SERVER_ERROR`로 응답됐음을 재현으로 확인했고, 이제
@@ -74,6 +80,6 @@
 3. (신규) 창고 배정 변경 시 요청마다 조회하는 비용 점검
 4. `dozy-admin-console`의 `httpClient`가 에러 메시지를 `detail`(없으면 `code` 기반 문구)로 읽도록 갱신 (F-026 후속, 콘솔 저장소 작업)
 5. 유니크 제약 위반(`DataIntegrityViolationException`)을 409로 변환: 사전 중복 조회를 동시 요청이 통과하면 여전히 500이다. 변환할 `code`가 `dozy-auth` 에러 코드 표에 없어 규약 확정 후 진행
-6. F-015: 입고 검수 로직 보강
+6. (신규) 유통기한이 NULL인 Lot의 FIFO 정렬: `ORDER BY expiration_date ASC`가 MySQL에서 NULL을 맨 앞에 두어 유통기한 없는 상품이 먼저 선택된다. 입고일(Lot 생성일) 보조 키가 필요하다 (별도 `fix`)
 7. F-019: 실측 병목 확인 시 착수
 8. (최후순위) F-014 이벤트 전환 1단계 → F-018 아웃박스·브로커: 원자성 상실, AFTER_COMMIT 유실 리스크와 서비스 분리 구체화 후 재검토

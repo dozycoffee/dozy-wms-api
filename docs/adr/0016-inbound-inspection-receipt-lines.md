@@ -74,9 +74,10 @@ Accepted
 - 입고 처리장 release는 기존대로 해당 입고 건의 예정 수량 합이다. 수령 수량은 예정 이하이므로 점유 해제량이 어긋나지 않는다.
 
 ### 7. 스키마
-- 미배포 단계이므로 기존 방식(ADR-0013)대로 V1 baseline을 수정한다. `inbound_receipt` 테이블 추가, `inbound_item`의
-  `inspection_result`를 `inspection_status`로 교체, 예정 로트 컬럼 추가, 불량 사유 CHECK 추가. 기존 개발 DB는
-  `./scripts/reset-dev-db.sh`로 초기화해야 한다(Flyway 체크섬 불일치).
+- baseline(V1/V2) 이후 마이그레이션(V3)이 이미 존재하므로 V1을 고치지 않고 새 마이그레이션(V4)으로 변경한다. `inbound_receipt`
+  테이블 추가, `inbound_item`의 `inspection_result`를 `inspection_status`로 교체, 예정 로트 컬럼 추가, 불량 사유 CHECK 추가.
+  기존 `inspection_result`가 PENDING이 아닌 입고 상품은 `INSPECTED`로 옮기지만 수령 라인은 복원하지 않는다(로트·판정 원본이
+  `complete()` 이전에는 저장되지 않았다). 검수 후 완료 전 상태의 데이터가 있는 DB는 `./scripts/reset-dev-db.sh`로 초기화한다.
 
 ## 범위 밖
 - WMS 자체 로트 번호 생성과 로트 추적 여부 플래그(전 상품이 로트 번호를 갖는다고 가정).
