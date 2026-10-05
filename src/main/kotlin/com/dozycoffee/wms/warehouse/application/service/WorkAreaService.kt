@@ -1,5 +1,6 @@
 package com.dozycoffee.wms.warehouse.application.service
 
+import com.dozycoffee.wms.global.persistence.translatingDuplicateKey
 import com.dozycoffee.wms.warehouse.application.port.`in`.GetWorkAreaUseCase
 import com.dozycoffee.wms.warehouse.application.port.`in`.OccupyWorkAreaUseCase
 import com.dozycoffee.wms.warehouse.application.port.`in`.RegisterWorkAreaUseCase
@@ -11,6 +12,7 @@ import com.dozycoffee.wms.warehouse.application.port.`in`.result.WorkAreaResult
 import com.dozycoffee.wms.warehouse.application.port.out.WorkAreaRepository
 import com.dozycoffee.wms.warehouse.domain.enumeration.AreaCode
 import com.dozycoffee.wms.warehouse.domain.enumeration.AvailabilityStatus
+import com.dozycoffee.wms.warehouse.domain.exception.DuplicateAreaCodeException
 import com.dozycoffee.wms.warehouse.domain.exception.WorkAreaNotFoundException
 import com.dozycoffee.wms.warehouse.domain.model.WorkArea
 import org.springframework.stereotype.Service
@@ -24,7 +26,7 @@ class WorkAreaService(
     @Transactional
     override suspend fun register(command: RegisterWorkAreaCommand): WorkAreaResult {
         val workArea = WorkArea.create(command.warehouseId, command.areaCode, AvailabilityStatus.AVAILABLE)
-        return WorkAreaResult.from(workAreaRepository.save(workArea))
+        return WorkAreaResult.from(translatingDuplicateKey({ DuplicateAreaCodeException() }) { workAreaRepository.save(workArea) })
     }
 
     @Transactional

@@ -8,6 +8,8 @@ import com.dozycoffee.wms.warehouse.domain.exception.InsufficientLocationCapacit
 import com.dozycoffee.wms.warehouse.domain.exception.LocationNotFoundException
 import com.dozycoffee.wms.warehouse.domain.model.Location
 import com.dozycoffee.wms.warehouse.fixture.LocationTestBuilder.Companion.location
+import com.dozycoffee.wms.support.duplicateKeyViolation
+import com.dozycoffee.wms.warehouse.domain.exception.DuplicateLocationCodeException
 import kotlinx.coroutines.flow.asFlow
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.toList
@@ -46,6 +48,14 @@ class LocationServiceTest {
 
             assertThat(result.locationId).isEqualTo(1L)
             assertThat(result.locationCode).isEqualTo("A-01")
+        }
+
+        @Test
+        fun `같은 구역에 같은 위치 코드를 저장하면 중복 위치 코드 예외를 던진다`() = runTest {
+            whenever(locationRepository.save(any())).thenThrow(duplicateKeyViolation())
+
+            assertThatThrownBy { runBlocking { locationService.register(RegisterLocationCommand(1L, "A-01", 70)) } }
+                .isInstanceOf(DuplicateLocationCodeException::class.java)
         }
     }
 

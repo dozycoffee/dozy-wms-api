@@ -1,11 +1,13 @@
 package com.dozycoffee.wms.warehouse_member.application.service
 
+import com.dozycoffee.wms.global.persistence.translatingDuplicateKey
 import com.dozycoffee.wms.warehouse.application.port.`in`.GetWarehouseUseCase
 import com.dozycoffee.wms.warehouse_member.application.port.`in`.AssignWarehouseMemberUseCase
 import com.dozycoffee.wms.warehouse_member.application.port.`in`.GetWarehouseMemberUseCase
 import com.dozycoffee.wms.warehouse_member.application.port.`in`.RemoveWarehouseMemberUseCase
 import com.dozycoffee.wms.warehouse_member.application.port.`in`.result.WarehouseMemberResult
 import com.dozycoffee.wms.warehouse_member.application.port.out.WarehouseMemberRepository
+import com.dozycoffee.wms.warehouse_member.domain.exception.WarehouseMemberAlreadyAssignedException
 import com.dozycoffee.wms.warehouse_member.domain.exception.WarehouseMemberNotFoundException
 import com.dozycoffee.wms.warehouse_member.domain.model.WarehouseMember
 import kotlinx.coroutines.flow.Flow
@@ -24,7 +26,9 @@ class WarehouseMemberService(
     override suspend fun assign(warehouseId: Long, principalId: UUID): WarehouseMemberResult {
         getWarehouseUseCase.getById(warehouseId)
         val member = warehouseMemberRepository.findByWarehouseIdAndPrincipalId(warehouseId, principalId)
-            ?: warehouseMemberRepository.save(WarehouseMember.create(warehouseId, principalId))
+            ?: translatingDuplicateKey({ WarehouseMemberAlreadyAssignedException() }) {
+                warehouseMemberRepository.save(WarehouseMember.create(warehouseId, principalId))
+            }
         return WarehouseMemberResult.from(member)
     }
 

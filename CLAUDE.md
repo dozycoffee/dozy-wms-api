@@ -113,6 +113,7 @@ src
 - `TraceIdWebFilter`가 모든 응답에 `X-Trace-Id`를 싣고 에러 응답의 `traceId`와 일치시킨다
 - 단순 필드 검증(null, 빈 값, 범위)은 `ErrorCode`만 등록하고 `InvalidDomainValueException`으로 던진다. 호출부나 테스트가 타입으로 구분할 규칙 위반(상태 전이, 용량·수량 부족, NotFound, Duplicate 등)은 전용 예외 클래스를 만든다
 - WebFilter/Security 레벨 예외가 필요한 경우 `WebExceptionHandler` 추가
+- 유니크 제약이 있는 저장은 사전 조회만 믿지 않는다 — 동시 요청이 조회를 함께 통과하면 제약 위반(`DataIntegrityViolationException`)이 500으로 나간다. `translatingDuplicateKey`로 저장을 감싸 중복 충돌(MySQL 1062)만 도메인 `Duplicate*Exception`(409)으로 바꾼다. FK·CHECK 위반은 중복이 아니므로 그대로 둔다
 
 **Entities**
 

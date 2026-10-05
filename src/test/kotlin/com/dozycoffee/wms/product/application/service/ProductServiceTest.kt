@@ -12,6 +12,7 @@ import com.dozycoffee.wms.product.domain.model.Product
 import com.dozycoffee.wms.product.fixture.ProductTestBuilder.Companion.product
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.toList
+import com.dozycoffee.wms.support.duplicateKeyViolation
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.test.runTest
 import org.assertj.core.api.Assertions.assertThat
@@ -68,6 +69,18 @@ class ProductServiceTest {
                 "PRD-0001", "콜롬비아 원두", ProductCategory.BEAN, "KG", 365
             )
             whenever(productRepository.existsByProductCode("PRD-0001")).thenReturn(true)
+
+            assertThatThrownBy { runBlocking { productService.register(command) } }
+                .isInstanceOf(DuplicateProductCodeException::class.java)
+        }
+
+        @Test
+        fun `사전 조회를 통과해도 저장 시 유니크 위반이 나면 중복 상품 코드 예외로 바꾼다`() = runTest {
+            val command = RegisterProductCommand(
+                "PRD-0001", "콜롬비아 원두", ProductCategory.BEAN, "KG", 365
+            )
+            whenever(productRepository.existsByProductCode("PRD-0001")).thenReturn(false)
+            whenever(productRepository.save(any())).thenThrow(duplicateKeyViolation())
 
             assertThatThrownBy { runBlocking { productService.register(command) } }
                 .isInstanceOf(DuplicateProductCodeException::class.java)

@@ -9,6 +9,7 @@ import com.dozycoffee.wms.inventory.domain.exception.LotNotFoundException
 import com.dozycoffee.wms.inventory.domain.model.Lot
 import com.dozycoffee.wms.inventory.fixture.LotTestBuilder.Companion.lot
 import com.dozycoffee.wms.warehouse.domain.enumeration.ZoneCode
+import com.dozycoffee.wms.support.duplicateKeyViolation
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.toList
 import kotlinx.coroutines.runBlocking
@@ -60,6 +61,18 @@ class LotServiceTest {
                 "LOT-20260101-001", 1L, LocalDate.of(2026, 1, 1), LocalDate.of(2026, 12, 31)
             )
             whenever(lotRepository.existsByProductIdAndLotNumber(1L, "LOT-20260101-001")).thenReturn(true)
+
+            assertThatThrownBy { runBlocking { lotService.register(command) } }
+                .isInstanceOf(DuplicateLotNumberException::class.java)
+        }
+
+        @Test
+        fun `사전 조회를 통과해도 저장 시 유니크 위반이 나면 중복 Lot 번호 예외로 바꾼다`() = runTest {
+            val command = RegisterLotCommand(
+                "LOT-20260101-001", 1L, LocalDate.of(2026, 1, 1), LocalDate.of(2026, 12, 31)
+            )
+            whenever(lotRepository.existsByProductIdAndLotNumber(1L, "LOT-20260101-001")).thenReturn(false)
+            whenever(lotRepository.save(any())).thenThrow(duplicateKeyViolation())
 
             assertThatThrownBy { runBlocking { lotService.register(command) } }
                 .isInstanceOf(DuplicateLotNumberException::class.java)

@@ -9,6 +9,8 @@ import com.dozycoffee.wms.warehouse.domain.exception.WorkAreaCapacityExceededExc
 import com.dozycoffee.wms.warehouse.domain.exception.WorkAreaNotFoundException
 import com.dozycoffee.wms.warehouse.domain.model.WorkArea
 import com.dozycoffee.wms.warehouse.fixture.WorkAreaTestBuilder.Companion.workArea
+import com.dozycoffee.wms.support.duplicateKeyViolation
+import com.dozycoffee.wms.warehouse.domain.exception.DuplicateAreaCodeException
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.test.runTest
 import org.assertj.core.api.Assertions.assertThat
@@ -44,6 +46,14 @@ class WorkAreaServiceTest {
 
             assertThat(result.workAreaId).isEqualTo(1L)
             assertThat(result.areaCode).isEqualTo(AreaCode.INBOUND)
+        }
+
+        @Test
+        fun `같은 창고에 같은 작업구역 코드를 저장하면 중복 작업구역 코드 예외를 던진다`() = runTest {
+            whenever(workAreaRepository.save(any())).thenThrow(duplicateKeyViolation())
+
+            assertThatThrownBy { runBlocking { workAreaService.register(RegisterWorkAreaCommand(1L, AreaCode.INBOUND)) } }
+                .isInstanceOf(DuplicateAreaCodeException::class.java)
         }
     }
 

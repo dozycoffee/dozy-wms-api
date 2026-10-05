@@ -1,5 +1,6 @@
 package com.dozycoffee.wms.product.application.service
 
+import com.dozycoffee.wms.global.persistence.translatingDuplicateKey
 import com.dozycoffee.wms.global.security.CurrentActorProvider
 import com.dozycoffee.wms.product.application.port.`in`.ActivateProductUseCase
 import com.dozycoffee.wms.product.application.port.`in`.DeactivateProductUseCase
@@ -37,7 +38,7 @@ class ProductService(
             command.unit,
             command.shelfLifeDays
         )
-        return ProductResult.from(productRepository.save(product))
+        return ProductResult.from(translatingDuplicateKey({ DuplicateProductCodeException() }) { productRepository.save(product) })
     }
 
     @Transactional

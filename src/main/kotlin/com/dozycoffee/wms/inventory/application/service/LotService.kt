@@ -1,5 +1,6 @@
 package com.dozycoffee.wms.inventory.application.service
 
+import com.dozycoffee.wms.global.persistence.translatingDuplicateKey
 import com.dozycoffee.wms.inventory.application.port.`in`.GetLotUseCase
 import com.dozycoffee.wms.inventory.application.port.`in`.RegisterLotUseCase
 import com.dozycoffee.wms.inventory.application.port.`in`.command.RegisterLotCommand
@@ -33,7 +34,7 @@ class LotService(
             command.manufactureDate,
             command.expirationDate
         )
-        return LotResult.from(lotRepository.save(lot))
+        return LotResult.from(translatingDuplicateKey({ DuplicateLotNumberException() }) { lotRepository.save(lot) })
     }
 
     @Transactional(readOnly = true)
