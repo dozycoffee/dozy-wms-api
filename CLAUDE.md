@@ -62,6 +62,7 @@ src
 │   │   ├── warehouse                         // 창고(Warehouse) · 구역(Zone) · 작업구역(WorkArea) · 위치(Location)
 │   │   ├── product                           // 상품 마스터
 │   │   ├── inventory                         // 재고(Inventory) · Lot · 재고 이력(InventoryHistory)
+│   │   ├── location_stock                    // Location 보조 장부(LocationStock) — 수량이 어느 Location에 있는지 기록 (ADR-0017, ADR-0018)
 │   │   ├── inbound                           // 입고(Inbound) · 입고 상품(InboundItem, 검수 포함)
 │   │   ├── outbound                          // 출고(Outbound) · 출고 상품(OutboundItem)
 │   │   ├── disposal                          // 폐기(Disposal) · 폐기 상품(DisposalItem)

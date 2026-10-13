@@ -24,6 +24,12 @@
   반품은 등록된 Lot만 허용하고, inventory 호출은 로컬 커밋 + DB 아웃박스로 보낸다. 후속 작업을 F-027~F-037로 등록했다.
 - 이전에 진행하던 반품 검수 수령 라인 전환(구 ADR-0017 초안, F-028 구상)은 폐기했다. 반품 Lot 규칙이 바뀌어 F-034에서 다시 설계한다.
   F-014·F-018(이벤트 전환·아웃박스)은 F-028(호출 아웃박스)·F-035(예약 이벤트 기반 출고)가 대체하므로 feature_list에서 삭제했다.
+- F-027: Location 보조 장부(`location_stock`, V5)를 추가했다(ADR-0018). `(location, product, lot_number, quality_status)` 유니크, Lot 번호는
+  대소문자를 구분하고 수량 0 행은 유지한다. `increase`/`decrease`/`transferQuality`가 행을 `FOR UPDATE`로 잠그고 갱신하며 첫 생성의 동시
+  충돌은 409(`LOCATION_STOCK_DUPLICATE`)로 바꾼다. 기존 재고 변경 지점(`register`, `markDefective`, `markDisposalScheduled`,
+  `confirmDisposal`, `adjust`, `fulfill`, 유통기한 스캔)이 `LocationStockMirror` 포트로 같은 트랜잭션에서 장부에 반영한다. 미러링 기간에는
+  Location 사용량을 기존 호출부가 갱신하므로 장부는 수량만 바꾼다. `DevSeedRunnerTest`가 장부와 `inventory`의 키 단위 수량 일치,
+  장부 합계와 Location 사용량 일치를 검증한다. 전체 986개 테스트 통과.
 
 ### 2026-10-04
 
@@ -66,8 +72,8 @@
 
 ## 다음 세션에서 할 일
 
-1. F-027 Location 보조 장부 도입, F-028 inventory 연동 기반(svc-wms 클라이언트·호출 아웃박스) — 서로 독립이라 먼저 착수 (ADR-0017)
-2. F-029 stock-quantities API, F-030 WAREHOUSE_ACCESS_CHANGED 발행 — inventory가 이미 기다리는 계약
+1. F-028 inventory 연동 기반(svc-wms 클라이언트·호출 아웃박스) (ADR-0017)
+2. F-029 stock-quantities API(장부 완료로 착수 가능), F-030 WAREHOUSE_ACCESS_CHANGED 발행 — inventory가 이미 기다리는 계약
 3. 이후 F-031(상품 사본) → F-032~F-036(입고·폐기·반품·출고·실사 연동) → F-037(재고 코드 제거·devseed 개편)
 4. 배포 체크리스트: dozy-auth admin에 `wms:` role 7개 등록 (코드 작업 아님)
 5. `dozy-admin-console`의 `httpClient`가 에러 메시지를 `detail`(없으면 `code` 기반 문구)로 읽도록 갱신 (F-026 후속, 콘솔 저장소 작업)

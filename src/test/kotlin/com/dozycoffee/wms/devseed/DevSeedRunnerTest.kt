@@ -66,6 +66,51 @@ class DevSeedRunnerTest {
         }
 
         @Test
+        fun `Location 장부는 재고와 Location x 상품 x Lot 번호 x 품질 상태 단위로 수량이 일치한다`() {
+            val mismatches: List<String> = query(
+                """
+                SELECT CONCAT(t.location_id, '/', t.product_id, '/', t.lot_number, '/', t.quality_status) AS stock_key
+                FROM (
+                    SELECT i.location_id, i.product_id, l.lot_number COLLATE utf8mb4_bin AS lot_number,
+                           i.quality_status, i.quantity AS q
+                    FROM inventory i JOIN lot l ON l.lot_id = i.lot_id
+                    WHERE i.deleted_at IS NULL
+                    UNION ALL
+                    SELECT location_id, product_id, lot_number, quality_status, -quantity FROM location_stock
+                ) t
+                GROUP BY t.location_id, t.product_id, t.lot_number, t.quality_status
+                HAVING SUM(t.q) <> 0
+                """.trimIndent()
+            ) { row -> requireNotNull(row.get("stock_key", String::class.java)) }
+
+            assertThat(mismatches).isEmpty()
+        }
+
+        @Test
+        fun `Location 장부 수량 합계는 Location 사용량과 일치한다`() {
+            val mismatches: List<String> = query(
+                """
+                SELECT l.location_code AS code
+                FROM location l
+                LEFT JOIN location_stock s ON s.location_id = l.location_id
+                GROUP BY l.location_id, l.location_code, l.used_capacity
+                HAVING l.used_capacity <> COALESCE(SUM(s.quantity), 0)
+                """.trimIndent()
+            ) { row -> requireNotNull(row.get("code", String::class.java)) }
+
+            assertThat(mismatches).isEmpty()
+        }
+
+        @Test
+        fun `불량 전환과 폐기 예정 전환이 Location 장부에 품질 상태별 행으로 남는다`() {
+            val statuses: Set<String> = query(
+                "SELECT DISTINCT quality_status AS status FROM location_stock"
+            ) { row -> requireNotNull(row.get("status", String::class.java)) }.toSet()
+
+            assertThat(statuses).contains("NORMAL", "DEFECTIVE", "DISPOSAL_SCHEDULED")
+        }
+
+        @Test
         fun `재고 점유 수량은 HELD Allocation 수량 합계와 일치한다`() {
             val mismatches: List<Long> = query(
                 """
@@ -231,7 +276,7 @@ class DevSeedRunnerTest {
         private val TABLES_IN_DELETE_ORDER: List<String> = listOf(
             "stock_audit_item", "stock_audit", "inventory_history", "disposal_item", "disposal",
             "return_item", "return_request", "outbound_item", "outbound", "inbound_receipt", "inbound_item", "inbound",
-            "allocation", "inventory", "lot", "product", "location", "work_area", "zone", "warehouse"
+            "allocation", "location_stock", "inventory", "lot", "product", "location", "work_area", "zone", "warehouse"
         )
     }
 }

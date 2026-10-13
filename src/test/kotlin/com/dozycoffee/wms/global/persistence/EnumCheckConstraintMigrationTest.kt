@@ -11,6 +11,7 @@ import com.dozycoffee.wms.inventory.domain.enumeration.AllocationStatus
 import com.dozycoffee.wms.inventory.domain.enumeration.InventoryHistoryType
 import com.dozycoffee.wms.inventory.domain.enumeration.LotStatus
 import com.dozycoffee.wms.inventory.domain.enumeration.QualityStatus
+import com.dozycoffee.wms.location_stock.domain.enumeration.StockQualityStatus
 import com.dozycoffee.wms.outbound.domain.enumeration.OutboundStatus
 import com.dozycoffee.wms.product.domain.enumeration.ProductCategory
 import com.dozycoffee.wms.product.domain.enumeration.ProductStatus
@@ -90,7 +91,8 @@ class EnumCheckConstraintMigrationTest {
             ConstraintSpec("ck_disposal_status", DisposalStatus::class.java),
             ConstraintSpec("ck_disposal_item_reason", DisposalReason::class.java),
             ConstraintSpec("ck_inventory_history_type", InventoryHistoryType::class.java),
-            ConstraintSpec("ck_stock_audit_status", StockAuditStatus::class.java)
+            ConstraintSpec("ck_stock_audit_status", StockAuditStatus::class.java),
+            ConstraintSpec("ck_location_stock_quality_status", StockQualityStatus::class.java)
         )
     }
 }

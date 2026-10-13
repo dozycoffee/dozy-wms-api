@@ -8,6 +8,7 @@ import com.dozycoffee.wms.global.security.OnlyWarehouses
 import com.dozycoffee.wms.global.security.UserActor
 import com.dozycoffee.wms.inventory.application.port.out.InventoryHistoryRepository
 import com.dozycoffee.wms.inventory.application.port.out.InventoryRepository
+import com.dozycoffee.wms.inventory.application.port.out.LocationStockMirror
 import com.dozycoffee.wms.inventory.application.port.out.LotRepository
 import com.dozycoffee.wms.inventory.domain.enumeration.InventoryHistoryType
 import com.dozycoffee.wms.inventory.domain.enumeration.QualityStatus
@@ -34,6 +35,8 @@ import org.mockito.junit.jupiter.MockitoExtension
 import org.mockito.kotlin.any
 import org.mockito.kotlin.argumentCaptor
 import org.mockito.kotlin.never
+import org.mockito.kotlin.eq
+import org.mockito.kotlin.verifyNoInteractions
 import org.mockito.kotlin.verify
 import org.mockito.kotlin.whenever
 import java.time.LocalDate
@@ -56,6 +59,9 @@ class InventoryServiceTest {
 
     @Mock
     private lateinit var currentWarehouseAccessProvider: CurrentWarehouseAccessProvider
+
+    @Mock
+    private lateinit var locationStockMirror: LocationStockMirror
 
     @InjectMocks
     private lateinit var inventoryService: InventoryService
@@ -86,6 +92,7 @@ class InventoryServiceTest {
             assertThat(historyCaptor.firstValue.historyType).isEqualTo(InventoryHistoryType.INBOUND)
             assertThat(historyCaptor.firstValue.quantityChange).isEqualTo(10)
             assertThat(historyCaptor.firstValue.referenceId).isEqualTo(100L)
+            verify(locationStockMirror).increase(saved, 10)
         }
 
         @Test
@@ -245,6 +252,7 @@ class InventoryServiceTest {
             val result = inventoryService.markDefective(1L)
 
             assertThat(result.qualityStatus).isEqualTo(QualityStatus.DEFECTIVE)
+            verify(locationStockMirror).changeQuality(any(), eq(QualityStatus.NORMAL), eq(10))
         }
 
         @Test
@@ -268,6 +276,7 @@ class InventoryServiceTest {
             val result = inventoryService.markDisposalScheduled(1L)
 
             assertThat(result.qualityStatus).isEqualTo(QualityStatus.DISPOSAL_SCHEDULED)
+            verify(locationStockMirror).changeQuality(any(), eq(QualityStatus.NORMAL), eq(10))
         }
     }
 
@@ -296,6 +305,7 @@ class InventoryServiceTest {
             assertThat(historyCaptor.firstValue.historyType).isEqualTo(InventoryHistoryType.DISPOSAL)
             assertThat(historyCaptor.firstValue.quantityChange).isEqualTo(-30)
             assertThat(historyCaptor.firstValue.referenceId).isEqualTo(200L)
+            verify(locationStockMirror).decrease(any(), eq(30))
         }
 
         @Test
@@ -325,6 +335,19 @@ class InventoryServiceTest {
             assertThat(historyCaptor.firstValue.historyType).isEqualTo(InventoryHistoryType.ADJUSTMENT)
             assertThat(historyCaptor.firstValue.quantityChange).isEqualTo(-2)
             assertThat(historyCaptor.firstValue.referenceId).isEqualTo(500L)
+            verify(locationStockMirror).decrease(any(), eq(2))
+        }
+
+        @Test
+        fun `실측 수량이 더 많으면 증가분을 장부에 반영한다`() = runTest {
+            val found: Inventory = inventory().inventoryId(1L).quantity(20).build()
+            whenever(inventoryRepository.findById(1L)).thenReturn(found)
+            whenever(inventoryRepository.save(any())).thenAnswer { it.getArgument(0) }
+            whenever(inventoryHistoryRepository.save(any())).thenAnswer { it.getArgument(0) }
+
+            inventoryService.adjust(1L, 25, 500L)
+
+            verify(locationStockMirror).increase(any(), eq(5))
         }
 
         @Test
@@ -336,6 +359,7 @@ class InventoryServiceTest {
             inventoryService.adjust(1L, 20, 500L)
 
             verify(inventoryHistoryRepository, org.mockito.kotlin.never()).save(any())
+            verifyNoInteractions(locationStockMirror)
         }
 
         @Test
