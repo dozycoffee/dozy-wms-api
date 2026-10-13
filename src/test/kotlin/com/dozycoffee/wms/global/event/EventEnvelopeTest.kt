@@ -40,7 +40,7 @@ class EventEnvelopeTest {
 
     @Test
     fun `값이 null인 본문 필드는 보내지 않는다`() {
-        val envelope = EventEnvelope("id", "T", 1, OffsetDateTime.now(), "wms", Body("p", emptyList(), note = null))
+        val envelope = EventEnvelope("id", "T", 1, OffsetDateTime.now(), "wms", data = Body("p", emptyList(), note = null))
 
         val data = jsonMapper.readTree(jsonMapper.writeValueAsString(envelope)).get("data")
 
@@ -48,8 +48,22 @@ class EventEnvelopeTest {
     }
 
     @Test
+    fun `traceparent가 있으면 최상위에 싣고 없으면 필드를 보내지 않는다`() {
+        val traced = EventEnvelope(
+            "id", "T", 1, OffsetDateTime.now(), "wms", "00-4bf92f3577b34da6a3ce929d0e0e4736-00f067aa0ba902b7-01", Body("p", emptyList())
+        )
+        val untraced = EventEnvelope("id", "T", 1, OffsetDateTime.now(), "wms", data = Body("p", emptyList()))
+
+        val withTrace = jsonMapper.readTree(jsonMapper.writeValueAsString(traced))
+        val withoutTrace = jsonMapper.readTree(jsonMapper.writeValueAsString(untraced))
+
+        assertThat(withTrace.get("traceparent").asString()).isEqualTo("00-4bf92f3577b34da6a3ce929d0e0e4736-00f067aa0ba902b7-01")
+        assertThat(withoutTrace.has("traceparent")).isFalse()
+    }
+
+    @Test
     fun `메타 필드는 정확히 여섯 개다`() {
-        val envelope = EventEnvelope("id", "T", 1, OffsetDateTime.now(), "wms", Body("p", emptyList()))
+        val envelope = EventEnvelope("id", "T", 1, OffsetDateTime.now(), "wms", data = Body("p", emptyList()))
 
         val node = jsonMapper.readTree(jsonMapper.writeValueAsString(envelope))
 
