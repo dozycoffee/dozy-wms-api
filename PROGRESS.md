@@ -46,6 +46,9 @@
   재시도한다(10회부터 `WAREHOUSE_ACCESS_EVENT_RETRYING` 로그). `POST /api/warehouse-members/republish`(warehouse_admin)가 모든 직원을 다시 발행한다.
   공통 직렬화(`EventEnvelope`, `UuidV7`)는 `global/event`에 있다. 로컬 Kafka는 `docker compose up -d kafka`(호스트 포트 9094)이고 주소는
   `KAFKA_BOOTSTRAP_SERVERS`다. inventory 수신부는 아직 평면 형식을 읽으므로 envelope(`data` 아래)로 바꾸는 작업이 inventory 저장소에서 선행돼야 한다.
+- 개발용 시더(`devseed`)를 `src/main`에서 `dev-seed` Gradle 모듈로 분리했다(#119). 모듈이 앱 모듈에 의존하고 앱은 모듈을 알지 못하며, 일회성 잡
+  `./gradlew :dev-seed:bootRun`이 서버를 임의 포트로 열고 스케줄러·발행기를 끈 채 시드를 적재한 뒤 종료한다. 앱의 `wms.dev-seed.enabled` 설정은 없어졌고
+  `DevSeedRunnerTest`는 모듈로 옮겼다(앱 1082개 + 모듈 18개 통과). 시더 내용(상품·재고·흐름)의 축소·삭제는 이관 작업(F-031~F-037)에서 한다.
 
 ### 2026-10-04
 
