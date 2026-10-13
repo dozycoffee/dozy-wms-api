@@ -54,6 +54,8 @@
   반영한 이벤트와 같거나 오래된 `occurredAt`은 무시한다. 상품 ID는 inventory의 값(V8: soft delete 컬럼 제거, `source_occurred_at` 추가)이고, 형식 오류·지원하지 않는 버전·알 수 없는
   카테고리/상태는 재시도 없이 DLT로, 그 외 실패는 1초 간격 3회 재시도 후 DLT로 간다. WMS의 상품 등록·활성·비활성·삭제 API를 제거하고 조회만 남겼다. 기존 개발 DB의 상품 ID는
   inventory와 달라 `scripts/reset-dev-db.sh`로 초기화해야 한다. 테스트 컨텍스트의 백그라운드 작업 기본 비활성화는 `@DynamicPropertySource`로 다시 켤 수 있게 우선순위를 낮췄다. 전체 테스트 통과.
+- 이벤트 형식이 바뀌어(inventory ADR-0039) WMS의 `WAREHOUSE_ACCESS_CHANGED`에서 Kafka 헤더 6종을 제거하고 메타데이터를 값(JSON)에만 담도록 전환했다(ADR-0022, #124).
+  `EventEnvelope`는 선택 필드 `traceparent`를 지원하되 WMS에는 추적 체계가 없어 당분간 보내지 않는다. 상품 이벤트 소비자는 이미 값만 읽어 변경이 없다. 전체 테스트 통과.
 
 ### 2026-10-04
 
