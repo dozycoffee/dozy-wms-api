@@ -53,5 +53,6 @@ Proposed | Accepted | Deprecated | Superseded by ADR-YYYY
 | [0015](0015-align-error-response-with-dozy-auth.md) | 에러 응답을 dozy-auth의 Problem Details 규약에 맞춤 | Accepted |
 | [0016](0016-inbound-inspection-receipt-lines.md) | 입고 검수를 수령 라인 단위로 전환하고 로트·수량·불량 사유 규칙을 서비스가 검증 | Accepted |
 | [0017](0017-separate-inventory-service.md) | 재고를 dozy-inventory-api로 분리하고 WMS는 물리 위치 장부와 호출 아웃박스를 둠 | Accepted |
+| [0018](0018-location-stock-ledger.md) | Location 보조 장부(location_stock) 설계와 기존 재고에서의 미러링 전환 | Accepted |
 
 새 ADR은 `NNNN-kebab-case-제목.md` 형식으로 추가하고, 이 표에도 반드시 등록한다.
