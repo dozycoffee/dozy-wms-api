@@ -64,7 +64,7 @@ src
 │   │   │   └── error                         // ErrorCode, BusinessException, GlobalExceptionHandler
 │   │   │
 │   │   ├── warehouse                         // 창고(Warehouse) · 구역(Zone) · 작업구역(WorkArea) · 위치(Location)
-│   │   ├── product                           // 상품 마스터
+│   │   ├── product                           // 상품 마스터의 로컬 사본(inventory 이벤트로 유지, 조회 전용) (ADR-0021)
 │   │   ├── inventory                         // 재고(Inventory) · Lot · 재고 이력(InventoryHistory)
 │   │   ├── inventory_call                    // inventory 서비스 호출 아웃박스(InventoryCall) — 전송기, 재시도·격리, 운영 API (ADR-0019)
 │   │   ├── location_stock                    // Location 보조 장부(LocationStock) — 수량이 어느 Location에 있는지 기록 (ADR-0017, ADR-0018)
@@ -155,6 +155,12 @@ src
 - 보안 필터 체인은 스타터 빈(디코더, 권한 변환기, 401/403 핸들러)을 쓰되 CORS 때문에 `SecurityConfig`에서 직접 정의한다. CORS는 필터 체인 안에서(`CorsConfig`의 `CorsConfigurationSource`) 처리한다
 - `local` 프로파일만 인증을 우회한다(고정 개발 사용자). `prod` 프로파일과 함께 켜지면 기동에 실패한다
 - 컨트롤러 테스트(`@WebFluxTest`)는 `@WithDozyPrincipal`, 통합 테스트는 `DozyTestTokens`(`auth-test`)로 인증한다
+
+**Product Replica** (ADR-0021)
+
+- 상품 마스터는 inventory 서비스가 소유한다. WMS의 `Product`는 `dozy.inventory.product` 토픽의 `PRODUCT_REGISTERED`/`PRODUCT_STATUS_CHANGED` 스냅샷으로 통째로 교체되는 불변 사본이며,
+  상품 ID는 inventory의 값이다. WMS에는 상품 쓰기 API가 없고 조회(`GET /api/products`)만 있다. `category → Zone` 매핑만 WMS가 가진다
+- 오래된 이벤트(`source_occurred_at`보다 늦지 않은 `occurredAt`)는 무시한다. 형식이 잘못된 메시지·지원하지 않는 버전·알 수 없는 카테고리/상태는 재시도 없이 `.dlt`로 간다
 
 **Warehouse Domain Structure**
 

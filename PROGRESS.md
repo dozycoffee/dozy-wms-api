@@ -50,6 +50,10 @@
   `scripts/seed-dev-db.sh`로 적재하도록 바꿨다(#119). 시더가 만들던 상품·재고·입고·출고·반품·폐기·실사는 inventory 이관으로 WMS가 소유하지 않거나
   연동 작업에서 새로 검증하므로 더 만들지 않는다. `DevMasterDataSqlTest`가 SQL을 실제 MySQL에 적용해 용량 합계와 재실행 멱등성을 검증한다.
   시더와 함께 `DevSeedRunnerTest`의 흐름 통합 검증과 미러링 정합성 테스트도 없어졌다(미러링은 F-032~F-037에서 제거 예정). 모듈로 분리하려던 시도(PR #120)는 닫았다.
+- F-031: 상품 마스터를 inventory 이벤트로 유지하는 로컬 사본으로 전환했다(ADR-0021, #122). `dozy.inventory.product`를 `@KafkaListener`로 한 건씩 받아 스냅샷으로 교체(upsert)하고,
+  반영한 이벤트와 같거나 오래된 `occurredAt`은 무시한다. 상품 ID는 inventory의 값(V8: soft delete 컬럼 제거, `source_occurred_at` 추가)이고, 형식 오류·지원하지 않는 버전·알 수 없는
+  카테고리/상태는 재시도 없이 DLT로, 그 외 실패는 1초 간격 3회 재시도 후 DLT로 간다. WMS의 상품 등록·활성·비활성·삭제 API를 제거하고 조회만 남겼다. 기존 개발 DB의 상품 ID는
+  inventory와 달라 `scripts/reset-dev-db.sh`로 초기화해야 한다. 테스트 컨텍스트의 백그라운드 작업 기본 비활성화는 `@DynamicPropertySource`로 다시 켤 수 있게 우선순위를 낮췄다. 전체 테스트 통과.
 
 ### 2026-10-04
 
@@ -93,8 +97,8 @@
 ## 다음 세션에서 할 일
 
 1. inventory 수신부를 공통 envelope으로 바꾸고(inventory 저장소) 처음 연동 때 `POST /api/warehouse-members/republish` 실행
-2. F-031(상품 사본) → F-032~F-036(입고·폐기·반품·출고·실사 연동) → F-037(재고 코드 제거·devseed 개편)
-3. 배포 체크리스트: dozy-auth admin에 `wms:` role 8개(`service` 포함) 등록하고 `svc-inventory` system client에 `wms:service`를 부여 (코드 작업 아님)
+2. F-032~F-036(입고·폐기·반품·출고·실사 연동) → F-037(재고 코드 제거·devseed 개편)
+3. 배포 체크리스트: inventory가 `dozy.inventory.product` 토픽을 로그 압축(`cleanup.policy=compact`)으로 생성, `dozy-admin-console`의 상품 등록·상태 변경을 inventory `/api/v1/products` 호출로 변경, dozy-auth admin에 `wms:` role 8개(`service` 포함) 등록하고 `svc-inventory` system client에 `wms:service`를 부여 (코드 작업 아님)
 4. `dozy-admin-console`의 `httpClient`가 에러 메시지를 `detail`(없으면 `code` 기반 문구)로 읽도록 갱신 (F-026 후속, 콘솔 저장소 작업)
 5. (후순위) 창고 배정 변경 시 요청마다 `warehouse_member`를 조회하는 비용 점검: 실측 후 필요할 때만 캐시 검토
 6. (후순위) 입고 검수 후속: 입고 등록이 같은 상품의 중복 줄을 허용하는지 확인(ADR-0016 가정), 잔여 유통기한 비율 기준·수량 허용 오차·로트 자동 생성 등 범위 밖 항목 재검토
