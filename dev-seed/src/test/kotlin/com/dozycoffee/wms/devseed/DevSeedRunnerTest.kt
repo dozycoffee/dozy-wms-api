@@ -17,7 +17,7 @@ import org.springframework.r2dbc.core.awaitRowsUpdated
 import org.springframework.r2dbc.core.flow
 import org.springframework.test.context.ActiveProfiles
 
-@SpringBootTest(properties = ["wms.dev-seed.enabled=true"])
+@SpringBootTest
 @ActiveProfiles("local")
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
 class DevSeedRunnerTest {

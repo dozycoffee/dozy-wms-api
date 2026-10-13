@@ -1,0 +1,67 @@
+plugins {
+	id 'java'
+	id 'org.jetbrains.kotlin.jvm' version '2.3.21'
+	id 'org.jetbrains.kotlin.plugin.spring' version '2.3.21'
+	id 'org.springframework.boot' version '4.1.1'
+	id 'io.spring.dependency-management' version '1.1.7'
+}
+
+// 앱 모듈(루트)이 먼저 평가돼야 .env 로더와 테스트 지원 클래스를 쓸 수 있다
+evaluationDependsOn(':')
+
+group = 'com.dozycoffee'
+version = '0.0.1-SNAPSHOT'
+
+java {
+	toolchain {
+		languageVersion = JavaLanguageVersion.of(21)
+	}
+}
+
+kotlin {
+	compilerOptions {
+		jvmTarget = org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_21
+		freeCompilerArgs.add('-Xjsr305=strict')
+	}
+}
+
+// 개발 DB에 목 데이터를 적재하는 일회성 잡이다. 앱이 이 모듈을 알지 못하므로 운영 아티팩트에는 포함되지 않는다.
+// 실행: ./gradlew :dev-seed:bootRun
+dependencies {
+	implementation project(':')
+	implementation 'org.springframework.boot:spring-boot-starter-data-r2dbc'
+	implementation 'org.springframework.boot:spring-boot-starter-webflux'
+	implementation 'org.jetbrains.kotlin:kotlin-reflect'
+	implementation 'org.jetbrains.kotlinx:kotlinx-coroutines-reactor'
+	implementation 'org.springframework.security:spring-security-core'
+	runtimeOnly 'com.mysql:mysql-connector-j'
+	runtimeOnly 'io.asyncer:r2dbc-mysql'
+	testImplementation rootProject.sourceSets.test.output
+	testImplementation 'org.springframework.boot:spring-boot-starter-test'
+	testImplementation 'org.springframework.boot:spring-boot-starter-data-r2dbc-test'
+	testImplementation 'org.springframework.boot:spring-boot-starter-webflux-test'
+	testImplementation 'org.jetbrains.kotlinx:kotlinx-coroutines-test'
+	testImplementation 'org.testcontainers:testcontainers-mysql'
+	testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+}
+
+springBoot {
+	mainClass = 'com.dozycoffee.wms.devseed.DevSeedApplicationKt'
+}
+
+tasks.named('bootJar') {
+	enabled = false
+}
+
+tasks.named('test') {
+	useJUnitPlatform()
+	testLogging {
+		exceptionFormat = 'full'
+		showCauses = true
+		showStackTraces = true
+	}
+}
+
+tasks.named('bootRun') {
+	environment(rootProject.ext.loadDotenv("${rootDir}/.env"))
+}
