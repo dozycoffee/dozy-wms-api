@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
-# 개발 DB를 삭제 후 재생성한다. 다음 bootRun에서 Flyway가 스키마를 다시 만들고,
-# dev 시드가 켜져 있으면 목 데이터도 다시 적재된다.
+# 개발 DB를 삭제 후 재생성한다. 다음 bootRun에서 Flyway가 스키마를 다시 만든다.
+# 창고 구조는 스키마가 만들어진 뒤 ./scripts/seed-dev-db.sh로 다시 적재한다.
 set -euo pipefail
 
 cd "$(dirname "$0")/.."
