@@ -1,6 +1,7 @@
 package com.dozycoffee.wms.inventory.application.service
 
 import com.dozycoffee.wms.inventory.application.port.out.InventoryRepository
+import com.dozycoffee.wms.inventory.application.port.out.LocationStockMirror
 import com.dozycoffee.wms.inventory.application.port.out.LotRepository
 import com.dozycoffee.wms.inventory.domain.enumeration.LotStatus
 import com.dozycoffee.wms.inventory.domain.enumeration.QualityStatus
@@ -34,6 +35,9 @@ class ExpirationMonitoringServiceTest {
 
     @Mock
     private lateinit var inventoryRepository: InventoryRepository
+
+    @Mock
+    private lateinit var locationStockMirror: LocationStockMirror
 
     @InjectMocks
     private lateinit var expirationMonitoringService: ExpirationMonitoringService
@@ -100,6 +104,7 @@ class ExpirationMonitoringServiceTest {
             val inventoryCaptor = argumentCaptor<Inventory>()
             verify(inventoryRepository).save(inventoryCaptor.capture())
             assertThat(inventoryCaptor.firstValue.qualityStatus).isEqualTo(QualityStatus.DISPOSAL_SCHEDULED)
+            verify(locationStockMirror).changeQuality(any(), eq(QualityStatus.NORMAL), eq(10))
         }
 
         @Test

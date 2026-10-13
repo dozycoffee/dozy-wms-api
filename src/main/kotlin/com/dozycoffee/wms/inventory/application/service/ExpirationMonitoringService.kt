@@ -3,6 +3,7 @@ package com.dozycoffee.wms.inventory.application.service
 import com.dozycoffee.wms.inventory.application.port.`in`.ScanExpirationUseCase
 import com.dozycoffee.wms.inventory.application.port.`in`.result.ExpirationScanResult
 import com.dozycoffee.wms.inventory.application.port.out.InventoryRepository
+import com.dozycoffee.wms.inventory.application.port.out.LocationStockMirror
 import com.dozycoffee.wms.inventory.application.port.out.LotRepository
 import com.dozycoffee.wms.inventory.domain.enumeration.LotStatus
 import com.dozycoffee.wms.inventory.domain.enumeration.QualityStatus
@@ -23,7 +24,8 @@ import java.time.LocalDate
 @Service
 class ExpirationMonitoringService(
     private val lotRepository: LotRepository,
-    private val inventoryRepository: InventoryRepository
+    private val inventoryRepository: InventoryRepository,
+    private val locationStockMirror: LocationStockMirror
 ) : ScanExpirationUseCase {
 
     @Transactional
@@ -73,7 +75,8 @@ class ExpirationMonitoringService(
             if (inventory.qualityStatus == QualityStatus.NORMAL) {
                 try {
                     inventory.markDisposalScheduled()
-                    inventoryRepository.save(inventory)
+                    val saved = inventoryRepository.save(inventory)
+                    locationStockMirror.changeQuality(saved, QualityStatus.NORMAL, saved.quantity)
                     scheduled++
                 } catch (e: InventoryHasActiveAllocationException) {
                     skipped++

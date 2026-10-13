@@ -9,6 +9,7 @@ import com.dozycoffee.wms.inventory.application.port.`in`.result.AllocationResul
 import com.dozycoffee.wms.inventory.application.port.out.AllocationRepository
 import com.dozycoffee.wms.inventory.application.port.out.InventoryHistoryRepository
 import com.dozycoffee.wms.inventory.application.port.out.InventoryRepository
+import com.dozycoffee.wms.inventory.application.port.out.LocationStockMirror
 import com.dozycoffee.wms.inventory.domain.enumeration.AllocationReferenceType
 import com.dozycoffee.wms.inventory.domain.enumeration.InventoryHistoryType
 import com.dozycoffee.wms.inventory.domain.exception.AllocationNotFoundException
@@ -25,7 +26,8 @@ import org.springframework.transaction.annotation.Transactional
 class AllocationService(
     private val allocationRepository: AllocationRepository,
     private val inventoryRepository: InventoryRepository,
-    private val inventoryHistoryRepository: InventoryHistoryRepository
+    private val inventoryHistoryRepository: InventoryHistoryRepository,
+    private val locationStockMirror: LocationStockMirror
 ) : HoldInventoryUseCase, ReleaseAllocationUseCase, FulfillAllocationUseCase, GetAllocationUseCase {
 
     /**
@@ -90,6 +92,7 @@ class AllocationService(
                 allocation.referenceId
             )
         )
+        locationStockMirror.decrease(inventory, allocation.quantity)
 
         return AllocationResult.from(saved)
     }

@@ -18,6 +18,7 @@ import com.dozycoffee.wms.inventory.application.port.`in`.result.InventoryResult
 import com.dozycoffee.wms.inventory.application.port.`in`.result.LotResult
 import com.dozycoffee.wms.inventory.application.port.out.InventoryHistoryRepository
 import com.dozycoffee.wms.inventory.application.port.out.InventoryRepository
+import com.dozycoffee.wms.inventory.application.port.out.LocationStockMirror
 import com.dozycoffee.wms.inventory.application.port.out.LotRepository
 import com.dozycoffee.wms.inventory.domain.enumeration.InventoryHistoryType
 import com.dozycoffee.wms.inventory.domain.enumeration.QualityStatus
@@ -39,6 +40,7 @@ class InventoryService(
     private val inventoryRepository: InventoryRepository,
     private val lotRepository: LotRepository,
     private val inventoryHistoryRepository: InventoryHistoryRepository,
+    private val locationStockMirror: LocationStockMirror,
     private val currentActorProvider: CurrentActorProvider,
     private val currentWarehouseAccessProvider: CurrentWarehouseAccessProvider
 ) : RegisterInventoryUseCase,
@@ -60,6 +62,7 @@ class InventoryService(
         )
         val saved = inventoryRepository.save(inventory)
         recordHistory(saved.inventoryId, command.historyType, command.quantity, command.referenceId)
+        locationStockMirror.increase(saved, command.quantity)
         return InventoryResult.from(saved)
     }
 
@@ -100,15 +103,21 @@ class InventoryService(
     @Transactional
     override suspend fun markDefective(inventoryId: Long): InventoryResult {
         val inventory = findInventoryOrThrow(inventoryId)
+        val previousQuality: QualityStatus = inventory.qualityStatus
         inventory.markDefective()
-        return InventoryResult.from(inventoryRepository.save(inventory))
+        val saved = inventoryRepository.save(inventory)
+        locationStockMirror.changeQuality(saved, previousQuality, saved.quantity)
+        return InventoryResult.from(saved)
     }
 
     @Transactional
     override suspend fun markDisposalScheduled(inventoryId: Long): InventoryResult {
         val inventory = findInventoryOrThrow(inventoryId)
+        val previousQuality: QualityStatus = inventory.qualityStatus
         inventory.markDisposalScheduled()
-        return InventoryResult.from(inventoryRepository.save(inventory))
+        val saved = inventoryRepository.save(inventory)
+        locationStockMirror.changeQuality(saved, previousQuality, saved.quantity)
+        return InventoryResult.from(saved)
     }
 
     /** 폐기 확정 — 대상 재고를 가용/총 수량에서 완전히 제외한다 */
@@ -119,6 +128,7 @@ class InventoryService(
         inventory.delete(currentActorProvider.get().auditName)
         val saved = inventoryRepository.save(inventory)
         recordHistory(saved.inventoryId, InventoryHistoryType.DISPOSAL, -disposedQuantity, referenceId)
+        locationStockMirror.decrease(saved, disposedQuantity)
         return InventoryResult.from(saved)
     }
 
@@ -131,6 +141,11 @@ class InventoryService(
         val saved = inventoryRepository.save(inventory)
         if (quantityChange != 0) {
             recordHistory(saved.inventoryId, InventoryHistoryType.ADJUSTMENT, quantityChange, referenceId)
+            if (quantityChange > 0) {
+                locationStockMirror.increase(saved, quantityChange)
+            } else {
+                locationStockMirror.decrease(saved, -quantityChange)
+            }
         }
         return InventoryResult.from(saved)
     }

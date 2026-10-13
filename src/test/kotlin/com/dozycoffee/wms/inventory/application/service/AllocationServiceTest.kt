@@ -4,6 +4,7 @@ import com.dozycoffee.wms.inventory.application.port.`in`.command.HoldInventoryC
 import com.dozycoffee.wms.inventory.application.port.out.AllocationRepository
 import com.dozycoffee.wms.inventory.application.port.out.InventoryHistoryRepository
 import com.dozycoffee.wms.inventory.application.port.out.InventoryRepository
+import com.dozycoffee.wms.inventory.application.port.out.LocationStockMirror
 import com.dozycoffee.wms.inventory.domain.enumeration.AllocationReferenceType
 import com.dozycoffee.wms.inventory.domain.enumeration.AllocationStatus
 import com.dozycoffee.wms.inventory.domain.enumeration.InventoryHistoryType
@@ -27,6 +28,7 @@ import org.mockito.Mock
 import org.mockito.junit.jupiter.MockitoExtension
 import org.mockito.kotlin.any
 import org.mockito.kotlin.argumentCaptor
+import org.mockito.kotlin.eq
 import org.mockito.kotlin.verify
 import org.mockito.kotlin.whenever
 import org.springframework.dao.DataIntegrityViolationException
@@ -42,6 +44,9 @@ class AllocationServiceTest {
 
     @Mock
     private lateinit var inventoryHistoryRepository: InventoryHistoryRepository
+
+    @Mock
+    private lateinit var locationStockMirror: LocationStockMirror
 
     @InjectMocks
     private lateinit var allocationService: AllocationService
@@ -143,6 +148,7 @@ class AllocationServiceTest {
             assertThat(historyCaptor.firstValue.historyType).isEqualTo(InventoryHistoryType.OUTBOUND)
             assertThat(historyCaptor.firstValue.quantityChange).isEqualTo(-10)
             assertThat(historyCaptor.firstValue.referenceId).isEqualTo(100L)
+            verify(locationStockMirror).decrease(any(), eq(10))
         }
     }
 
