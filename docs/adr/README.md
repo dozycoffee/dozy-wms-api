@@ -55,5 +55,6 @@ Proposed | Accepted | Deprecated | Superseded by ADR-YYYY
 | [0017](0017-separate-inventory-service.md) | 재고를 dozy-inventory-api로 분리하고 WMS는 물리 위치 장부와 호출 아웃박스를 둠 | Accepted |
 | [0018](0018-location-stock-ledger.md) | Location 보조 장부(location_stock) 설계와 기존 재고에서의 미러링 전환 | Accepted |
 | [0019](0019-inventory-call-outbox.md) | inventory 호출을 DB 아웃박스(inventory_call)로 전달 | Accepted |
+| [0020](0020-warehouse-access-event.md) | 직원 창고 소속 변경 이벤트를 공통 envelope으로 발행 | Accepted |
 
 새 ADR은 `NNNN-kebab-case-제목.md` 형식으로 추가하고, 이 표에도 반드시 등록한다.

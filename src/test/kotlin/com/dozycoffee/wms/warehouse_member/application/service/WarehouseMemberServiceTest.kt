@@ -3,6 +3,7 @@ package com.dozycoffee.wms.warehouse_member.application.service
 import com.dozycoffee.wms.warehouse.application.port.`in`.GetWarehouseUseCase
 import com.dozycoffee.wms.warehouse.application.port.`in`.result.WarehouseResult
 import com.dozycoffee.wms.warehouse.domain.exception.WarehouseNotFoundException
+import com.dozycoffee.wms.warehouse_member.application.port.out.WarehouseAccessEventRepository
 import com.dozycoffee.wms.warehouse_member.application.port.out.WarehouseMemberRepository
 import com.dozycoffee.wms.warehouse_member.domain.exception.WarehouseMemberNotFoundException
 import com.dozycoffee.wms.warehouse_member.domain.model.WarehouseMember
@@ -18,12 +19,16 @@ import org.junit.jupiter.api.Nested
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.extension.ExtendWith
 import org.mockito.Mock
-import org.mockito.InjectMocks
 import org.mockito.junit.jupiter.MockitoExtension
+import org.junit.jupiter.api.BeforeEach
 import org.mockito.kotlin.any
+import org.mockito.kotlin.eq
 import org.mockito.kotlin.never
 import org.mockito.kotlin.verify
 import org.mockito.kotlin.whenever
+import java.time.Clock
+import java.time.LocalDateTime
+import java.time.ZoneId
 import java.util.UUID
 
 @ExtendWith(MockitoExtension::class)
@@ -33,10 +38,25 @@ class WarehouseMemberServiceTest {
     private lateinit var warehouseMemberRepository: WarehouseMemberRepository
 
     @Mock
+    private lateinit var warehouseAccessEventRepository: WarehouseAccessEventRepository
+
+    @Mock
     private lateinit var getWarehouseUseCase: GetWarehouseUseCase
 
-    @InjectMocks
     private lateinit var service: WarehouseMemberService
+
+    private val now: LocalDateTime = LocalDateTime.of(2026, 10, 13, 10, 0, 0)
+
+    @BeforeEach
+    fun setUp() {
+        val zone: ZoneId = ZoneId.of("Asia/Seoul")
+        service = WarehouseMemberService(
+            warehouseMemberRepository,
+            warehouseAccessEventRepository,
+            getWarehouseUseCase,
+            Clock.fixed(now.atZone(zone).toInstant(), zone)
+        )
+    }
 
     private val principalId: UUID = UUID.fromString("0199a3c4-7b2e-7c1a-9f3d-2b6e8a1c4d5f")
 
@@ -60,6 +80,18 @@ class WarehouseMemberServiceTest {
         }
 
         @Test
+        fun `새로 배정하면 그 직원의 소속 변경을 발행 대기에 기록한다`() = runTest {
+            whenever(getWarehouseUseCase.getById(1L)).thenReturn(warehouseResult())
+            whenever(warehouseMemberRepository.findByWarehouseIdAndPrincipalId(1L, principalId)).thenReturn(null)
+            whenever(warehouseMemberRepository.save(any()))
+                .thenReturn(WarehouseMember.reconstitute(10L, 1L, principalId))
+
+            service.assign(1L, principalId)
+
+            verify(warehouseAccessEventRepository).markChanged(eq(principalId), any(), eq(now), eq(now))
+        }
+
+        @Test
         fun `이미 배정돼 있으면 저장하지 않고 기존 배정을 반환한다`() = runTest {
             whenever(getWarehouseUseCase.getById(1L)).thenReturn(warehouseResult())
             whenever(warehouseMemberRepository.findByWarehouseIdAndPrincipalId(1L, principalId))
@@ -69,6 +101,7 @@ class WarehouseMemberServiceTest {
 
             assertThat(result.warehouseMemberId).isEqualTo(10L)
             verify(warehouseMemberRepository, never()).save(any())
+            verify(warehouseAccessEventRepository, never()).markChanged(any(), any(), any(), any())
         }
 
         @Test
@@ -79,6 +112,7 @@ class WarehouseMemberServiceTest {
 
             assertThatThrownBy { runBlocking { service.assign(1L, principalId) } }
                 .isInstanceOf(WarehouseMemberAlreadyAssignedException::class.java)
+            verify(warehouseAccessEventRepository, never()).markChanged(any(), any(), any(), any())
         }
 
         @Test
@@ -102,6 +136,7 @@ class WarehouseMemberServiceTest {
             service.remove(1L, principalId)
 
             verify(warehouseMemberRepository).delete(member)
+            verify(warehouseAccessEventRepository).markChanged(eq(principalId), any(), eq(now), eq(now))
         }
 
         @Test
@@ -110,6 +145,7 @@ class WarehouseMemberServiceTest {
 
             assertThatThrownBy { runBlocking { service.remove(1L, principalId) } }
                 .isInstanceOf(WarehouseMemberNotFoundException::class.java)
+            verify(warehouseAccessEventRepository, never()).markChanged(any(), any(), any(), any())
         }
     }
 

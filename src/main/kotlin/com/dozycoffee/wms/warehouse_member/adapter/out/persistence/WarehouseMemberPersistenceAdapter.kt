@@ -4,6 +4,7 @@ import com.dozycoffee.wms.warehouse_member.application.port.out.WarehouseMemberR
 import com.dozycoffee.wms.warehouse_member.domain.model.WarehouseMember
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.toList
 import kotlinx.coroutines.flow.toSet
 import org.springframework.stereotype.Component
 import java.util.UUID
@@ -28,6 +29,10 @@ class WarehouseMemberPersistenceAdapter(
 
     override suspend fun findWarehouseIdsByPrincipalId(principalId: UUID): Set<Long> {
         return warehouseMemberR2dbcRepository.findWarehouseIdsByPrincipalId(principalId.toString()).toSet()
+    }
+
+    override suspend fun findAllPrincipalIds(): List<UUID> {
+        return warehouseMemberR2dbcRepository.findAllPrincipalIds().map { UUID.fromString(it) }.toList()
     }
 
     override suspend fun delete(warehouseMember: WarehouseMember) {

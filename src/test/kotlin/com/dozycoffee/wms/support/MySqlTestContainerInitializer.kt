@@ -17,6 +17,7 @@ class MySqlTestContainerInitializer : ApplicationContextInitializer<Configurable
             "spring.flyway.user=root",
             "spring.flyway.password=${mysql.password}",
             "wms.inventory-call.dispatch.enabled=false",
+            "wms.warehouse-access-event.publisher.enabled=false",
         ).applyTo(applicationContext.environment)
     }
 

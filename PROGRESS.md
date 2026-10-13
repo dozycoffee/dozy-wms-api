@@ -40,6 +40,12 @@
   `{"items":[...]}`로 응답하며 수량 0 항목은 뺀다. 없는 창고는 빈 목록이 아니라 404다(빈 목록이면 inventory가 WMS 수량을 전부 0으로 보고 보정안을
   쏟아낸다). 호출 주체는 `svc-inventory` system client이므로 `WmsRole.SERVICE`(`wms:service`)를 추가했고, 이 role은 모든 창고에 접근하되 이 API와
   `warehouse_admin`에만 허용한다(조회 식 `READ`에는 포함하지 않는다). 전체 테스트 통과.
+- F-030: 직원 창고 소속 변경 이벤트(`WAREHOUSE_ACCESS_CHANGED`)를 MSA 공통 envelope으로 발행한다(ADR-0020, #117). `assign`/`remove`가 같은 트랜잭션에서 직원당
+  한 행인 `warehouse_access_event`(V7)를 upsert(`eventId` UUID v7, `occurredAt`)하고, 스케줄러가 행을 lease로 점유해 발행 시점의 커밋된 소속 전체를
+  읽어 `dozy.wms.warehouse-access`(압축 토픽, 키 `principalId`)로 보낸다. 성공하면 `eventId`가 같을 때만 행을 지운다. 실패는 격리 없이 백오프로
+  재시도한다(10회부터 `WAREHOUSE_ACCESS_EVENT_RETRYING` 로그). `POST /api/warehouse-members/republish`(warehouse_admin)가 모든 직원을 다시 발행한다.
+  공통 직렬화(`EventEnvelope`, `UuidV7`)는 `global/event`에 있다. 로컬 Kafka는 `docker compose up -d kafka`(호스트 포트 9094)이고 주소는
+  `KAFKA_BOOTSTRAP_SERVERS`다. inventory 수신부는 아직 평면 형식을 읽으므로 envelope(`data` 아래)로 바꾸는 작업이 inventory 저장소에서 선행돼야 한다.
 
 ### 2026-10-04
 
@@ -82,8 +88,8 @@
 
 ## 다음 세션에서 할 일
 
-1. F-030 WAREHOUSE_ACCESS_CHANGED 발행 — inventory가 이미 기다리는 계약
-2. 이후 F-031(상품 사본) → F-032~F-036(입고·폐기·반품·출고·실사 연동) → F-037(재고 코드 제거·devseed 개편)
+1. inventory 수신부를 공통 envelope으로 바꾸고(inventory 저장소) 처음 연동 때 `POST /api/warehouse-members/republish` 실행
+2. F-031(상품 사본) → F-032~F-036(입고·폐기·반품·출고·실사 연동) → F-037(재고 코드 제거·devseed 개편)
 3. 배포 체크리스트: dozy-auth admin에 `wms:` role 8개(`service` 포함) 등록하고 `svc-inventory` system client에 `wms:service`를 부여 (코드 작업 아님)
 4. `dozy-admin-console`의 `httpClient`가 에러 메시지를 `detail`(없으면 `code` 기반 문구)로 읽도록 갱신 (F-026 후속, 콘솔 저장소 작업)
 5. (후순위) 창고 배정 변경 시 요청마다 `warehouse_member`를 조회하는 비용 점검: 실측 후 필요할 때만 캐시 검토

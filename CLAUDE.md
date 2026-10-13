@@ -41,6 +41,9 @@ SPRING_PROFILES_ACTIVE=local WMS_DEV_SEED_ENABLED=true ./gradlew bootRun
 
 # 개발 DB 초기화 (삭제 후 재생성, 확인 프롬프트 있음)
 ./scripts/reset-dev-db.sh
+
+# 로컬 개발용 MySQL·Kafka (Kafka 호스트 포트 9094, 주소는 KAFKA_BOOTSTRAP_SERVERS)
+docker compose up -d
 ```
 
 개발용 목 데이터는 `devseed` 패키지의 `DevSeedRunner`가 실제 UseCase 흐름(입고→검수→적재→출고→폐기→실사)을 재생해
