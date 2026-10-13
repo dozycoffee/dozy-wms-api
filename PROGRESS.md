@@ -46,6 +46,10 @@
   재시도한다(10회부터 `WAREHOUSE_ACCESS_EVENT_RETRYING` 로그). `POST /api/warehouse-members/republish`(warehouse_admin)가 모든 직원을 다시 발행한다.
   공통 직렬화(`EventEnvelope`, `UuidV7`)는 `global/event`에 있다. 로컬 Kafka는 `docker compose up -d kafka`(호스트 포트 9094)이고 주소는
   `KAFKA_BOOTSTRAP_SERVERS`다. inventory 수신부는 아직 평면 형식을 읽으므로 envelope(`data` 아래)로 바꾸는 작업이 inventory 저장소에서 선행돼야 한다.
+- 개발용 시더(`devseed` 패키지와 `DevSeedRunnerTest`, 약 1,060줄)를 제거하고 창고 구조(창고 1, WorkArea 4, Zone 6, Location 15)만 `scripts/seed/dev-master-data.sql`과
+  `scripts/seed-dev-db.sh`로 적재하도록 바꿨다(#119). 시더가 만들던 상품·재고·입고·출고·반품·폐기·실사는 inventory 이관으로 WMS가 소유하지 않거나
+  연동 작업에서 새로 검증하므로 더 만들지 않는다. `DevMasterDataSqlTest`가 SQL을 실제 MySQL에 적용해 용량 합계와 재실행 멱등성을 검증한다.
+  시더와 함께 `DevSeedRunnerTest`의 흐름 통합 검증과 미러링 정합성 테스트도 없어졌다(미러링은 F-032~F-037에서 제거 예정). 모듈로 분리하려던 시도(PR #120)는 닫았다.
 
 ### 2026-10-04
 
