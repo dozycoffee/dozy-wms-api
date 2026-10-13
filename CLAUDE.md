@@ -36,8 +36,8 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 # 로컬 실행 (local 프로파일은 인증을 우회한다 — 아래 Authentication 참고)
 SPRING_PROFILES_ACTIVE=local ./gradlew bootRun
 
-# 개발용 목 데이터 적재 (local 프로파일 + 시드 플래그가 모두 필요, 이미 데이터가 있으면 건너뜀)
-SPRING_PROFILES_ACTIVE=local WMS_DEV_SEED_ENABLED=true ./gradlew bootRun
+# 개발용 창고 구조 적재 (창고·WorkArea·Zone·Location, 스키마가 있어야 하며 창고가 이미 있으면 건너뜀)
+./scripts/seed-dev-db.sh
 
 # 개발 DB 초기화 (삭제 후 재생성, 확인 프롬프트 있음)
 ./scripts/reset-dev-db.sh
@@ -46,8 +46,9 @@ SPRING_PROFILES_ACTIVE=local WMS_DEV_SEED_ENABLED=true ./gradlew bootRun
 docker compose up -d
 ```
 
-개발용 목 데이터는 `devseed` 패키지의 `DevSeedRunner`가 실제 UseCase 흐름(입고→검수→적재→출고→폐기→실사)을 재생해
-만든다. 한 트랜잭션으로 실행되며, 정합성(Location/WorkArea 사용량, 점유 수량)과 상태 분포는 `DevSeedRunnerTest`가 검증한다.
+개발용 데이터는 파생 데이터가 없는 창고 구조(창고 1, WorkArea 4, Zone 6, Location 15)만 `scripts/seed/dev-master-data.sql`로 적재한다.
+재고·상품·입고 등은 inventory 서비스 소유이거나 그 연동으로 만들어지므로 시딩하지 않는다. `DevMasterDataSqlTest`가 SQL을 실제 MySQL에 적용해
+용량 합계(Zone 4,320 + WorkArea 680 = 5,000)와 재실행 멱등성을 검증한다.
 
 ## Architecture
 
@@ -70,8 +71,7 @@ src
 │   │   ├── inbound                           // 입고(Inbound) · 입고 상품(InboundItem, 검수 포함)
 │   │   ├── outbound                          // 출고(Outbound) · 출고 상품(OutboundItem)
 │   │   ├── disposal                          // 폐기(Disposal) · 폐기 상품(DisposalItem)
-│   │   ├── return_request                    // 반품(ReturnRequest) · 반품 상품(ReturnItem)
-│   │   └── devseed                           // local 프로파일 전용 목 데이터 시더 (운영 코드와 분리)
+│   │   └── return_request                    // 반품(ReturnRequest) · 반품 상품(ReturnItem)
 │   │
 │   │   # 각 도메인의 내부 구조
 │   │   └── {domain}
