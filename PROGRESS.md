@@ -4,6 +4,8 @@
 
 - 전체 도메인(warehouse, product, inventory, inbound, outbound, return_request, disposal,
   stock_audit)의 Hexagonal 3계층(도메인/서비스/영속성/REST)이 구현돼 있다. Flyway 마이그레이션은 V1(테이블)·V2(외래키) baseline 이후 V3, V4가 추가돼 있다. 개발용 목 데이터 시더(`devseed`)가 있다.
+- 재고(수량·Lot·예약·상품 마스터)는 `dozy-inventory-api`로 분리됐다. 이 저장소의 `inventory` 패키지는 제거 대상이며, 연동·제거 계획은 ADR-0017과
+  F-027~F-037로 추적한다. 그 전까지는 기존 코드가 그대로 동작한다.
 - 인증은 ADR-0012 기준으로 `Actor`(누구인가)와 `WarehouseAccess`(어느 창고)를 분리해 구현돼 있다. dozy-auth 스타터 연동(토큰 검증,
   F-017), 창고 접근 가드(F-022), role 인가와 `@PreAuthorize`(F-023)가 완료됐고 role의 Auth 등록만 배포 작업으로 남아 있다.
 - 에러 응답은 `dozy-auth` 규약의 RFC 9457 Problem Details(`code`, `traceId`, `errors[]`)로 통일돼 있고 모든 응답에
@@ -12,6 +14,16 @@
   있다. FIFO 정렬·만료 스캔·Allocation HELD 유니크 등 SQL 의존 로직은 이미 이 레이어가 커버한다.
 
 ## 세션 로그
+
+### 2026-10-13
+
+- 재고 관련 코드(재고, Lot, 재고 이력, 점유, 상품 마스터)가 `dozy-inventory-api`로 분리·이관돼 있음을 확인했다. inventory 쪽 문서(`principles`,
+  `scenarios`, `events`, ADR)와 WMS의 `inventory` 패키지(약 100개 파일)·이를 쓰는 inbound/outbound/return_request/disposal/stock_audit/devseed를
+  대조해 이관·연동 범위를 정리했다.
+- ADR-0017 작성: 수량·Lot·예약의 진실은 inventory, WMS는 Location 단위 물리 위치 보조 장부를 두고, 출고는 예약 이벤트 기반만 두며,
+  반품은 등록된 Lot만 허용하고, inventory 호출은 로컬 커밋 + DB 아웃박스로 보낸다. 후속 작업을 F-027~F-037로 등록했다.
+- 이전에 진행하던 반품 검수 수령 라인 전환(구 ADR-0017 초안, F-028 구상)은 폐기했다. 반품 Lot 규칙이 바뀌어 F-034에서 다시 설계한다.
+  F-014·F-018(이벤트 전환·아웃박스)은 F-028(호출 아웃박스)·F-035(예약 이벤트 기반 출고)가 대체하므로 feature_list에서 삭제했다.
 
 ### 2026-10-04
 
@@ -51,41 +63,14 @@
   저장 값에서 `{GROUP}_` 접두사를 제거하고 enum 상수 이름(`name`)을 그대로 저장한다(`CommonCodes` 유틸과 `*_GROUP` 상수 삭제, `enum.name`/`Enum.valueOf`
   사용). `EnumCheckConstraintMigrationTest`가 CHECK 허용 값과 enum의 일치, 테이블 부재를 검증한다.
 
-### 2026-10-02
-
-- F-022: 사용자-창고 접근 매핑과 가드를 구현했다(ADR-0012 갱신). `warehouse_member`(V25)와 배정 관리 API(`/api/warehouses/{id}/members`,
-  warehouse_admin 전용), `WarehouseMemberAccessProvider`(시스템·warehouse_admin=전체, 그 외=배정된 창고, 배정 없음=접근 불가)를 추가하고
-  `AllWarehousesAccessProvider`를 제거했다. `WarehouseAccessGuard`로 입고·출고·반품·폐기·실사의 등록/단건/상태 변경/목록과 Item 조회·처리를
-  제한한다(403 `COMMON_WAREHOUSE_ACCESS_DENIED`). 목록은 SQL `IN`으로 좁힌다.
-- 버그 2건을 함께 고쳤다: (1) `IS NULL OR ... IN (:ids)` 패턴이 창고 2개 이상에서 SQL 오류를 내던 재고 조회, (2) 출고 FIFO 피킹이
-  창고 조건 없이 재고를 골라 다른 창고 재고를 피킹할 수 있던 문제(`pickFifo`에 출고 창고 조건 추가).
-- F-023(진행 중): WMS role 7개(`WmsRole`: inbound/outbound/return/disposal/stock_audit_manager, inventory_viewer, warehouse_admin)를
-  정의하고 전 컨트롤러 엔드포인트에 `@PreAuthorize`를 적용했다(조회=모든 WMS role, 쓰기=도메인 담당 role + warehouse_admin,
-  마스터·재고 쓰기=warehouse_admin). `local` 필터 체인은 모든 role을 가진 개발 사용자를 주입한다.
-  `GlobalExceptionHandler`가 `AccessDeniedException`을 500으로 바꾸던 문제를 보안 예외 재전파로 고쳤다(403 Problem Details).
-- 실사 마감의 `approvedBy` 요청 필드를 제거하고 토큰 principal로 대체했다. 임계치 초과 조정은 `warehouse_admin`만 승인할 수
-  있으며, 아니면 `StockAuditApprovalRequiredException`이다. `devseed`는 local 개발 사용자로 승인한다.
-- F-023 마무리: 실사 `assignee`를 요청 바디 대신 토큰 principal로 기록하도록 바꿨다(`PATCH /assign`은 바디 없음, 사용자가 아닌
-  행위자는 `INVALID_ASSIGNEE`). role Auth 등록은 코드 완료 조건에서 빼고 배포 체크리스트로 분리했다(ADR-0012에 role 계약 명시).
-  한 사용자는 role을 여러 개 가질 수 있음을 확인했다(`roles` 집합 + `hasAnyRole`).
-- `stock_audit.register`에서 대상 Zone이 요청 창고 소속인지 검증한다(`STOCK_AUDIT_ZONE_WAREHOUSE_MISMATCH`, 400).
-  다른 창고 Zone을 지정해 접근 가드를 우회하던 경로를 막았다.
-- 코드 분석으로 dozy-auth 연동 모델을 정리했다(ADR-0012). 토큰에는 `principalId`와 `roles`만 있고 창고 범위가 없어,
-  창고 접근은 WMS 자체 데이터(사용자-창고 매핑)로 관리하는 것으로 결정했다. 노션 "서비스 연동 가이드"는 워크스페이스에서
-  찾지 못해 dozy-auth 저장소의 명세(`docs/`)를 기준으로 삼았다.
-- F-016: `AccessScope`/`MockAccessScopeProvider`를 폐기하고 `Actor`/`CurrentActorProvider`,
-  `WarehouseAccess`/`WarehouseFilter`/`CurrentWarehouseAccessProvider`로 교체했다. 감사 주체는 `principalId` UUID.
-- F-017: dozy-auth 스타터(`0.1.0`)를 연동했다. 토큰 검증은 스타터 빈을 쓰고 필터 체인은 CORS 때문에 직접 정의했다(`SecurityConfig`).
-  `SecurityContextActorProvider`가 Reactor Context에서 행위자를 꺼내며(요청 밖은 `SystemActor`), 통합 테스트로 `created_by`가
-  토큰의 `principalId`로 기록됨을 확인했다(스파이크 통과). `local` 프로필만 인증을 우회하고 `prod`와 함께 켜면 기동 실패한다.
-  시더 프로파일을 `dev`에서 `local`로 맞췄다. 컨트롤러 테스트 18개는 `@WithDozyPrincipal`로 전환했다.
-- 남은 확인: CI가 `GITHUB_TOKEN`으로 `dozy-auth` 패키지를 읽을 수 있는지(패키지 설정에서 이 저장소의 읽기 접근 허용 필요)는 PR의 CI에서 확인한다.
 
 ## 다음 세션에서 할 일
 
-1. 배포 체크리스트: dozy-auth admin에 `wms:` role 7개 등록 (코드 작업 아님)
-2. `dozy-admin-console`의 `httpClient`가 에러 메시지를 `detail`(없으면 `code` 기반 문구)로 읽도록 갱신 (F-026 후속, 콘솔 저장소 작업)
-3. (후순위) 창고 배정 변경 시 요청마다 `warehouse_member`를 조회하는 비용 점검: 실측 후 필요할 때만 캐시 검토
-4. (후순위) 입고 검수 후속: 입고 등록이 같은 상품의 중복 줄을 허용하는지 확인(ADR-0016 가정), 잔여 유통기한 비율 기준·수량 허용 오차·로트 자동 생성 등 범위 밖 항목 재검토
-5. (후순위) F-019: 실측 병목 확인 시 착수
-6. (최후순위) F-014 이벤트 전환 1단계 → F-018 아웃박스·브로커: 원자성 상실, AFTER_COMMIT 유실 리스크와 서비스 분리 구체화 후 재검토
+1. F-027 Location 보조 장부 도입, F-028 inventory 연동 기반(svc-wms 클라이언트·호출 아웃박스) — 서로 독립이라 먼저 착수 (ADR-0017)
+2. F-029 stock-quantities API, F-030 WAREHOUSE_ACCESS_CHANGED 발행 — inventory가 이미 기다리는 계약
+3. 이후 F-031(상품 사본) → F-032~F-036(입고·폐기·반품·출고·실사 연동) → F-037(재고 코드 제거·devseed 개편)
+4. 배포 체크리스트: dozy-auth admin에 `wms:` role 7개 등록 (코드 작업 아님)
+5. `dozy-admin-console`의 `httpClient`가 에러 메시지를 `detail`(없으면 `code` 기반 문구)로 읽도록 갱신 (F-026 후속, 콘솔 저장소 작업)
+6. (후순위) 창고 배정 변경 시 요청마다 `warehouse_member`를 조회하는 비용 점검: 실측 후 필요할 때만 캐시 검토
+7. (후순위) 입고 검수 후속: 입고 등록이 같은 상품의 중복 줄을 허용하는지 확인(ADR-0016 가정), 잔여 유통기한 비율 기준·수량 허용 오차·로트 자동 생성 등 범위 밖 항목 재검토
+8. (후순위) F-019: 실측 병목 확인 시 착수
