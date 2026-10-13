@@ -1,7 +1,7 @@
 # ADR-0020: 직원 창고 소속 변경 이벤트를 공통 envelope으로 발행한다
 
 ## 상태
-Accepted
+Accepted. 결정 1의 Kafka 헤더 부분은 [ADR-0022](0022-event-metadata-in-payload.md)가 대체한다(메타데이터는 값에만 둔다).
 
 ## 배경 (Context)
 `dozy-inventory-api`는 창고 관리자의 창고별 접근을 제어하려고 직원의 창고 소속 사본(`warehouse_access`)을 유지한다(inventory ADR-0032).
