@@ -1,47 +1,25 @@
 package com.dozycoffee.wms.product.adapter.`in`.web
 
 import com.dozycoffee.wms.global.security.WmsAuthorize
-import com.dozycoffee.wms.product.adapter.`in`.web.request.RegisterProductRequest
 import com.dozycoffee.wms.product.adapter.`in`.web.response.ProductResponse
-import com.dozycoffee.wms.product.application.port.`in`.ActivateProductUseCase
-import com.dozycoffee.wms.product.application.port.`in`.DeactivateProductUseCase
-import com.dozycoffee.wms.product.application.port.`in`.DeleteProductUseCase
 import com.dozycoffee.wms.product.application.port.`in`.GetProductUseCase
-import com.dozycoffee.wms.product.application.port.`in`.RegisterProductUseCase
 import com.dozycoffee.wms.product.domain.enumeration.ProductCategory
 import com.dozycoffee.wms.product.domain.enumeration.ProductStatus
-import jakarta.validation.Valid
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
-import org.springframework.http.HttpStatus
 import org.springframework.security.access.prepost.PreAuthorize
-import org.springframework.web.bind.annotation.DeleteMapping
 import org.springframework.web.bind.annotation.GetMapping
-import org.springframework.web.bind.annotation.PatchMapping
 import org.springframework.web.bind.annotation.PathVariable
-import org.springframework.web.bind.annotation.PostMapping
-import org.springframework.web.bind.annotation.RequestBody
 import org.springframework.web.bind.annotation.RequestMapping
 import org.springframework.web.bind.annotation.RequestParam
-import org.springframework.web.bind.annotation.ResponseStatus
 import org.springframework.web.bind.annotation.RestController
 
+/** 상품 사본의 조회 API다. 상품의 등록과 상태 변경은 inventory 서비스의 `/api/v1/products`에서 한다(ADR-0021) */
 @RestController
 @RequestMapping("/api/products")
 class ProductController(
-    private val registerProductUseCase: RegisterProductUseCase,
-    private val activateProductUseCase: ActivateProductUseCase,
-    private val deactivateProductUseCase: DeactivateProductUseCase,
-    private val deleteProductUseCase: DeleteProductUseCase,
     private val getProductUseCase: GetProductUseCase
 ) {
-
-    @PostMapping
-    @PreAuthorize(WmsAuthorize.ADMIN)
-    @ResponseStatus(HttpStatus.CREATED)
-    suspend fun register(@Valid @RequestBody request: RegisterProductRequest): ProductResponse {
-        return ProductResponse.from(registerProductUseCase.register(request.toCommand()))
-    }
 
     @GetMapping
     @PreAuthorize(WmsAuthorize.READ)
@@ -56,24 +34,5 @@ class ProductController(
     @PreAuthorize(WmsAuthorize.READ)
     suspend fun getById(@PathVariable productId: Long): ProductResponse {
         return ProductResponse.from(getProductUseCase.getById(productId))
-    }
-
-    @PatchMapping("/{productId}/activate")
-    @PreAuthorize(WmsAuthorize.ADMIN)
-    suspend fun activate(@PathVariable productId: Long): ProductResponse {
-        return ProductResponse.from(activateProductUseCase.activate(productId))
-    }
-
-    @PatchMapping("/{productId}/deactivate")
-    @PreAuthorize(WmsAuthorize.ADMIN)
-    suspend fun deactivate(@PathVariable productId: Long): ProductResponse {
-        return ProductResponse.from(deactivateProductUseCase.deactivate(productId))
-    }
-
-    @DeleteMapping("/{productId}")
-    @PreAuthorize(WmsAuthorize.ADMIN)
-    @ResponseStatus(HttpStatus.NO_CONTENT)
-    suspend fun delete(@PathVariable productId: Long) {
-        deleteProductUseCase.delete(productId)
     }
 }

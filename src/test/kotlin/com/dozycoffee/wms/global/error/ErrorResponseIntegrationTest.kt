@@ -49,7 +49,7 @@ class ErrorResponseIntegrationTest {
 
     @Test
     fun `깨진 JSON 요청은 Problem Details 400으로 응답한다`() {
-        webTestClient.post().uri("/api/products")
+        webTestClient.post().uri("/api/warehouses")
             .header("Authorization", authorized())
             .contentType(MediaType.APPLICATION_JSON)
             .bodyValue("{not-json")
@@ -61,14 +61,14 @@ class ErrorResponseIntegrationTest {
 
     @Test
     fun `요청 본문 검증 실패는 필드별 errors를 포함한다`() {
-        webTestClient.post().uri("/api/products")
+        webTestClient.post().uri("/api/warehouses")
             .header("Authorization", authorized())
             .contentType(MediaType.APPLICATION_JSON)
-            .bodyValue("""{"productCode": "", "productName": "", "category": "BEAN", "unit": "KG"}""")
+            .bodyValue("""{"warehouseName": "", "address": "", "latitude": 33.4, "longitude": 126.5}""")
             .exchange()
             .expectStatus().isBadRequest
             .expectBody()
             .jsonPath("$.code").isEqualTo("VALIDATION_FAILED")
-            .jsonPath("$.errors[?(@.field == 'productCode')]").exists()
+            .jsonPath("$.errors[?(@.field == 'warehouseName')]").exists()
     }
 }

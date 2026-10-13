@@ -3,22 +3,28 @@ package com.dozycoffee.wms.product.fixture
 import com.dozycoffee.wms.product.domain.enumeration.ProductCategory
 import com.dozycoffee.wms.product.domain.enumeration.ProductStatus
 import com.dozycoffee.wms.product.domain.model.Product
+import java.time.LocalDateTime
+import java.util.concurrent.atomic.AtomicLong
 
 class ProductTestBuilder {
 
-    private var productId: Long? = null
+    private var productId: Long = nextProductId.incrementAndGet()
     private var productCode: String? = "PRD-0001"
     private var productName: String? = "콜롬비아 원두"
     private var category: ProductCategory? = ProductCategory.BEAN
     private var unit: String? = "KG"
     private var shelfLifeDays: Int? = 365
     private var productStatus: ProductStatus = ProductStatus.ACTIVE
+    private var sourceOccurredAt: LocalDateTime? = null
 
     companion object {
+        /** 상품 ID는 inventory가 정한 값이므로 테스트도 저장소가 채번하지 않고 빌더가 유일한 값을 부여한다 */
+        private val nextProductId: AtomicLong = AtomicLong(1000)
+
         fun product(): ProductTestBuilder = ProductTestBuilder()
     }
 
-    fun productId(productId: Long?): ProductTestBuilder {
+    fun productId(productId: Long): ProductTestBuilder {
         this.productId = productId
         return this
     }
@@ -53,25 +59,21 @@ class ProductTestBuilder {
         return this
     }
 
+    fun sourceOccurredAt(sourceOccurredAt: LocalDateTime?): ProductTestBuilder {
+        this.sourceOccurredAt = sourceOccurredAt
+        return this
+    }
+
     fun build(): Product {
-        val id: Long? = productId
-        if (id != null) {
-            return Product.reconstitute(
-                productId = id,
-                productCode = requireNotNull(productCode) { "productCode는 재구성 시 필수입니다." },
-                productName = requireNotNull(productName) { "productName은 재구성 시 필수입니다." },
-                category = requireNotNull(category) { "category는 재구성 시 필수입니다." },
-                unit = requireNotNull(unit) { "unit은 재구성 시 필수입니다." },
-                shelfLifeDays = shelfLifeDays,
-                productStatus = productStatus
-            )
-        }
-        return Product.create(
+        return Product.of(
+            productId = productId,
             productCode = productCode,
             productName = productName,
-            category = category,
+            category = requireNotNull(category) { "category는 필수입니다." },
             unit = unit,
-            shelfLifeDays = shelfLifeDays
+            shelfLifeDays = shelfLifeDays,
+            productStatus = productStatus,
+            sourceOccurredAt = sourceOccurredAt
         )
     }
 }

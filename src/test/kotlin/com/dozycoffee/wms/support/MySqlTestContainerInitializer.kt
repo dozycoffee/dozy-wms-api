@@ -3,6 +3,7 @@ package com.dozycoffee.wms.support
 import org.springframework.boot.test.util.TestPropertyValues
 import org.springframework.context.ApplicationContextInitializer
 import org.springframework.context.ConfigurableApplicationContext
+import org.springframework.core.env.MapPropertySource
 import org.testcontainers.mysql.MySQLContainer
 
 class MySqlTestContainerInitializer : ApplicationContextInitializer<ConfigurableApplicationContext> {
@@ -16,9 +17,21 @@ class MySqlTestContainerInitializer : ApplicationContextInitializer<Configurable
             "spring.flyway.url=${mysql.jdbcUrl}?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=Asia/Seoul",
             "spring.flyway.user=root",
             "spring.flyway.password=${mysql.password}",
-            "wms.inventory-call.dispatch.enabled=false",
-            "wms.warehouse-access-event.publisher.enabled=false",
         ).applyTo(applicationContext.environment)
+
+        // 외부 연결이 필요한 백그라운드 작업은 테스트에서 기본으로 끈다. 개별 테스트가 @DynamicPropertySource나 properties로 다시 켤 수 있도록
+        // 테스트가 넣는 속성보다 낮고 application.yaml보다 높은 우선순위에 둔다.
+        applicationContext.environment.propertySources.addBefore(
+            "systemProperties",
+            MapPropertySource(
+                "testDefaults",
+                mapOf(
+                    "wms.inventory-call.dispatch.enabled" to "false",
+                    "wms.warehouse-access-event.publisher.enabled" to "false",
+                    "wms.product-event.listener.enabled" to "false"
+                )
+            )
+        )
     }
 
     private companion object {

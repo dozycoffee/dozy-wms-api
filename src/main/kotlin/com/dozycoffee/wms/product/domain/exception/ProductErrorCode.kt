@@ -9,15 +9,14 @@ enum class ProductErrorCode(
     override val message: String
 ) : ErrorCode {
 
+    INVALID_PRODUCT_ID(ErrorType.VALIDATION, "PRODUCT_INVALID_PRODUCT_ID", "상품 ID는 양수여야 합니다."),
     INVALID_PRODUCT_CODE(ErrorType.VALIDATION, "PRODUCT_INVALID_PRODUCT_CODE", "상품 코드는 필수입니다."),
     INVALID_PRODUCT_NAME(ErrorType.VALIDATION, "PRODUCT_INVALID_PRODUCT_NAME", "상품명은 필수입니다."),
-    INVALID_CATEGORY(ErrorType.VALIDATION, "PRODUCT_INVALID_CATEGORY", "상품 카테고리는 필수입니다."),
     INVALID_UNIT(ErrorType.VALIDATION, "PRODUCT_INVALID_UNIT", "상품 단위는 필수입니다."),
     INVALID_SHELF_LIFE_DAYS(
         ErrorType.VALIDATION,
         "PRODUCT_INVALID_SHELF_LIFE_DAYS",
         "유통기한 일수는 0 이상이어야 합니다."
     ),
-    PRODUCT_NOT_FOUND(ErrorType.NOT_FOUND, "PRODUCT_NOT_FOUND", "존재하지 않는 상품입니다."),
-    DUPLICATE_PRODUCT_CODE(ErrorType.CONFLICT, "PRODUCT_DUPLICATE_PRODUCT_CODE", "이미 등록된 상품 코드입니다.")
+    PRODUCT_NOT_FOUND(ErrorType.NOT_FOUND, "PRODUCT_NOT_FOUND", "존재하지 않는 상품입니다.")
 }
