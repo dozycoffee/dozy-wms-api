@@ -49,6 +49,14 @@ class WarehouseMemberAccessProviderTest {
     }
 
     @Test
+    fun `서비스 간 호출 role은 배정과 무관하게 모든 창고에 접근한다`() = runTest {
+        val actor = UserActor(principalId, setOf("service"))
+
+        assertThat(providerFor(actor).current()).isEqualTo(AllWarehouses)
+        verify(warehouseMemberRepository, never()).findWarehouseIdsByPrincipalId(org.mockito.kotlin.any())
+    }
+
+    @Test
     fun `일반 담당자는 배정된 창고만 접근한다`() = runTest {
         whenever(warehouseMemberRepository.findWarehouseIdsByPrincipalId(principalId)).thenReturn(setOf(1L, 3L))
 

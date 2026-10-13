@@ -12,7 +12,7 @@ import com.dozycoffee.wms.warehouse_member.application.port.out.WarehouseMemberR
 import org.springframework.stereotype.Component
 
 /**
- * 시스템 작업과 [WmsRole.WAREHOUSE_ADMIN]은 모든 창고를, 그 외 사용자는 배정된 창고만 접근한다.
+ * 시스템 작업과 [WmsRole.WAREHOUSE_ADMIN], 서비스 간 호출([WmsRole.SERVICE])은 모든 창고를, 그 외 사용자는 배정된 창고만 접근한다.
  * 배정이 없는 사용자는 접근 가능한 창고가 없다(fail-closed).
  */
 @Component
@@ -25,7 +25,7 @@ class WarehouseMemberAccessProvider(
         return when (val actor = currentActorProvider.get()) {
             SystemActor -> AllWarehouses
             is UserActor ->
-                if (WmsRole.WAREHOUSE_ADMIN.code in actor.roles) {
+                if (WmsRole.WAREHOUSE_ADMIN.code in actor.roles || WmsRole.SERVICE.code in actor.roles) {
                     AllWarehouses
                 } else {
                     OnlyWarehouses(warehouseMemberRepository.findWarehouseIdsByPrincipalId(actor.principalId))

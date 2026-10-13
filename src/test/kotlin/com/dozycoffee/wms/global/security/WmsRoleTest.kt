@@ -12,7 +12,8 @@ class WmsRoleTest {
         WmsAuthorize.RETURN,
         WmsAuthorize.DISPOSAL,
         WmsAuthorize.STOCK_AUDIT,
-        WmsAuthorize.ADMIN
+        WmsAuthorize.ADMIN,
+        WmsAuthorize.SERVICE
     )
 
     @Test
@@ -25,9 +26,18 @@ class WmsRoleTest {
     }
 
     @Test
-    fun `조회 식은 모든 WmsRole을 허용한다`() {
+    fun `조회 식은 서비스 간 호출용 role을 제외한 모든 WmsRole을 허용한다`() {
         val readable: Set<String> = Regex("'([a-z_]+)'").findAll(WmsAuthorize.READ).map { it.groupValues[1] }.toSet()
 
-        assertThat(readable).containsExactlyInAnyOrderElementsOf(WmsRole.entries.map { it.code })
+        assertThat(readable).containsExactlyInAnyOrderElementsOf(
+            WmsRole.entries.filter { it != WmsRole.SERVICE }.map { it.code }
+        )
+    }
+
+    @Test
+    fun `서비스 간 호출 식은 service와 warehouse_admin만 허용한다`() {
+        val allowed: Set<String> = Regex("'([a-z_]+)'").findAll(WmsAuthorize.SERVICE).map { it.groupValues[1] }.toSet()
+
+        assertThat(allowed).containsExactlyInAnyOrder(WmsRole.SERVICE.code, WmsRole.WAREHOUSE_ADMIN.code)
     }
 }
