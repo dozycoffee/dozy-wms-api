@@ -34,6 +34,10 @@ spring:
         max.block.ms: 5000
         request.timeout.ms: 5000
         delivery.timeout.ms: 10000
+    consumer:
+      group-id: dozy-wms-api
+      # 새 환경이나 새 그룹이 처음 붙으면 보관 중인 상품 이벤트를 처음부터 읽어 사본을 채운다(토픽은 inventory가 압축으로 만든다)
+      auto-offset-reset: earliest
 
 dozy:
   auth:
@@ -47,6 +51,11 @@ dozy:
     issuer-base-uri: ${AUTH_ISSUER_BASE_URI:http://localhost:8081}
 
 wms:
+  # inventory의 상품 이벤트를 받아 상품 사본을 교체하는 리스너(ADR-0021). 테스트에서는 끈다
+  product-event:
+    listener:
+      enabled: true
+      topic: dozy.inventory.product
   # 직원 창고 소속 변경 이벤트 발행(ADR-0020). 테스트에서는 발행기와 토픽 생성을 끈다
   warehouse-access-event:
     publisher:

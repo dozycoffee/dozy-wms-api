@@ -16,7 +16,7 @@ data class ProductResult(
     companion object {
         fun from(product: Product): ProductResult {
             return ProductResult(
-                requireNotNull(product.productId),
+                product.productId,
                 product.productCode,
                 product.productName,
                 product.category,

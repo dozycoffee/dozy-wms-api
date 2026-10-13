@@ -33,7 +33,7 @@ class SecurityIntegrationTest {
 
     @AfterEach
     fun cleanUp() = runBlocking {
-        databaseClient.sql("DELETE FROM product").fetch().awaitRowsUpdated()
+        databaseClient.sql("DELETE FROM warehouse").fetch().awaitRowsUpdated()
         Unit
     }
 
@@ -84,17 +84,16 @@ class SecurityIntegrationTest {
     }
 
     @Test
-    fun `조회 전용 role로 상품을 등록하면 403이다`() {
-        webTestClient.post().uri("/api/products")
+    fun `조회 전용 role로 창고를 등록하면 403이다`() {
+        webTestClient.post().uri("/api/warehouses")
             .header("Authorization", "Bearer ${tokens.issue(roles = listOf("wms:inventory_viewer"))}")
             .contentType(MediaType.APPLICATION_JSON)
             .bodyValue(
                 mapOf(
-                    "productCode" to "DENIED-001",
-                    "productName" to "권한 없는 등록",
-                    "category" to "BEAN",
-                    "unit" to "KG",
-                    "shelfLifeDays" to 30
+                    "warehouseName" to "권한 없는 등록",
+                    "address" to "제주",
+                    "latitude" to 33.4,
+                    "longitude" to 126.5
                 )
             )
             .exchange()
@@ -126,23 +125,22 @@ class SecurityIntegrationTest {
     fun `요청으로 만든 데이터의 감사 주체는 토큰의 principalId다`() {
         val principalId = UUID.fromString("0199a3c4-7b2e-7c1a-9f3d-2b6e8a1c4d5f")
 
-        webTestClient.post().uri("/api/products")
+        webTestClient.post().uri("/api/warehouses")
             .header("Authorization", "Bearer ${tokens.issue(id = principalId, roles = listOf("wms:warehouse_admin"))}")
             .contentType(MediaType.APPLICATION_JSON)
             .bodyValue(
                 mapOf(
-                    "productCode" to "AUDIT-001",
-                    "productName" to "감사 주체 확인용 상품",
-                    "category" to "BEAN",
-                    "unit" to "KG",
-                    "shelfLifeDays" to 30
+                    "warehouseName" to "감사 주체 확인용 창고",
+                    "address" to "제주",
+                    "latitude" to 33.4,
+                    "longitude" to 126.5
                 )
             )
             .exchange()
             .expectStatus().is2xxSuccessful
 
         val createdBy: List<String> = runBlocking {
-            databaseClient.sql("SELECT created_by FROM product WHERE product_code = 'AUDIT-001'")
+            databaseClient.sql("SELECT created_by FROM warehouse WHERE warehouse_name = '감사 주체 확인용 창고'")
                 .map { row -> row.get("created_by", String::class.java) ?: "" }
                 .flow().toList()
         }

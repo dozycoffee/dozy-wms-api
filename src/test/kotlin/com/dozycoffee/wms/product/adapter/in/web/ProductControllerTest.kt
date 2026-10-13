@@ -1,12 +1,7 @@
 package com.dozycoffee.wms.product.adapter.`in`.web
 
 import com.dozycoffee.auth.test.WithDozyPrincipal
-import com.dozycoffee.wms.product.adapter.`in`.web.request.RegisterProductRequest
-import com.dozycoffee.wms.product.application.port.`in`.ActivateProductUseCase
-import com.dozycoffee.wms.product.application.port.`in`.DeactivateProductUseCase
-import com.dozycoffee.wms.product.application.port.`in`.DeleteProductUseCase
 import com.dozycoffee.wms.product.application.port.`in`.GetProductUseCase
-import com.dozycoffee.wms.product.application.port.`in`.RegisterProductUseCase
 import com.dozycoffee.wms.product.application.port.`in`.result.ProductResult
 import com.dozycoffee.wms.product.domain.enumeration.ProductCategory
 import com.dozycoffee.wms.product.domain.enumeration.ProductStatus
@@ -15,7 +10,6 @@ import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.runBlocking
 import org.junit.jupiter.api.Nested
 import org.junit.jupiter.api.Test
-import org.mockito.kotlin.any
 import org.mockito.kotlin.eq
 import org.mockito.kotlin.whenever
 import org.springframework.beans.factory.annotation.Autowired
@@ -23,7 +17,7 @@ import org.springframework.boot.webflux.test.autoconfigure.WebFluxTest
 import org.springframework.test.context.bean.override.mockito.MockitoBean
 import org.springframework.test.web.reactive.server.WebTestClient
 
-@WithDozyPrincipal(roles = ["wms:warehouse_admin"])
+@WithDozyPrincipal(roles = ["wms:inventory_viewer"])
 @WebFluxTest(ProductController::class)
 class ProductControllerTest {
 
@@ -31,47 +25,10 @@ class ProductControllerTest {
     private lateinit var webTestClient: WebTestClient
 
     @MockitoBean
-    private lateinit var registerProductUseCase: RegisterProductUseCase
-
-    @MockitoBean
-    private lateinit var activateProductUseCase: ActivateProductUseCase
-
-    @MockitoBean
-    private lateinit var deactivateProductUseCase: DeactivateProductUseCase
-
-    @MockitoBean
-    private lateinit var deleteProductUseCase: DeleteProductUseCase
-
-    @MockitoBean
     private lateinit var getProductUseCase: GetProductUseCase
 
     private fun sampleResult(productStatus: ProductStatus = ProductStatus.ACTIVE): ProductResult {
         return ProductResult(1L, "PRD-0001", "콜롬비아 원두", ProductCategory.BEAN, "KG", 365, productStatus)
-    }
-
-    @Nested
-    inner class 상품_등록 {
-
-        @Test
-        fun `유효한 요청이면 201과 등록된 상품을 반환한다`() {
-            runBlocking { whenever(registerProductUseCase.register(any())).thenReturn(sampleResult()) }
-
-            webTestClient.post().uri("/api/products")
-                .bodyValue(RegisterProductRequest("PRD-0001", "콜롬비아 원두", ProductCategory.BEAN, "KG", 365))
-                .exchange()
-                .expectStatus().isCreated
-                .expectBody()
-                .jsonPath("$.productId").isEqualTo(1)
-                .jsonPath("$.productStatus").isEqualTo("ACTIVE")
-        }
-
-        @Test
-        fun `필수값이 비어있으면 400을 반환한다`() {
-            webTestClient.post().uri("/api/products")
-                .bodyValue(RegisterProductRequest("", "", null, "", null))
-                .exchange()
-                .expectStatus().isBadRequest
-        }
     }
 
     @Nested
@@ -99,54 +56,6 @@ class ProductControllerTest {
     }
 
     @Nested
-    inner class 상품_활성화_비활성화 {
-
-        @Test
-        fun `활성화 요청 시 200과 활성화된 상품을 반환한다`() {
-            runBlocking { whenever(activateProductUseCase.activate(1L)).thenReturn(sampleResult(ProductStatus.ACTIVE)) }
-
-            webTestClient.patch().uri("/api/products/{productId}/activate", 1L)
-                .exchange()
-                .expectStatus().isOk
-                .expectBody()
-                .jsonPath("$.productStatus").isEqualTo("ACTIVE")
-        }
-
-        @Test
-        fun `비활성화 요청 시 200과 비활성화된 상품을 반환한다`() {
-            runBlocking { whenever(deactivateProductUseCase.deactivate(1L)).thenReturn(sampleResult(ProductStatus.INACTIVE)) }
-
-            webTestClient.patch().uri("/api/products/{productId}/deactivate", 1L)
-                .exchange()
-                .expectStatus().isOk
-                .expectBody()
-                .jsonPath("$.productStatus").isEqualTo("INACTIVE")
-        }
-    }
-
-    @Nested
-    inner class 상품_삭제 {
-
-        @Test
-        fun `삭제 요청 시 204를 반환한다`() {
-            runBlocking { whenever(deleteProductUseCase.delete(1L)).thenReturn(Unit) }
-
-            webTestClient.delete().uri("/api/products/{productId}", 1L)
-                .exchange()
-                .expectStatus().isNoContent
-        }
-
-        @Test
-        fun `존재하지 않는 상품을 삭제하면 404를 반환한다`() {
-            runBlocking { whenever(deleteProductUseCase.delete(eq(999L))).thenThrow(ProductNotFoundException()) }
-
-            webTestClient.delete().uri("/api/products/{productId}", 999L)
-                .exchange()
-                .expectStatus().isNotFound
-        }
-    }
-
-    @Nested
     inner class 상품_목록_조회 {
 
         @Test
@@ -161,14 +70,28 @@ class ProductControllerTest {
         }
 
         @Test
-        fun `카테고리로 필터링하면 200과 필터링된 상품 목록을 반환한다`() {
-            whenever(getProductUseCase.getAll(ProductCategory.BEAN, null)).thenReturn(flowOf(sampleResult()))
+        fun `카테고리와 상태로 필터링하면 200과 필터링된 상품 목록을 반환한다`() {
+            whenever(getProductUseCase.getAll(ProductCategory.BEAN, ProductStatus.INACTIVE))
+                .thenReturn(flowOf(sampleResult(ProductStatus.INACTIVE)))
 
-            webTestClient.get().uri { it.path("/api/products").queryParam("category", "BEAN").build() }
+            webTestClient.get().uri { it.path("/api/products").queryParam("category", "BEAN").queryParam("status", "INACTIVE").build() }
                 .exchange()
                 .expectStatus().isOk
                 .expectBody()
                 .jsonPath("$[0].category").isEqualTo("BEAN")
+                .jsonPath("$[0].productStatus").isEqualTo("INACTIVE")
+        }
+    }
+
+    @Nested
+    inner class 쓰기_API_제거 {
+
+        @Test
+        fun `상품 등록, 활성화, 비활성화, 삭제 경로는 더 이상 없다`() {
+            webTestClient.post().uri("/api/products").exchange().expectStatus().isEqualTo(405)
+            webTestClient.patch().uri("/api/products/1/activate").exchange().expectStatus().isNotFound
+            webTestClient.patch().uri("/api/products/1/deactivate").exchange().expectStatus().isNotFound
+            webTestClient.delete().uri("/api/products/1").exchange().expectStatus().isEqualTo(405)
         }
     }
 }

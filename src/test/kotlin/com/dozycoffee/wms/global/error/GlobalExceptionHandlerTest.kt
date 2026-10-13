@@ -1,7 +1,7 @@
 package com.dozycoffee.wms.global.error
 
 import com.dozycoffee.auth.test.WithDozyPrincipal
-import com.dozycoffee.wms.product.domain.exception.DuplicateProductCodeException
+import com.dozycoffee.wms.warehouse.domain.exception.DuplicateZoneCodeException
 import com.dozycoffee.wms.product.domain.exception.ProductErrorCode
 import com.dozycoffee.wms.product.domain.exception.ProductNotFoundException
 import jakarta.validation.constraints.Min
@@ -31,7 +31,7 @@ class GlobalExceptionHandlerTest {
         fun notFound(): String = throw ProductNotFoundException()
 
         @GetMapping("/fixture/conflict")
-        fun conflict(): String = throw DuplicateProductCodeException()
+        fun conflict(): String = throw DuplicateZoneCodeException()
 
         @GetMapping("/fixture/invalid-domain-value")
         fun invalidDomainValue(): String = throw InvalidDomainValueException(ProductErrorCode.INVALID_PRODUCT_CODE)
@@ -77,7 +77,7 @@ class GlobalExceptionHandlerTest {
         webTestClient.get().uri("/fixture/conflict")
             .exchange()
             .expectStatus().isEqualTo(409)
-            .expectBody().jsonPath("$.code").isEqualTo("PRODUCT_DUPLICATE_PRODUCT_CODE")
+            .expectBody().jsonPath("$.code").isEqualTo("ZONE_DUPLICATE_ZONE_CODE")
     }
 
     @Test

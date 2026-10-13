@@ -10,125 +10,78 @@ import org.assertj.core.api.Assertions.assertThat
 import org.assertj.core.api.Assertions.assertThatThrownBy
 import org.junit.jupiter.api.Nested
 import org.junit.jupiter.api.Test
-import org.junit.jupiter.params.ParameterizedTest
-import org.junit.jupiter.params.provider.NullAndEmptySource
-import org.junit.jupiter.params.provider.ValueSource
+import java.time.LocalDateTime
 
 class ProductTest {
 
+    private val t0: LocalDateTime = LocalDateTime.of(2026, 10, 13, 10, 0, 0)
+
     @Nested
-    inner class 상품_생성 {
+    inner class 스냅샷으로_생성 {
 
         @Test
-        fun `정상적인 정보를 입력했을 때 상품이 활성 상태로 생성된다`() {
-            val product: Product = product().build()
+        fun `유효한 스냅샷이면 값을 그대로 가진다`() {
+            val product = Product.of(7L, "BEAN-001", "예가체프", ProductCategory.BEAN, "KG", 180, ProductStatus.INACTIVE, t0)
 
-            assertThat(product.productCode).isEqualTo("PRD-0001")
-            assertThat(product.productName).isEqualTo("콜롬비아 원두")
+            assertThat(product.productId).isEqualTo(7L)
+            assertThat(product.productCode).isEqualTo("BEAN-001")
             assertThat(product.category).isEqualTo(ProductCategory.BEAN)
-            assertThat(product.unit).isEqualTo("KG")
-            assertThat(product.shelfLifeDays).isEqualTo(365)
-            assertThat(product.productStatus).isEqualTo(ProductStatus.ACTIVE)
-        }
-
-        @ParameterizedTest
-        @NullAndEmptySource
-        @ValueSource(strings = [" ", "   "])
-        fun `상품 코드가 null이거나 공백인 경우 예외를 던진다`(invalidProductCode: String?) {
-            assertThatThrownBy { product().productCode(invalidProductCode).build() }
-                .isInstanceOf(InvalidDomainValueException::class.java)
-                .hasMessage(ProductErrorCode.INVALID_PRODUCT_CODE.message)
-        }
-
-        @ParameterizedTest
-        @NullAndEmptySource
-        @ValueSource(strings = [" ", "   "])
-        fun `상품명이 null이거나 공백인 경우 예외를 던진다`(invalidProductName: String?) {
-            assertThatThrownBy { product().productName(invalidProductName).build() }
-                .isInstanceOf(InvalidDomainValueException::class.java)
-                .hasMessage(ProductErrorCode.INVALID_PRODUCT_NAME.message)
+            assertThat(product.shelfLifeDays).isEqualTo(180)
+            assertThat(product.productStatus).isEqualTo(ProductStatus.INACTIVE)
+            assertThat(product.sourceOccurredAt).isEqualTo(t0)
         }
 
         @Test
-        fun `카테고리가 null인 경우 예외를 던진다`() {
-            assertThatThrownBy { product().category(null).build() }
-                .isInstanceOf(InvalidDomainValueException::class.java)
-                .hasMessage(ProductErrorCode.INVALID_CATEGORY.message)
+        fun `유통기한 일수는 없어도 된다`() {
+            assertThat(product().shelfLifeDays(null).build().shelfLifeDays).isNull()
         }
 
-        @ParameterizedTest
-        @NullAndEmptySource
-        @ValueSource(strings = [" ", "   "])
-        fun `단위가 null이거나 공백인 경우 예외를 던진다`(invalidUnit: String?) {
-            assertThatThrownBy { product().unit(invalidUnit).build() }
+        @Test
+        fun `상품 ID가 양수가 아니면 예외를 던진다`() {
+            assertThatThrownBy { product().productId(0).build() }
                 .isInstanceOf(InvalidDomainValueException::class.java)
-                .hasMessage(ProductErrorCode.INVALID_UNIT.message)
+                .hasMessage(ProductErrorCode.INVALID_PRODUCT_ID.message)
         }
 
-        @ParameterizedTest
-        @ValueSource(ints = [-1, -100])
-        fun `유통기한 일수가 음수인 경우 예외를 던진다`(invalidShelfLifeDays: Int) {
-            assertThatThrownBy { product().shelfLifeDays(invalidShelfLifeDays).build() }
+        @Test
+        fun `상품 코드, 이름, 단위가 비어 있으면 예외를 던진다`() {
+            assertThatThrownBy { product().productCode(" ").build() }.isInstanceOf(InvalidDomainValueException::class.java)
+            assertThatThrownBy { product().productName(null).build() }.isInstanceOf(InvalidDomainValueException::class.java)
+            assertThatThrownBy { product().unit("").build() }.isInstanceOf(InvalidDomainValueException::class.java)
+        }
+
+        @Test
+        fun `유통기한 일수가 음수이면 예외를 던진다`() {
+            assertThatThrownBy { product().shelfLifeDays(-1).build() }
                 .isInstanceOf(InvalidDomainValueException::class.java)
                 .hasMessage(ProductErrorCode.INVALID_SHELF_LIFE_DAYS.message)
         }
-
-        @Test
-        fun `유통기한 일수는 null을 허용한다`() {
-            val product: Product = product().shelfLifeDays(null).build()
-
-            assertThat(product.shelfLifeDays).isNull()
-        }
     }
 
     @Nested
-    inner class 상품_재구성 {
+    inner class 이벤트_최신성 {
 
         @Test
-        fun `저장된 ID와 상태로 상품 객체를 재구성한다`() {
-            val product: Product = product()
-                .productId(10L)
-                .productStatus(ProductStatus.INACTIVE)
-                .build()
+        fun `반영한 이벤트가 없으면 어떤 이벤트도 오래되지 않았다`() {
+            assertThat(product().sourceOccurredAt(null).build().isStale(t0)).isFalse()
+        }
 
-            assertThat(product.productId).isEqualTo(10L)
-            assertThat(product.productStatus).isEqualTo(ProductStatus.INACTIVE)
+        @Test
+        fun `반영한 이벤트보다 늦게 발생한 이벤트는 오래되지 않았다`() {
+            assertThat(product().sourceOccurredAt(t0).build().isStale(t0.plusNanos(1_000))).isFalse()
+        }
+
+        @Test
+        fun `같은 시각이거나 더 일찍 발생한 이벤트는 오래된 것이다`() {
+            val product = product().sourceOccurredAt(t0).build()
+
+            assertThat(product.isStale(t0)).isTrue()
+            assertThat(product.isStale(t0.minusSeconds(1))).isTrue()
         }
     }
 
-    @Nested
-    inner class 상품_상태_전환 {
-
-        @Test
-        fun `상품을 활성화하면 상태가 ACTIVE로 변경된다`() {
-            val product: Product = product().productId(1L).productStatus(ProductStatus.INACTIVE).build()
-
-            product.activate()
-
-            assertThat(product.productStatus).isEqualTo(ProductStatus.ACTIVE)
-        }
-
-        @Test
-        fun `상품을 비활성화하면 상태가 INACTIVE로 변경된다`() {
-            val product: Product = product().productId(1L).productStatus(ProductStatus.ACTIVE).build()
-
-            product.deactivate()
-
-            assertThat(product.productStatus).isEqualTo(ProductStatus.INACTIVE)
-        }
-    }
-
-    @Nested
-    inner class 상품_삭제 {
-
-        @Test
-        fun `상품을 삭제하면 isDeleted가 true가 된다`() {
-            val product: Product = product().productId(1L).build()
-
-            product.delete("system")
-
-            assertThat(product.isDeleted()).isTrue()
-            assertThat(product.deletedBy).isEqualTo("system")
-        }
+    @Test
+    fun `상품 ID가 같으면 같은 상품이다`() {
+        assertThat(product().productId(5L).build()).isEqualTo(product().productId(5L).productName("다른 이름").build())
     }
 }

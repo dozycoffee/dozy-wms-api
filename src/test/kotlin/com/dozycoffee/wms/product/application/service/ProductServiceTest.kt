@@ -1,18 +1,14 @@
 package com.dozycoffee.wms.product.application.service
 
-import com.dozycoffee.wms.global.security.CurrentActorProvider
-import com.dozycoffee.wms.global.security.UserActor
-import com.dozycoffee.wms.product.application.port.`in`.command.RegisterProductCommand
+import com.dozycoffee.wms.product.application.port.`in`.command.ApplyProductSnapshotCommand
 import com.dozycoffee.wms.product.application.port.out.ProductRepository
 import com.dozycoffee.wms.product.domain.enumeration.ProductCategory
 import com.dozycoffee.wms.product.domain.enumeration.ProductStatus
-import com.dozycoffee.wms.product.domain.exception.DuplicateProductCodeException
 import com.dozycoffee.wms.product.domain.exception.ProductNotFoundException
 import com.dozycoffee.wms.product.domain.model.Product
 import com.dozycoffee.wms.product.fixture.ProductTestBuilder.Companion.product
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.toList
-import com.dozycoffee.wms.support.duplicateKeyViolation
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.test.runTest
 import org.assertj.core.api.Assertions.assertThat
@@ -25,9 +21,10 @@ import org.mockito.Mock
 import org.mockito.junit.jupiter.MockitoExtension
 import org.mockito.kotlin.any
 import org.mockito.kotlin.argumentCaptor
+import org.mockito.kotlin.never
 import org.mockito.kotlin.verify
 import org.mockito.kotlin.whenever
-import java.util.UUID
+import java.time.LocalDateTime
 
 @ExtendWith(MockitoExtension::class)
 class ProductServiceTest {
@@ -35,179 +32,89 @@ class ProductServiceTest {
     @Mock
     private lateinit var productRepository: ProductRepository
 
-    @Mock
-    private lateinit var currentActorProvider: CurrentActorProvider
-
     @InjectMocks
     private lateinit var productService: ProductService
 
+    private val t0: LocalDateTime = LocalDateTime.of(2026, 10, 13, 10, 0, 0)
+
+    private fun command(
+        productStatus: ProductStatus = ProductStatus.ACTIVE,
+        occurredAt: LocalDateTime = t0
+    ) = ApplyProductSnapshotCommand(7L, "BEAN-001", "예가체프", ProductCategory.BEAN, "KG", 180, productStatus, occurredAt)
+
     @Nested
-    inner class 상품_등록 {
+    inner class 스냅샷_반영 {
 
         @Test
-        fun `정상적인 정보로 등록하면 저장된 상품 정보를 반환한다`() = runTest {
-            val command = RegisterProductCommand(
-                "PRD-0001", "콜롬비아 원두", ProductCategory.BEAN, "KG", 365
-            )
-            val saved: Product = product().productId(1L).build()
-            whenever(productRepository.existsByProductCode("PRD-0001")).thenReturn(false)
-            whenever(productRepository.save(any())).thenReturn(saved)
+        fun `사본이 없으면 스냅샷으로 새로 저장한다`() = runTest {
+            whenever(productRepository.findById(7L)).thenReturn(null)
+            whenever(productRepository.save(any())).thenAnswer { it.getArgument(0) }
 
-            val result = productService.register(command)
+            val applied = productService.apply(command())
 
-            assertThat(result.productId).isEqualTo(1L)
-            assertThat(result.productStatus).isEqualTo(ProductStatus.ACTIVE)
-
+            assertThat(applied).isTrue()
             val captor = argumentCaptor<Product>()
             verify(productRepository).save(captor.capture())
-            assertThat(captor.firstValue.productStatus).isEqualTo(ProductStatus.ACTIVE)
+            assertThat(captor.firstValue.productId).isEqualTo(7L)
+            assertThat(captor.firstValue.productCode).isEqualTo("BEAN-001")
+            assertThat(captor.firstValue.sourceOccurredAt).isEqualTo(t0)
         }
 
         @Test
-        fun `이미 등록된 상품 코드면 예외를 던진다`() = runTest {
-            val command = RegisterProductCommand(
-                "PRD-0001", "콜롬비아 원두", ProductCategory.BEAN, "KG", 365
-            )
-            whenever(productRepository.existsByProductCode("PRD-0001")).thenReturn(true)
+        fun `더 늦게 발생한 이벤트면 사본을 스냅샷으로 교체한다`() = runTest {
+            whenever(productRepository.findById(7L))
+                .thenReturn(product().productId(7L).productStatus(ProductStatus.ACTIVE).sourceOccurredAt(t0).build())
+            whenever(productRepository.save(any())).thenAnswer { it.getArgument(0) }
 
-            assertThatThrownBy { runBlocking { productService.register(command) } }
-                .isInstanceOf(DuplicateProductCodeException::class.java)
-        }
+            val applied = productService.apply(command(ProductStatus.INACTIVE, t0.plusSeconds(5)))
 
-        @Test
-        fun `사전 조회를 통과해도 저장 시 유니크 위반이 나면 중복 상품 코드 예외로 바꾼다`() = runTest {
-            val command = RegisterProductCommand(
-                "PRD-0001", "콜롬비아 원두", ProductCategory.BEAN, "KG", 365
-            )
-            whenever(productRepository.existsByProductCode("PRD-0001")).thenReturn(false)
-            whenever(productRepository.save(any())).thenThrow(duplicateKeyViolation())
-
-            assertThatThrownBy { runBlocking { productService.register(command) } }
-                .isInstanceOf(DuplicateProductCodeException::class.java)
-        }
-    }
-
-    @Nested
-    inner class 상품_활성화 {
-
-        @Test
-        fun `존재하는 상품을 활성화하면 상태가 ACTIVE로 바뀐다`() = runTest {
-            val inactive: Product = product().productId(1L).productStatus(ProductStatus.INACTIVE).build()
-            whenever(productRepository.findById(1L)).thenReturn(inactive)
-            whenever(productRepository.save(any())).thenAnswer { invocation -> invocation.getArgument(0) }
-
-            val result = productService.activate(1L)
-
-            assertThat(result.productStatus).isEqualTo(ProductStatus.ACTIVE)
-        }
-
-        @Test
-        fun `존재하지 않는 상품을 활성화하면 예외를 던진다`() = runTest {
-            whenever(productRepository.findById(1L)).thenReturn(null)
-
-            assertThatThrownBy { runBlocking { productService.activate(1L) } }
-                .isInstanceOf(ProductNotFoundException::class.java)
-        }
-    }
-
-    @Nested
-    inner class 상품_비활성화 {
-
-        @Test
-        fun `존재하는 상품을 비활성화하면 상태가 INACTIVE로 바뀐다`() = runTest {
-            val active: Product = product().productId(1L).productStatus(ProductStatus.ACTIVE).build()
-            whenever(productRepository.findById(1L)).thenReturn(active)
-            whenever(productRepository.save(any())).thenAnswer { invocation -> invocation.getArgument(0) }
-
-            val result = productService.deactivate(1L)
-
-            assertThat(result.productStatus).isEqualTo(ProductStatus.INACTIVE)
-        }
-
-        @Test
-        fun `존재하지 않는 상품을 비활성화하면 예외를 던진다`() = runTest {
-            whenever(productRepository.findById(1L)).thenReturn(null)
-
-            assertThatThrownBy { runBlocking { productService.deactivate(1L) } }
-                .isInstanceOf(ProductNotFoundException::class.java)
-        }
-    }
-
-    @Nested
-    inner class 상품_단건_조회 {
-
-        @Test
-        fun `존재하는 상품을 조회하면 결과를 반환한다`() = runTest {
-            val found: Product = product().productId(1L).build()
-            whenever(productRepository.findById(1L)).thenReturn(found)
-
-            val result = productService.getById(1L)
-
-            assertThat(result.productId).isEqualTo(1L)
-        }
-
-        @Test
-        fun `존재하지 않는 상품을 조회하면 예외를 던진다`() = runTest {
-            whenever(productRepository.findById(1L)).thenReturn(null)
-
-            assertThatThrownBy { runBlocking { productService.getById(1L) } }
-                .isInstanceOf(ProductNotFoundException::class.java)
-        }
-    }
-
-    @Nested
-    inner class 상품_목록_조회 {
-
-        @Test
-        fun `필터 없이 조회하면 전체 상품 목록을 반환한다`() = runTest {
-            val found: List<Product> = listOf(product().productId(1L).build(), product().productId(2L).build())
-            whenever(productRepository.findAll(null, null)).thenReturn(flowOf(*found.toTypedArray()))
-
-            val result = productService.getAll(null, null).toList()
-
-            assertThat(result).hasSize(2)
-        }
-
-        @Test
-        fun `카테고리로 필터링하면 해당 카테고리만 반환한다`() = runTest {
-            val found: List<Product> = listOf(product().productId(1L).category(ProductCategory.BEAN).build())
-            whenever(productRepository.findAll(ProductCategory.BEAN, null)).thenReturn(flowOf(*found.toTypedArray()))
-
-            val result = productService.getAll(ProductCategory.BEAN, null).toList()
-
-            assertThat(result).hasSize(1)
-            assertThat(result.first().category).isEqualTo(ProductCategory.BEAN)
-        }
-    }
-
-    @Nested
-    inner class 상품_삭제 {
-
-        @Test
-        fun `존재하는 상품을 삭제하면 저장소에 삭제 상태로 저장한다`() = runTest {
-            val existing: Product = product().productId(1L).build()
-            whenever(productRepository.findById(1L)).thenReturn(existing)
-            whenever(productRepository.save(any())).thenAnswer { invocation -> invocation.getArgument(0) }
-            whenever(currentActorProvider.get()).thenReturn(UserActor(DELETER_ID, setOf("product_manager")))
-
-            productService.delete(1L)
-
+            assertThat(applied).isTrue()
             val captor = argumentCaptor<Product>()
             verify(productRepository).save(captor.capture())
-            assertThat(captor.firstValue.isDeleted()).isTrue()
-            assertThat(captor.firstValue.deletedBy).isEqualTo(DELETER_ID.toString())
+            assertThat(captor.firstValue.productStatus).isEqualTo(ProductStatus.INACTIVE)
+            assertThat(captor.firstValue.sourceOccurredAt).isEqualTo(t0.plusSeconds(5))
         }
 
         @Test
-        fun `존재하지 않는 상품을 삭제하면 예외를 던진다`() = runTest {
-            whenever(productRepository.findById(1L)).thenReturn(null)
+        fun `같은 이벤트가 다시 오면 저장하지 않는다`() = runTest {
+            whenever(productRepository.findById(7L)).thenReturn(product().productId(7L).sourceOccurredAt(t0).build())
 
-            assertThatThrownBy { runBlocking { productService.delete(1L) } }
-                .isInstanceOf(ProductNotFoundException::class.java)
+            assertThat(productService.apply(command())).isFalse()
+            verify(productRepository, never()).save(any())
+        }
+
+        @Test
+        fun `오래된 이벤트가 늦게 도착해도 최신 사본을 덮지 않는다`() = runTest {
+            whenever(productRepository.findById(7L))
+                .thenReturn(product().productId(7L).productStatus(ProductStatus.INACTIVE).sourceOccurredAt(t0.plusSeconds(5)).build())
+
+            assertThat(productService.apply(command(ProductStatus.ACTIVE, t0))).isFalse()
+            verify(productRepository, never()).save(any())
         }
     }
 
-    companion object {
-        private val DELETER_ID: UUID = UUID.fromString("0199a3c4-7b2e-7c1a-9f3d-2b6e8a1c4d5f")
+    @Nested
+    inner class 조회 {
+
+        @Test
+        fun `상품 ID로 조회한다`() = runTest {
+            whenever(productRepository.findById(7L)).thenReturn(product().productId(7L).build())
+
+            assertThat(productService.getById(7L).productId).isEqualTo(7L)
+        }
+
+        @Test
+        fun `없는 상품을 조회하면 예외를 던진다`() = runTest {
+            whenever(productRepository.findById(9L)).thenReturn(null)
+
+            assertThatThrownBy { runBlocking { productService.getById(9L) } }.isInstanceOf(ProductNotFoundException::class.java)
+        }
+
+        @Test
+        fun `카테고리와 상태로 목록을 조회한다`() = runTest {
+            whenever(productRepository.findAll(ProductCategory.BEAN, ProductStatus.ACTIVE)).thenReturn(flowOf(product().build()))
+
+            assertThat(productService.getAll(ProductCategory.BEAN, ProductStatus.ACTIVE).toList()).hasSize(1)
+        }
     }
 }

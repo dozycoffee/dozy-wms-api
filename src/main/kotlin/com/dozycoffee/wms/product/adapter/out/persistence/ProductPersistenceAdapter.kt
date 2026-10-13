@@ -14,25 +14,17 @@ class ProductPersistenceAdapter(
 ) : ProductRepository {
 
     override suspend fun save(product: Product): Product {
-        val entity = ProductEntity.from(product)
-        val productId = product.productId
-        if (productId != null) {
-            productR2dbcRepository.findById(productId)?.let { entity.copyAuditFieldsFrom(it) }
-        }
+        val existing: ProductEntity? = productR2dbcRepository.findById(product.productId)
+        val entity = ProductEntity.from(product, newRow = existing == null)
+        existing?.let { entity.copyAuditFieldsFrom(it) }
         return productR2dbcRepository.save(entity).toDomain()
     }
 
     override suspend fun findById(productId: Long): Product? {
-        return productR2dbcRepository.findActiveById(productId)?.toDomain()
-    }
-
-    override suspend fun existsByProductCode(productCode: String): Boolean {
-        return productR2dbcRepository.existsByProductCode(productCode)
+        return productR2dbcRepository.findById(productId)?.toDomain()
     }
 
     override fun findAll(category: ProductCategory?, productStatus: ProductStatus?): Flow<Product> {
-        val categoryCode = category?.name
-        val statusCode = productStatus?.name
-        return productR2dbcRepository.findAllActive(categoryCode, statusCode).map { it.toDomain() }
+        return productR2dbcRepository.findAllFiltered(category?.name, productStatus?.name).map { it.toDomain() }
     }
 }

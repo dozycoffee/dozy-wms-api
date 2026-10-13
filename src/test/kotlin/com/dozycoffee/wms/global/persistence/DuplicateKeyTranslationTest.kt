@@ -4,7 +4,6 @@ import com.dozycoffee.wms.global.config.R2dbcConfig
 import com.dozycoffee.wms.global.error.BusinessException
 import com.dozycoffee.wms.product.adapter.out.persistence.ProductPersistenceAdapter
 import com.dozycoffee.wms.product.adapter.out.persistence.ProductR2dbcRepository
-import com.dozycoffee.wms.product.domain.exception.DuplicateProductCodeException
 import com.dozycoffee.wms.product.fixture.ProductTestBuilder.Companion.product
 import com.dozycoffee.wms.support.SystemActorProvider
 import com.dozycoffee.wms.warehouse.adapter.out.persistence.WarehousePersistenceAdapter
@@ -97,18 +96,18 @@ class DuplicateKeyTranslationTest {
 
         assertThatThrownBy {
             kotlinx.coroutines.runBlocking {
-                translatingDuplicateKey({ DuplicateProductCodeException() }) {
+                translatingDuplicateKey({ DuplicateZoneCodeException() }) {
                     productPersistenceAdapter.save(product().productCode("PRD-DUP").build())
                 }
             }
-        }.isInstanceOf(DuplicateProductCodeException::class.java)
+        }.isInstanceOf(DuplicateZoneCodeException::class.java)
     }
 
     @Test
     fun `외래키 위반은 도메인 예외로 바뀌지 않고 그대로 던져진다`() = runTest {
         assertThatThrownBy {
             kotlinx.coroutines.runBlocking {
-                translatingDuplicateKey<Any>({ DuplicateProductCodeException() }) {
+                translatingDuplicateKey<Any>({ DuplicateZoneCodeException() }) {
                     zonePersistenceAdapter.save(zone().warehouseId(999_999L).build())
                 }
             }
