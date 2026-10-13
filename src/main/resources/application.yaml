@@ -28,9 +28,25 @@ dozy:
   auth:
     audience: wms
     accepted-realms: [internal]
+    # 다른 서비스(inventory)를 system client로 호출할 때 쓴다. 켜면 AUTH_CLIENT_ID·AUTH_CLIENT_SECRET이 필요하다(비밀은 환경변수로만 주입한다)
+    client:
+      enabled: ${AUTH_CLIENT_ENABLED:false}
+      client-id: ${AUTH_CLIENT_ID:}
+      client-secret: ${AUTH_CLIENT_SECRET:}
     issuer-base-uri: ${AUTH_ISSUER_BASE_URI:http://localhost:8081}
 
 wms:
+  # inventory 서비스 호출 아웃박스(ADR-0019). 테스트에서는 전송기를 끈다
+  inventory-call:
+    base-url: ${INVENTORY_BASE_URL:}
+    timeout: PT10S
+    dispatch:
+      enabled: true
+      interval: PT5S
+      batch-size: 20
+      base-backoff: PT5S
+      max-backoff: PT10M
+      alert-after-attempts: 10
   expiration-monitoring:
     cron: "0 0 1 * * *"
   stock-audit:
