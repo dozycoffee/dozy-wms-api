@@ -44,6 +44,30 @@
 - `fix/[description]` → bug fix branches
 - `chore/[description]` → 인프라, 빌드, 설정 변경
 
+## 이슈 작성
+
+PR을 올리기 전에 대응하는 이슈를 먼저 만든다. 이슈 없이 올리는 PR은 아래 예외뿐이다.
+
+- 문서만 바꾸는 PR(ADR, `docs/`, `PROGRESS.md` 등): 이슈 템플릿에 문서용이 없으므로 이슈 없이 올리고 "연관된 이슈"는 `없음`으로 쓴다.
+- 이미 올라간 PR: 소급해서 이슈를 만들지 않는다.
+
+### 이슈 형식
+
+- `.github/ISSUE_TEMPLATE`의 템플릿(Feature, Bug, Refactor) 중 변경 성격에 맞는 것을 쓰고, 템플릿의 헤딩을 그대로 유지한다.
+- 제목은 `[FEATURE] `, `[BUG] `, `[REFACTOR] ` 접두사 뒤에 명사형으로 쓴다.
+- Assignee는 `jinwoojwa`로 지정하고, 라벨은 PR과 같은 것을 붙인다(feature → `🛠️ feature`, bug → `🐞 bug`, refactor → `🌱 refactor`).
+- "작업 상세 내용"의 체크박스는 PR에 포함된 항목만 `- [x]`로 체크한다. 배포 등록처럼 코드 밖에서 해야 하는 후속 작업은 체크하지 않고 남긴다.
+
+```bash
+gh issue create --assignee jinwoojwa --label "🛠️ feature" \
+  --title "[FEATURE] 제목" --body-file 이슈본문.md
+```
+
+### PR과 연결
+
+- PR 본문의 "연관된 이슈"에 `- Closes #이슈번호`를 쓴다. 머지되면 이슈가 닫힌다.
+- PR의 Assignee도 `jinwoojwa`로 지정하고 이슈와 같은 라벨을 붙인다(`gh pr create --assignee jinwoojwa --label "🛠️ feature"`).
+
 ## PR 작성 시 확인
 
 - PR 본문에도 `Claude-Session` 트레일러/링크를 포함하지 않는다.
