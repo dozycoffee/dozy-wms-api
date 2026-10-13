@@ -30,6 +30,12 @@
   `confirmDisposal`, `adjust`, `fulfill`, 유통기한 스캔)이 `LocationStockMirror` 포트로 같은 트랜잭션에서 장부에 반영한다. 미러링 기간에는
   Location 사용량을 기존 호출부가 갱신하므로 장부는 수량만 바꾼다. `DevSeedRunnerTest`가 장부와 `inventory`의 키 단위 수량 일치,
   장부 합계와 Location 사용량 일치를 검증한다. 전체 986개 테스트 통과.
+- F-028: inventory 호출 아웃박스(`inventory_call`, V6)를 추가했다(ADR-0019). 확정 트랜잭션이 `RecordInventoryCallUseCase`로 결정적 멱등 키
+  (`wms-{종류}-{문서 ID}`)와 함께 호출을 기록하면, 전송기(스케줄러, 5초)가 `FOR UPDATE SKIP LOCKED`로 창고별 맨 앞 호출만 점유해 `svc-wms`
+  system client로 보낸다. 5xx·408·429·연결 실패·시간 초과는 지수 백오프로 무한 재시도(10회부터 `INVENTORY_CALL_RETRYING` 로그), 그 외 4xx는 `DEAD`로
+  격리하고 그 창고의 큐를 멈춘다. 운영자는 `/api/inventory-calls`(warehouse_admin)로 재전송·버림을 한다. 종류별 요청 DTO와 각 흐름의 전환은
+  F-032~F-036에서 한다. 시스템 클라이언트 `WebClient`가 스타터 0.2.1에 있어 `dozyAuthVersion`을 0.1.0에서 올렸다. 설정은
+  `INVENTORY_BASE_URL`, `AUTH_CLIENT_ENABLED/ID/SECRET`이다. 전체 테스트 통과.
 
 ### 2026-10-04
 
@@ -72,11 +78,10 @@
 
 ## 다음 세션에서 할 일
 
-1. F-028 inventory 연동 기반(svc-wms 클라이언트·호출 아웃박스) (ADR-0017)
-2. F-029 stock-quantities API(장부 완료로 착수 가능), F-030 WAREHOUSE_ACCESS_CHANGED 발행 — inventory가 이미 기다리는 계약
-3. 이후 F-031(상품 사본) → F-032~F-036(입고·폐기·반품·출고·실사 연동) → F-037(재고 코드 제거·devseed 개편)
-4. 배포 체크리스트: dozy-auth admin에 `wms:` role 7개 등록 (코드 작업 아님)
-5. `dozy-admin-console`의 `httpClient`가 에러 메시지를 `detail`(없으면 `code` 기반 문구)로 읽도록 갱신 (F-026 후속, 콘솔 저장소 작업)
-6. (후순위) 창고 배정 변경 시 요청마다 `warehouse_member`를 조회하는 비용 점검: 실측 후 필요할 때만 캐시 검토
-7. (후순위) 입고 검수 후속: 입고 등록이 같은 상품의 중복 줄을 허용하는지 확인(ADR-0016 가정), 잔여 유통기한 비율 기준·수량 허용 오차·로트 자동 생성 등 범위 밖 항목 재검토
-8. (후순위) F-019: 실측 병목 확인 시 착수
+1. F-029 stock-quantities API(장부 완료로 착수 가능), F-030 WAREHOUSE_ACCESS_CHANGED 발행 — inventory가 이미 기다리는 계약
+2. 이후 F-031(상품 사본) → F-032~F-036(입고·폐기·반품·출고·실사 연동) → F-037(재고 코드 제거·devseed 개편)
+3. 배포 체크리스트: dozy-auth admin에 `wms:` role 7개 등록 (코드 작업 아님)
+4. `dozy-admin-console`의 `httpClient`가 에러 메시지를 `detail`(없으면 `code` 기반 문구)로 읽도록 갱신 (F-026 후속, 콘솔 저장소 작업)
+5. (후순위) 창고 배정 변경 시 요청마다 `warehouse_member`를 조회하는 비용 점검: 실측 후 필요할 때만 캐시 검토
+6. (후순위) 입고 검수 후속: 입고 등록이 같은 상품의 중복 줄을 허용하는지 확인(ADR-0016 가정), 잔여 유통기한 비율 기준·수량 허용 오차·로트 자동 생성 등 범위 밖 항목 재검토
+7. (후순위) F-019: 실측 병목 확인 시 착수
