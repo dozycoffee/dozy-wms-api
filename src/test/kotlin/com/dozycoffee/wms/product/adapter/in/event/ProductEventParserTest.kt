@@ -73,6 +73,16 @@ class ProductEventParserTest {
         }
 
         @Test
+        fun `traceparent가 있어도 읽는다`() {
+            val withTrace = envelope().replace(
+                """"source":"inventory",""",
+                """"source":"inventory","traceparent":"00-4bf92f3577b34da6a3ce929d0e0e4736-00f067aa0ba902b7-01","""
+            )
+
+            assertThat(parser.parse(withTrace)?.productId).isEqualTo(7L)
+        }
+
+        @Test
         fun `상품 사본과 무관한 이벤트 유형은 무시한다`() {
             assertThat(parser.parse(envelope(eventType = "PRODUCT_SOMETHING_ELSE", eventVersion = "9"))).isNull()
         }

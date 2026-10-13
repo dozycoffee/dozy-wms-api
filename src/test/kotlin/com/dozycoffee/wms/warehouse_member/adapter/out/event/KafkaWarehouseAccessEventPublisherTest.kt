@@ -2,7 +2,6 @@ package com.dozycoffee.wms.warehouse_member.adapter.out.event
 
 import com.dozycoffee.wms.support.KafkaTestContainer
 import kotlinx.coroutines.runBlocking
-import org.apache.kafka.clients.consumer.ConsumerRecord
 import org.apache.kafka.clients.producer.ProducerConfig
 import org.apache.kafka.common.serialization.StringSerializer
 import org.assertj.core.api.Assertions.assertThat
@@ -52,11 +51,8 @@ class KafkaWarehouseAccessEventPublisherTest {
         return KafkaWarehouseAccessEventPublisher(KafkaTemplate(factory), jsonMapper, Clock.system(zone), topic)
     }
 
-    private fun header(record: ConsumerRecord<String, String>, name: String): String =
-        String(record.headers().lastHeader(name).value(), Charsets.UTF_8)
-
     @Test
-    fun `직원 키로 envelope 값과 이벤트 헤더를 토픽에 보낸다`() {
+    fun `직원 키로 envelope 값을 토픽에 보내고 Kafka 헤더는 쓰지 않는다`() {
         runBlocking {
             publisher().publish(principalId, eventId, LocalDateTime.of(2026, 10, 12, 10, 0, 0), listOf(10L, 20L))
         }
@@ -72,12 +68,9 @@ class KafkaWarehouseAccessEventPublisherTest {
         assertThat(value.get("data").get("principalId").asString()).isEqualTo(principalId.toString())
         val warehouseIds: List<Long> = value.get("data").get("warehouseIds").values().map { element -> element.asLong() }
         assertThat(warehouseIds).containsExactly(10L, 20L)
-        assertThat(header(record, "event-id")).isEqualTo(eventId)
-        assertThat(header(record, "event-type")).isEqualTo("WAREHOUSE_ACCESS_CHANGED")
-        assertThat(header(record, "event-version")).isEqualTo("1")
-        assertThat(header(record, "source")).isEqualTo("wms")
-        assertThat(header(record, "aggregate-type")).isEqualTo("WAREHOUSE_ACCESS")
-        assertThat(header(record, "aggregate-id")).isEqualTo(principalId.toString())
+        assertThat(record.headers().toArray()).isEmpty()
+        assertThat(value.propertyNames().asSequence().toList())
+            .containsExactlyInAnyOrder("eventId", "eventType", "eventVersion", "occurredAt", "source", "data")
     }
 
     @Test
