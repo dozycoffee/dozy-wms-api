@@ -12,4 +12,7 @@ interface WarehouseMemberR2dbcRepository : CoroutineCrudRepository<WarehouseMemb
 
     @Query("SELECT warehouse_id FROM warehouse_member WHERE principal_id = :principalId")
     fun findWarehouseIdsByPrincipalId(principalId: String): Flow<Long>
+
+    @Query("SELECT DISTINCT principal_id FROM warehouse_member ORDER BY principal_id")
+    fun findAllPrincipalIds(): Flow<String>
 }

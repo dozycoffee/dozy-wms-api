@@ -9,5 +9,6 @@ interface WarehouseMemberRepository {
     suspend fun findByWarehouseIdAndPrincipalId(warehouseId: Long, principalId: UUID): WarehouseMember?
     fun findAllByWarehouseId(warehouseId: Long): Flow<WarehouseMember>
     suspend fun findWarehouseIdsByPrincipalId(principalId: UUID): Set<Long>
+    suspend fun findAllPrincipalIds(): List<UUID>
     suspend fun delete(warehouseMember: WarehouseMember)
 }
