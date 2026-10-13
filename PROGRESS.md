@@ -36,6 +36,10 @@
   격리하고 그 창고의 큐를 멈춘다. 운영자는 `/api/inventory-calls`(warehouse_admin)로 재전송·버림을 한다. 종류별 요청 DTO와 각 흐름의 전환은
   F-032~F-036에서 한다. 시스템 클라이언트 `WebClient`가 스타터 0.2.1에 있어 `dozyAuthVersion`을 0.1.0에서 올렸다. 설정은
   `INVENTORY_BASE_URL`, `AUTH_CLIENT_ENABLED/ID/SECRET`이다. 전체 테스트 통과.
+- F-029: inventory 대사용 `GET /api/v1/stock-quantities`를 추가했다. 창고 안 모든 Location의 장부 수량을 상품 x Lot 번호 x 품질 상태로 합산해
+  `{"items":[...]}`로 응답하며 수량 0 항목은 뺀다. 없는 창고는 빈 목록이 아니라 404다(빈 목록이면 inventory가 WMS 수량을 전부 0으로 보고 보정안을
+  쏟아낸다). 호출 주체는 `svc-inventory` system client이므로 `WmsRole.SERVICE`(`wms:service`)를 추가했고, 이 role은 모든 창고에 접근하되 이 API와
+  `warehouse_admin`에만 허용한다(조회 식 `READ`에는 포함하지 않는다). 전체 테스트 통과.
 
 ### 2026-10-04
 
@@ -78,9 +82,9 @@
 
 ## 다음 세션에서 할 일
 
-1. F-029 stock-quantities API(장부 완료로 착수 가능), F-030 WAREHOUSE_ACCESS_CHANGED 발행 — inventory가 이미 기다리는 계약
+1. F-030 WAREHOUSE_ACCESS_CHANGED 발행 — inventory가 이미 기다리는 계약
 2. 이후 F-031(상품 사본) → F-032~F-036(입고·폐기·반품·출고·실사 연동) → F-037(재고 코드 제거·devseed 개편)
-3. 배포 체크리스트: dozy-auth admin에 `wms:` role 7개 등록 (코드 작업 아님)
+3. 배포 체크리스트: dozy-auth admin에 `wms:` role 8개(`service` 포함) 등록하고 `svc-inventory` system client에 `wms:service`를 부여 (코드 작업 아님)
 4. `dozy-admin-console`의 `httpClient`가 에러 메시지를 `detail`(없으면 `code` 기반 문구)로 읽도록 갱신 (F-026 후속, 콘솔 저장소 작업)
 5. (후순위) 창고 배정 변경 시 요청마다 `warehouse_member`를 조회하는 비용 점검: 실측 후 필요할 때만 캐시 검토
 6. (후순위) 입고 검수 후속: 입고 등록이 같은 상품의 중복 줄을 허용하는지 확인(ADR-0016 가정), 잔여 유통기한 비율 기준·수량 허용 오차·로트 자동 생성 등 범위 밖 항목 재검토
