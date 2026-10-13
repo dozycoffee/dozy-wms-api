@@ -16,6 +16,7 @@ class MySqlTestContainerInitializer : ApplicationContextInitializer<Configurable
             "spring.flyway.url=${mysql.jdbcUrl}?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=Asia/Seoul",
             "spring.flyway.user=root",
             "spring.flyway.password=${mysql.password}",
+            "wms.inventory-call.dispatch.enabled=false",
         ).applyTo(applicationContext.environment)
     }
 

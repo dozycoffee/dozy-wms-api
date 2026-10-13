@@ -36,7 +36,7 @@ repositories {
 	}
 }
 
-def dozyAuthVersion = '0.1.0'
+def dozyAuthVersion = '0.2.1'
 
 dependencies {
 	implementation 'org.springframework.boot:spring-boot-starter-data-r2dbc'
