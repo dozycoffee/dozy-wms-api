@@ -24,6 +24,17 @@ spring:
       datetime:
         write-dates-as-timestamps: false
 
+  kafka:
+    bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:9094}
+    producer:
+      acks: all
+      properties:
+        enable.idempotence: true
+        # 브로커가 응답하지 않으면 발행기가 오래 막히지 않고 실패로 처리해 다음 주기에 다시 시도한다
+        max.block.ms: 5000
+        request.timeout.ms: 5000
+        delivery.timeout.ms: 10000
+
 dozy:
   auth:
     audience: wms
@@ -36,6 +47,20 @@ dozy:
     issuer-base-uri: ${AUTH_ISSUER_BASE_URI:http://localhost:8081}
 
 wms:
+  # 직원 창고 소속 변경 이벤트 발행(ADR-0020). 테스트에서는 발행기와 토픽 생성을 끈다
+  warehouse-access-event:
+    publisher:
+      enabled: true
+      interval: PT5S
+      batch-size: 50
+      lease: PT1M
+      base-backoff: PT5S
+      max-backoff: PT5M
+      alert-after-attempts: 10
+    topic:
+      name: dozy.wms.warehouse-access
+      partitions: 3
+      replicas: 1
   # inventory 서비스 호출 아웃박스(ADR-0019). 테스트에서는 전송기를 끈다
   inventory-call:
     base-url: ${INVENTORY_BASE_URL:}
