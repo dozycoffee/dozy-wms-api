@@ -15,6 +15,14 @@
 
 ## 세션 로그
 
+### 2026-10-14 (창고 목록 API)
+
+- F-041: `GET /api/warehouses`를 추가했다(#148). 응답은 `{"items":[{warehouseId, warehouseName, address, latitude, longitude, warehouseStatus}]}`이고 상태값은 기존 단건과 같은 `AVAILABLE`/`UNAVAILABLE`이다.
+  `WmsAuthorize.READ`이며 `WarehouseAccessGuard.scoped`로 접근 가능한 창고만(전체/배정/없음) 창고 ID 오름차순으로 주고 `deleted_at`이 있는 행은 뺀다. 필터·페이징은 두지 않았다.
+  단건 `GET /api/warehouses/{id}`는 창고 접근 가드가 없어 배정되지 않은 창고도 조회됐는데(F-022 범위에서 창고 마스터 조회가 빠졌다), 목록 제한이 우회되지 않도록 `require`를 적용했다.
+  Zone/WorkArea/Location 조회에도 같은 누락이 있어 #149로 남겼다. 내부 호출(입고 등록의 `GetZoneUseCase` 등)과 구분해서 가드를 걸어야 한다.
+  `inventory`가 서버 간 호출로 쓰려면 `service` role이 `READ`에 없어 403이다. 당장은 어드민 콘솔(사용자 토큰) 용도로만 열려 있다.
+
 ### 2026-10-14 (E2E 검증)
 
 - F-032 후속: 두 서비스를 격리된 빈 DB(`dozy_wms_e2e`, `dozy_inventory_e2e`)와 WMS compose Kafka(9094)로 띄워 입고 1건을 끝까지 검증했다. 상품을 inventory에 등록하니 `dozy.inventory.product`
