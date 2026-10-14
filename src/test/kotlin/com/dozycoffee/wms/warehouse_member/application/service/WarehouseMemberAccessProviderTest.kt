@@ -41,8 +41,8 @@ class WarehouseMemberAccessProviderTest {
     }
 
     @Test
-    fun `warehouse_admin은 배정과 무관하게 모든 창고에 접근한다`() = runTest {
-        val actor = UserActor(principalId, setOf("warehouse_admin"))
+    fun `admin은 배정과 무관하게 모든 창고에 접근한다`() = runTest {
+        val actor = UserActor(principalId, setOf("admin"))
 
         assertThat(providerFor(actor).current()).isEqualTo(AllWarehouses)
         verify(warehouseMemberRepository, never()).findWarehouseIdsByPrincipalId(org.mockito.kotlin.any())
@@ -57,10 +57,27 @@ class WarehouseMemberAccessProviderTest {
     }
 
     @Test
+    fun `viewer만 가진 사용자는 창고 마스터 조회 전용이라 모든 창고에 접근한다`() = runTest {
+        val actor = UserActor(principalId, setOf("viewer"))
+
+        assertThat(providerFor(actor).current()).isEqualTo(AllWarehouses)
+        verify(warehouseMemberRepository, never()).findWarehouseIdsByPrincipalId(org.mockito.kotlin.any())
+    }
+
+    @Test
+    fun `viewer와 창고 관리자를 함께 가지면 배정된 창고로 제한한다`() = runTest {
+        whenever(warehouseMemberRepository.findWarehouseIdsByPrincipalId(principalId)).thenReturn(setOf(2L))
+
+        val access = providerFor(UserActor(principalId, setOf("viewer", "warehouse_manager"))).current()
+
+        assertThat(access).isEqualTo(OnlyWarehouses(setOf(2L)))
+    }
+
+    @Test
     fun `일반 담당자는 배정된 창고만 접근한다`() = runTest {
         whenever(warehouseMemberRepository.findWarehouseIdsByPrincipalId(principalId)).thenReturn(setOf(1L, 3L))
 
-        val access = providerFor(UserActor(principalId, setOf("inbound_manager"))).current()
+        val access = providerFor(UserActor(principalId, setOf("warehouse_manager"))).current()
 
         assertThat(access).isEqualTo(OnlyWarehouses(setOf(1L, 3L)))
     }
@@ -69,7 +86,7 @@ class WarehouseMemberAccessProviderTest {
     fun `배정이 없는 담당자는 어떤 창고에도 접근하지 못한다`() = runTest {
         whenever(warehouseMemberRepository.findWarehouseIdsByPrincipalId(principalId)).thenReturn(emptySet())
 
-        val access = providerFor(UserActor(principalId, setOf("inbound_manager"))).current()
+        val access = providerFor(UserActor(principalId, setOf("warehouse_manager"))).current()
 
         assertThat(access.canAccess(1L)).isFalse()
     }

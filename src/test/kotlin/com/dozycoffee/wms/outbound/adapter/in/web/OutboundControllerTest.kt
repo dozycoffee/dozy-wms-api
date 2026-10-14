@@ -24,7 +24,7 @@ import org.springframework.boot.webflux.test.autoconfigure.WebFluxTest
 import org.springframework.test.context.bean.override.mockito.MockitoBean
 import org.springframework.test.web.reactive.server.WebTestClient
 
-@WithDozyPrincipal(roles = ["wms:outbound_manager"])
+@WithDozyPrincipal(roles = ["wms:warehouse_manager"])
 @WebFluxTest(OutboundController::class)
 class OutboundControllerTest {
 
@@ -207,16 +207,16 @@ class OutboundControllerTest {
         }
 
         @Test
-        @WithDozyPrincipal(roles = ["wms:inventory_viewer"])
-        fun `조회 role은 취소를 요청할 수 없다`() {
+        @WithDozyPrincipal(roles = ["wms:viewer"])
+        fun `viewer는 취소를 요청할 수 없다`() {
             webTestClient.post().uri("/api/outbounds/{outboundId}/cancel-requests", 1L)
                 .exchange()
                 .expectStatus().isForbidden
         }
 
         @Test
-        @WithDozyPrincipal(roles = ["wms:warehouse_admin"])
-        fun `창고 관리자는 취소를 승인할 수 있다`() {
+        @WithDozyPrincipal(roles = ["wms:admin"])
+        fun `admin은 취소를 승인할 수 있다`() {
             runBlocking { whenever(approveOutboundCancelUseCase.approveCancel(1L)).thenReturn(sampleResult(OutboundStatus.CANCELED)) }
 
             webTestClient.post().uri("/api/outbounds/{outboundId}/cancel-approval", 1L)

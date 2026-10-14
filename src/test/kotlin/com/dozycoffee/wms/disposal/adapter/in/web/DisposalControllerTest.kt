@@ -23,7 +23,7 @@ import org.springframework.boot.webflux.test.autoconfigure.WebFluxTest
 import org.springframework.test.context.bean.override.mockito.MockitoBean
 import org.springframework.test.web.reactive.server.WebTestClient
 
-@WithDozyPrincipal(roles = ["wms:disposal_manager"])
+@WithDozyPrincipal(roles = ["wms:warehouse_manager"])
 @WebFluxTest(DisposalController::class)
 class DisposalControllerTest {
 

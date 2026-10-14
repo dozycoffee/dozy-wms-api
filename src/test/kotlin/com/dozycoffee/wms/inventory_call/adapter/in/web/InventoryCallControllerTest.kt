@@ -21,7 +21,7 @@ import org.springframework.boot.webflux.test.autoconfigure.WebFluxTest
 import org.springframework.test.context.bean.override.mockito.MockitoBean
 import org.springframework.test.web.reactive.server.WebTestClient
 
-@WithDozyPrincipal(roles = ["wms:warehouse_admin"])
+@WithDozyPrincipal(roles = ["wms:admin"])
 @WebFluxTest(InventoryCallController::class)
 class InventoryCallControllerTest {
 
@@ -125,8 +125,8 @@ class InventoryCallControllerTest {
     }
 
     @Test
-    @WithDozyPrincipal(roles = ["wms:inbound_manager"])
-    fun `warehouse_admin이 아니면 403이다`() {
+    @WithDozyPrincipal(roles = ["wms:warehouse_manager"])
+    fun `admin이 아니면 403이다`() {
         webTestClient.get().uri("/api/inventory-calls").exchange().expectStatus().isForbidden
         webTestClient.post().uri("/api/inventory-calls/7/requeue").exchange().expectStatus().isForbidden
     }

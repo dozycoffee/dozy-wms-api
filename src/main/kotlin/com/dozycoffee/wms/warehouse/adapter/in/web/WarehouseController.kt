@@ -40,13 +40,13 @@ class WarehouseController(
     }
 
     @GetMapping
-    @PreAuthorize(WmsAuthorize.READ)
+    @PreAuthorize(WmsAuthorize.MASTER_READ)
     suspend fun getAll(): WarehouseListResponse {
         return WarehouseListResponse.from(listWarehousesUseCase.getAll().toList())
     }
 
     @GetMapping("/{warehouseId}")
-    @PreAuthorize(WmsAuthorize.READ)
+    @PreAuthorize(WmsAuthorize.MASTER_READ)
     suspend fun getById(@PathVariable warehouseId: Long): WarehouseResponse {
         return WarehouseResponse.from(getWarehouseUseCase.getById(warehouseId))
     }

@@ -72,7 +72,7 @@ class SecurityIntegrationTest {
 
     @Test
     fun `유효한 직원 토큰으로 호출하면 200을 반환한다`() {
-        get(tokens.issue(roles = listOf("wms:inventory_viewer"))).expectStatus().isOk
+        get(tokens.issue(roles = listOf("wms:warehouse_manager"))).expectStatus().isOk
     }
 
     @Test
@@ -86,7 +86,7 @@ class SecurityIntegrationTest {
     @Test
     fun `조회 전용 role로 창고를 등록하면 403이다`() {
         webTestClient.post().uri("/api/warehouses")
-            .header("Authorization", "Bearer ${tokens.issue(roles = listOf("wms:inventory_viewer"))}")
+            .header("Authorization", "Bearer ${tokens.issue(roles = listOf("wms:viewer"))}")
             .contentType(MediaType.APPLICATION_JSON)
             .bodyValue(
                 mapOf(
@@ -126,7 +126,7 @@ class SecurityIntegrationTest {
         val principalId = UUID.fromString("0199a3c4-7b2e-7c1a-9f3d-2b6e8a1c4d5f")
 
         webTestClient.post().uri("/api/warehouses")
-            .header("Authorization", "Bearer ${tokens.issue(id = principalId, roles = listOf("wms:warehouse_admin"))}")
+            .header("Authorization", "Bearer ${tokens.issue(id = principalId, roles = listOf("wms:admin"))}")
             .contentType(MediaType.APPLICATION_JSON)
             .bodyValue(
                 mapOf(

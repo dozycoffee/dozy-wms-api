@@ -20,7 +20,7 @@ import org.springframework.test.context.bean.override.mockito.MockitoBean
 import org.springframework.test.web.reactive.server.WebTestClient
 import java.util.UUID
 
-@WithDozyPrincipal(roles = ["wms:warehouse_admin"])
+@WithDozyPrincipal(roles = ["wms:admin"])
 @WebFluxTest(WarehouseMemberController::class)
 class WarehouseMemberControllerTest {
 
@@ -94,8 +94,8 @@ class WarehouseMemberControllerTest {
     }
 
     @Test
-    @WithDozyPrincipal(roles = ["wms:inbound_manager"])
-    fun `warehouse_admin이 아니면 배정 관리는 403이다`() {
+    @WithDozyPrincipal(roles = ["wms:warehouse_manager"])
+    fun `admin이 아니면 배정 관리는 403이다`() {
         webTestClient.get().uri("/api/warehouses/1/members").exchange().expectStatus().isForbidden
         webTestClient.delete().uri("/api/warehouses/1/members/{principalId}", principalId)
             .exchange().expectStatus().isForbidden

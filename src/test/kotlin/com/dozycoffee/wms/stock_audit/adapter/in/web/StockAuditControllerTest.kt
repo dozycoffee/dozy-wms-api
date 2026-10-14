@@ -22,7 +22,7 @@ import org.springframework.boot.webflux.test.autoconfigure.WebFluxTest
 import org.springframework.test.context.bean.override.mockito.MockitoBean
 import org.springframework.test.web.reactive.server.WebTestClient
 
-@WithDozyPrincipal(roles = ["wms:stock_audit_manager"])
+@WithDozyPrincipal(roles = ["wms:warehouse_manager"])
 @WebFluxTest(StockAuditController::class)
 class StockAuditControllerTest {
 
@@ -163,8 +163,8 @@ class StockAuditControllerTest {
         }
 
         @Test
-        @WithDozyPrincipal(roles = ["wms:inbound_manager"])
-        fun `실사 담당 role이 아니면 403을 반환한다`() {
+        @WithDozyPrincipal(roles = ["wms:viewer"])
+        fun `창고 관리자나 admin이 아니면 403을 반환한다`() {
             webTestClient.patch().uri("/api/stock-audits/{stockAuditId}/close", 1L)
                 .exchange()
                 .expectStatus().isForbidden

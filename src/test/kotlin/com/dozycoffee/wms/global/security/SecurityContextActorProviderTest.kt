@@ -32,10 +32,10 @@ class SecurityContextActorProviderTest {
         val principalId = UUID.fromString("0199a3c4-7b2e-7c1a-9f3d-2b6e8a1c4d5f")
 
         val actor = mono { provider.get() }
-            .contextWrite(ReactiveSecurityContextHolder.withAuthentication(dozyToken(principalId, setOf("inbound_manager"))))
+            .contextWrite(ReactiveSecurityContextHolder.withAuthentication(dozyToken(principalId, setOf("warehouse_manager"))))
             .awaitSingle()
 
-        assertThat(actor).isEqualTo(UserActor(principalId, setOf("inbound_manager")))
+        assertThat(actor).isEqualTo(UserActor(principalId, setOf("warehouse_manager")))
         assertThat(actor.auditName).isEqualTo("0199a3c4-7b2e-7c1a-9f3d-2b6e8a1c4d5f")
     }
 

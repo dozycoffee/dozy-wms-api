@@ -87,15 +87,15 @@ class StockQuantityControllerTest {
     }
 
     @Test
-    @WithDozyPrincipal(roles = ["wms:warehouse_admin"])
-    fun `warehouse_admin도 조회할 수 있다`() {
+    @WithDozyPrincipal(roles = ["wms:admin"])
+    fun `admin도 조회할 수 있다`() {
         runBlocking { whenever(getWarehouseStockQuantitiesUseCase.getQuantities(10L, null, null)).thenReturn(emptyList()) }
 
         webTestClient.get().uri("/api/v1/stock-quantities?warehouseId=10").exchange().expectStatus().isOk
     }
 
     @Test
-    @WithDozyPrincipal(roles = ["wms:inbound_manager", "wms:inventory_viewer"])
+    @WithDozyPrincipal(roles = ["wms:warehouse_manager", "wms:viewer"])
     fun `서비스 role이나 관리자가 아니면 403이다`() {
         webTestClient.get().uri("/api/v1/stock-quantities?warehouseId=10").exchange().expectStatus().isForbidden
     }

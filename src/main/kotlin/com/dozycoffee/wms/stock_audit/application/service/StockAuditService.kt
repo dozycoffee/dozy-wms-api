@@ -164,10 +164,10 @@ class StockAuditService(
             .map { (key, amount) -> StockAuditInventoryAdjuster.Line(key.first, key.second, key.third, amount) }
     }
 
-    /** 임계치 초과 조정은 상위 관리자([WmsRole.WAREHOUSE_ADMIN])만 승인할 수 있다. 자격이 없으면 승인자 없음으로 취급한다 */
+    /** 임계치 초과 조정은 상위 관리자([WmsRole.ADMIN])만 승인할 수 있다. 자격이 없으면 승인자 없음으로 취급한다 */
     private suspend fun resolveApprover(): String? {
         val actor = currentActorProvider.get()
-        return (actor as? UserActor)?.takeIf { WmsRole.WAREHOUSE_ADMIN.code in it.roles }?.auditName
+        return (actor as? UserActor)?.takeIf { WmsRole.ADMIN.code in it.roles }?.auditName
     }
 
     private suspend fun applyToLocationStock(adjustment: Adjustment) {
