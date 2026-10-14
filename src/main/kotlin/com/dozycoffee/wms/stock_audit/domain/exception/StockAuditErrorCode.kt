@@ -22,6 +22,21 @@ enum class StockAuditErrorCode(
         "STOCK_AUDIT_APPROVAL_REQUIRED",
         "조정 수량이 임계치를 초과해 승인자가 필요합니다."
     ),
+    INVENTORY_CALLS_PENDING(
+        ErrorType.CONFLICT,
+        "STOCK_AUDIT_INVENTORY_CALLS_PENDING",
+        "inventory에 아직 반영되지 않은 호출이 있어 조정을 확정할 수 없습니다. 호출이 모두 전달된 뒤 다시 시도해 주세요."
+    ),
+    INVENTORY_REJECTED(
+        ErrorType.CONFLICT,
+        "STOCK_AUDIT_INVENTORY_REJECTED",
+        "inventory가 조정을 거부했습니다. 예약이 잡힌 수량이 있거나 등록되지 않은 Lot인지 확인해 주세요."
+    ),
+    INVENTORY_UNAVAILABLE(
+        ErrorType.UNAVAILABLE,
+        "STOCK_AUDIT_INVENTORY_UNAVAILABLE",
+        "inventory와 통신할 수 없어 조정을 확정하지 못했습니다. 잠시 후 다시 시도해 주세요."
+    ),
     ITEMS_NOT_FULLY_COUNTED(
         ErrorType.CONFLICT,
         "STOCK_AUDIT_ITEMS_NOT_FULLY_COUNTED",

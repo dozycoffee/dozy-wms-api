@@ -6,6 +6,8 @@ import com.dozycoffee.wms.global.security.WarehouseAccessGuard
 import com.dozycoffee.wms.global.security.WmsRole
 import com.dozycoffee.wms.inventory.application.port.`in`.AdjustInventoryQuantityUseCase
 import com.dozycoffee.wms.inventory.application.port.`in`.GetInventoryUseCase
+import com.dozycoffee.wms.inventory.application.port.`in`.GetLotUseCase
+import com.dozycoffee.wms.inventory.application.port.`in`.result.InventoryResult
 import com.dozycoffee.wms.inventory.application.port.out.InventoryHistoryRepository
 import com.dozycoffee.wms.stock_audit.application.port.`in`.AssignStockAuditUseCase
 import com.dozycoffee.wms.stock_audit.application.port.`in`.CloseStockAuditUseCase
@@ -49,6 +51,8 @@ class StockAuditService(
     private val releaseLocationUseCase: ReleaseLocationUseCase,
     private val inventoryHistoryRepository: InventoryHistoryRepository,
     private val currentActorProvider: CurrentActorProvider,
+    private val getLotUseCase: GetLotUseCase,
+    private val stockAuditInventoryAdjuster: StockAuditInventoryAdjuster,
     @param:Value("\${wms.stock-audit.adjustment-approval-threshold}")
     private val adjustmentApprovalThreshold: Int
 ) : RegisterStockAuditUseCase,
@@ -126,7 +130,9 @@ class StockAuditService(
 
     /**
      * 조정 확정 — 항목별 조정량(실측 - 마감 시점 실시간 Inventory 수량, ADR-0009)을 계산해 임계치 초과
-     * 여부를 판단한 뒤, 승인 조건을 만족해야만 조정을 실제로 반영한다. 조정량만큼 Location 사용량도 함께 증감한다
+     * 여부를 판단한 뒤, 승인 조건을 만족해야만 조정을 실제로 반영한다. 조정량만큼 Location 사용량도 함께 증감한다.
+     * 로컬 반영을 마친 뒤 마지막에 inventory에 조정을 동기로 반영하고, inventory가 거부하거나 응답하지 않으면 예외로 로컬 반영도 되돌린다.
+     * 같은 멱등 키(`wms-stock-audit-{실사 ID}`)로 다시 마감해도 inventory에 중복 반영되지 않는다.
      */
     @Transactional
     override suspend fun close(stockAuditId: Long): StockAuditResult {
@@ -137,11 +143,17 @@ class StockAuditService(
             val countedQuantity = requireNotNull(item.countedQuantity) { "완료된 실사의 항목은 카운트가 있어야 합니다." }
             val currentInventory = getInventoryUseCase.getById(item.inventoryId)
             val adjustmentAmount = countedQuantity - currentInventory.quantity
-            if (adjustmentAmount == 0) null else Adjustment(item, adjustmentAmount, currentInventory.locationId)
+            if (adjustmentAmount == 0) null else Adjustment(item, adjustmentAmount, currentInventory)
+        }
+        val inventoryLines = toInventoryLines(adjustments)
+        if (inventoryLines.isNotEmpty()) {
+            stockAuditInventoryAdjuster.requireNoBacklog(stockAudit.warehouseId)
         }
 
-        val requiresApproval = adjustments.any { abs(it.amount) > adjustmentApprovalThreshold }
-        stockAudit.close(requiresApproval, if (requiresApproval) resolveApprover() else null)
+        val requiresApproval = adjustments.any { abs(it.amount) > adjustmentApprovalThreshold } ||
+            inventoryLines.any { abs(it.quantityChange) > adjustmentApprovalThreshold }
+        val approver: String? = resolveApprover()
+        stockAudit.close(requiresApproval, if (requiresApproval) approver else null)
 
         for (adjustment in adjustments) {
             adjustInventoryQuantityUseCase.adjust(
@@ -152,7 +164,26 @@ class StockAuditService(
             syncLocationUsage(adjustment)
         }
 
+        if (inventoryLines.isNotEmpty()) {
+            stockAuditInventoryAdjuster.adjust(stockAudit.warehouseId, stockAuditId, approver, inventoryLines)
+        }
+
         return StockAuditResult.from(stockAuditRepository.save(stockAudit))
+    }
+
+    /** Location 항목의 조정량을 inventory의 조정 단위(상품 x Lot 번호 x 품질 상태)로 합산한다. 합이 0인 단위는 보내지 않는다 */
+    private suspend fun toInventoryLines(adjustments: List<Adjustment>): List<StockAuditInventoryAdjuster.Line> {
+        val lotNumberByLotId = mutableMapOf<Long, String>()
+        val amountByKey = linkedMapOf<Triple<Long, String, String>, Int>()
+        for (adjustment in adjustments) {
+            val inventory = adjustment.inventory
+            val lotNumber = lotNumberByLotId.getOrPut(inventory.lotId) { getLotUseCase.getById(inventory.lotId).lotNumber }
+            val key = Triple(inventory.productId, lotNumber, inventory.qualityStatus.name)
+            amountByKey.merge(key, adjustment.amount, Int::plus)
+        }
+        return amountByKey
+            .filterValues { it != 0 }
+            .map { (key, amount) -> StockAuditInventoryAdjuster.Line(key.first, key.second, key.third, amount) }
     }
 
     /** 임계치 초과 조정은 상위 관리자([WmsRole.WAREHOUSE_ADMIN])만 승인할 수 있다. 자격이 없으면 승인자 없음으로 취급한다 */
@@ -163,9 +194,9 @@ class StockAuditService(
 
     private suspend fun syncLocationUsage(adjustment: Adjustment) {
         if (adjustment.amount > 0) {
-            occupyLocationUseCase.occupy(OccupyLocationCommand(adjustment.locationId, adjustment.amount))
+            occupyLocationUseCase.occupy(OccupyLocationCommand(adjustment.inventory.locationId, adjustment.amount))
         } else {
-            releaseLocationUseCase.release(ReleaseLocationCommand(adjustment.locationId, -adjustment.amount))
+            releaseLocationUseCase.release(ReleaseLocationCommand(adjustment.inventory.locationId, -adjustment.amount))
         }
     }
 
@@ -175,5 +206,5 @@ class StockAuditService(
         return stockAudit
     }
 
-    private data class Adjustment(val item: StockAuditItem, val amount: Int, val locationId: Long)
+    private data class Adjustment(val item: StockAuditItem, val amount: Int, val inventory: InventoryResult)
 }

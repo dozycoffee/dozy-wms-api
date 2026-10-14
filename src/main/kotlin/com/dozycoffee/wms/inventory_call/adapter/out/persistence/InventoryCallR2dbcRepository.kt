@@ -9,6 +9,9 @@ interface InventoryCallR2dbcRepository : CoroutineCrudRepository<InventoryCallEn
 
     suspend fun findByIdempotencyKey(idempotencyKey: String): InventoryCallEntity?
 
+    @Query("SELECT COUNT(*) FROM inventory_call WHERE warehouse_id = :warehouseId AND status IN ('PENDING', 'DEAD')")
+    suspend fun countUnfinishedByWarehouseId(warehouseId: Long): Long
+
     @Query("SELECT * FROM inventory_call ORDER BY inventory_call_id DESC LIMIT :limit")
     fun findRecent(limit: Int): Flow<InventoryCallEntity>
 
