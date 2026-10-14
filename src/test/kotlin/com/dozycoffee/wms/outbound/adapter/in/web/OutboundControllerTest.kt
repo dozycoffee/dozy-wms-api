@@ -1,9 +1,11 @@
 package com.dozycoffee.wms.outbound.adapter.`in`.web
 
 import com.dozycoffee.auth.test.WithDozyPrincipal
+import com.dozycoffee.wms.outbound.application.port.`in`.ApproveOutboundCancelUseCase
 import com.dozycoffee.wms.outbound.application.port.`in`.CompleteOutboundUseCase
 import com.dozycoffee.wms.outbound.application.port.`in`.GetOutboundUseCase
 import com.dozycoffee.wms.outbound.application.port.`in`.ReportPickingShortageUseCase
+import com.dozycoffee.wms.outbound.application.port.`in`.RequestOutboundCancelUseCase
 import com.dozycoffee.wms.outbound.application.port.`in`.StartOutboundInspectingUseCase
 import com.dozycoffee.wms.outbound.application.port.`in`.StartOutboundPickingUseCase
 import com.dozycoffee.wms.outbound.application.port.`in`.result.OutboundAllocationResult
@@ -40,6 +42,12 @@ class OutboundControllerTest {
 
     @MockitoBean
     private lateinit var reportPickingShortageUseCase: ReportPickingShortageUseCase
+
+    @MockitoBean
+    private lateinit var requestOutboundCancelUseCase: RequestOutboundCancelUseCase
+
+    @MockitoBean
+    private lateinit var approveOutboundCancelUseCase: ApproveOutboundCancelUseCase
 
     @MockitoBean
     private lateinit var getOutboundUseCase: GetOutboundUseCase
@@ -171,6 +179,58 @@ class OutboundControllerTest {
                 .bodyValue(mapOf("shortages" to listOf(mapOf("outboundAllocationId" to 5, "shortageQuantity" to 0))))
                 .exchange()
                 .expectStatus().isBadRequest
+        }
+    }
+
+    @Nested
+    inner class 출고_취소 {
+
+        @Test
+        fun `출고 담당자는 취소를 요청할 수 있다`() {
+            runBlocking { whenever(requestOutboundCancelUseCase.requestCancel(1L)).thenReturn(sampleResult(OutboundStatus.CANCEL_REQUESTED)) }
+
+            webTestClient.post().uri("/api/outbounds/{outboundId}/cancel-requests", 1L)
+                .exchange()
+                .expectStatus().isOk
+                .expectBody()
+                .jsonPath("$.status").isEqualTo("CANCEL_REQUESTED")
+        }
+
+        @Test
+        @WithDozyPrincipal(roles = ["wms:service"])
+        fun `서비스 role도 취소를 요청할 수 있다`() {
+            runBlocking { whenever(requestOutboundCancelUseCase.requestCancel(1L)).thenReturn(sampleResult(OutboundStatus.CANCELED)) }
+
+            webTestClient.post().uri("/api/outbounds/{outboundId}/cancel-requests", 1L)
+                .exchange()
+                .expectStatus().isOk
+        }
+
+        @Test
+        @WithDozyPrincipal(roles = ["wms:inventory_viewer"])
+        fun `조회 role은 취소를 요청할 수 없다`() {
+            webTestClient.post().uri("/api/outbounds/{outboundId}/cancel-requests", 1L)
+                .exchange()
+                .expectStatus().isForbidden
+        }
+
+        @Test
+        @WithDozyPrincipal(roles = ["wms:warehouse_admin"])
+        fun `창고 관리자는 취소를 승인할 수 있다`() {
+            runBlocking { whenever(approveOutboundCancelUseCase.approveCancel(1L)).thenReturn(sampleResult(OutboundStatus.CANCELED)) }
+
+            webTestClient.post().uri("/api/outbounds/{outboundId}/cancel-approval", 1L)
+                .exchange()
+                .expectStatus().isOk
+                .expectBody()
+                .jsonPath("$.status").isEqualTo("CANCELED")
+        }
+
+        @Test
+        fun `출고 담당자는 취소를 승인할 수 없다`() {
+            webTestClient.post().uri("/api/outbounds/{outboundId}/cancel-approval", 1L)
+                .exchange()
+                .expectStatus().isForbidden
         }
     }
 }

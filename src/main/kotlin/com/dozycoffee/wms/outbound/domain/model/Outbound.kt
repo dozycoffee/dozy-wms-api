@@ -63,6 +63,15 @@ class Outbound private constructor(
     /** 검수를 마치고 출고를 확정할 때 호출한다 */
     fun complete() = transitionTo(OutboundStatus.COMPLETED)
 
+    /** 피킹 전에는 점유한 것이 없어 바로 취소한다 */
+    fun cancelBeforePicking() = transitionTo(OutboundStatus.CANCELED)
+
+    /** 피킹 이후 취소 요청은 관리자가 원위치를 확인해 승인할 때까지 기다린다 */
+    fun requestCancel() = transitionTo(OutboundStatus.CANCEL_REQUESTED)
+
+    /** 관리자가 회수·원위치를 확인하고 취소를 확정할 때 호출한다 */
+    fun approveCancel() = transitionTo(OutboundStatus.CANCELED)
+
     /** 예약 정보가 있고 피킹 중일 때만 재할당할 수 있다 */
     fun requireReallocatable() {
         if (reservationId == null || status != OutboundStatus.PICKING) {

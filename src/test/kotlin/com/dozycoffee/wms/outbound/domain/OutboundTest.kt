@@ -144,4 +144,36 @@ class OutboundTest {
             assertThatThrownBy { outbound.requireReallocatable() }.isInstanceOf(OutboundNotReallocatableException::class.java)
         }
     }
+
+    @Nested
+    inner class 취소 {
+
+        @Test
+        fun `피킹 전 출고는 바로 취소된다`() {
+            val outbound = outbound().outboundId(1L).status(OutboundStatus.REQUESTED).build()
+
+            outbound.cancelBeforePicking()
+
+            assertThat(outbound.status).isEqualTo(OutboundStatus.CANCELED)
+        }
+
+        @ParameterizedTest
+        @EnumSource(value = OutboundStatus::class, names = ["PICKING", "INSPECTING"])
+        fun `피킹 이후 취소 요청은 승인 대기가 되고 승인하면 취소된다`(status: OutboundStatus) {
+            val outbound = outbound().outboundId(1L).status(status).build()
+
+            outbound.requestCancel()
+            assertThat(outbound.status).isEqualTo(OutboundStatus.CANCEL_REQUESTED)
+
+            outbound.approveCancel()
+            assertThat(outbound.status).isEqualTo(OutboundStatus.CANCELED)
+        }
+
+        @Test
+        fun `승인 대기가 아닌 출고는 취소 승인할 수 없다`() {
+            val outbound = outbound().outboundId(1L).status(OutboundStatus.PICKING).build()
+
+            assertThatThrownBy { outbound.approveCancel() }.isInstanceOf(InvalidOutboundStatusTransitionException::class.java)
+        }
+    }
 }

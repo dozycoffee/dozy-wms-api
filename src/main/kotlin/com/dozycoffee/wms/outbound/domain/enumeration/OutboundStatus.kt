@@ -4,12 +4,15 @@ enum class OutboundStatus {
     REQUESTED,
     PICKING,
     INSPECTING,
-    COMPLETED;
+    COMPLETED,
+    CANCEL_REQUESTED,
+    CANCELED;
 
     fun canTransitionTo(target: OutboundStatus): Boolean = when (this) {
-        REQUESTED -> target == PICKING
-        PICKING -> target == INSPECTING
-        INSPECTING -> target == COMPLETED
-        COMPLETED -> false
+        REQUESTED -> target == PICKING || target == CANCELED
+        PICKING -> target == INSPECTING || target == CANCEL_REQUESTED
+        INSPECTING -> target == COMPLETED || target == CANCEL_REQUESTED
+        CANCEL_REQUESTED -> target == CANCELED
+        COMPLETED, CANCELED -> false
     }
 }
