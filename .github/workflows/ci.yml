@@ -10,6 +10,11 @@ permissions:
   contents: read
   packages: read
 
+# main 푸시는 취소하지 않는다. 이미지를 올리는 도중에 취소되면 그 커밋의 이미지가 없기 때문이다.
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
 jobs:
   build-and-test:
     runs-on: ubuntu-latest
@@ -42,3 +47,94 @@ jobs:
         env:
           GPR_USER: ${{ github.actor }}
           GPR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  # 컨테이너 이미지가 빌드되고 실제로 기동하는지 확인한다. 이 단계에서 이미지는 어디에도 올리지 않는다
+  image:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v4
+
+      # dozy-auth 스타터를 받는 자격은 BuildKit secret으로만 넘겨 이미지에 남기지 않는다
+      - name: Build image
+        uses: docker/build-push-action@v7
+        with:
+          context: .
+          load: true
+          push: false
+          tags: dozy-wms-api:ci
+          secrets: |
+            gpr_user=${{ github.actor }}
+            gpr_token=${{ secrets.GITHUB_TOKEN }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Smoke test image
+        run: ./scripts/image-smoke-test.sh dozy-wms-api:ci
+
+  # main에 병합된 커밋의 이미지를 ghcr에 올린다. build-and-test(테스트)와 image(기동 확인)를 모두 통과한 뒤에만 올린다.
+  # linux/amd64, linux/arm64 두 플랫폼을 한 태그(multi-arch)로 만들고 sha-{7자리}와 main 태그를 붙인다.
+  # 릴리스(v*)는 다시 빌드하지 않고 이 sha- 이미지에 X.Y.Z 태그만 붙인다 (release.yml)
+  publish:
+    if: github.event_name == 'push'
+    needs: [build-and-test, image]
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: read
+      packages: write
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v4
+        with:
+          platforms: arm64
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v4
+
+      - name: Log in to ghcr
+        uses: docker/login-action@v4
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - id: sha7
+        run: echo "short=${GITHUB_SHA::7}" >> "$GITHUB_OUTPUT"
+
+      - id: image-meta
+        uses: docker/metadata-action@v6
+        with:
+          images: ghcr.io/dozycoffee/dozy-wms-api
+          tags: |
+            type=sha
+            type=raw,value=main,enable={{is_default_branch}}
+          # 기본 라벨이 Dockerfile의 title·description을 덮지 않도록 같은 값을 준다.
+          # revision은 기본값(커밋 SHA 전체)을 쓰고, version은 이 이미지를 가리키는 sha-{7자리}로 둔다
+          labels: |
+            org.opencontainers.image.title=dozy-wms-api
+            org.opencontainers.image.description=Dozy WMS 서비스
+            org.opencontainers.image.version=sha-${{ steps.sha7.outputs.short }}
+
+      - name: Build and push image
+        uses: docker/build-push-action@v7
+        with:
+          context: .
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: ${{ steps.image-meta.outputs.tags }}
+          labels: ${{ steps.image-meta.outputs.labels }}
+          secrets: |
+            gpr_user=${{ github.actor }}
+            gpr_token=${{ secrets.GITHUB_TOKEN }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
