@@ -51,6 +51,8 @@ soft delete까지 함께 가진다. `disposal_item.inventory_id`와 `stock_audit
 - 품질 전환도 이동으로 잡히는 약한 과탐이 있지만 실사는 사람이 확인하고 이동 이력 테이블을 새로 두지 않는다. 필요해지면 추가한다.
 
 ### 5. 전환은 미러링으로 한다
+> 컷오버는 [ADR-0024](0024-inventory-cutover-plan.md)대로 흐름을 장부 기준으로 한 번에 옮겼다(F-037). 미러링 호출은 더 이상 쓰이지 않고 F-040에서 삭제한다.
+
 > 흐름별 전환 방식(둘째 항목)은 [ADR-0023](0023-add-inventory-calls-before-cutover.md)이 대체했다. 미러링은 F-037 컷오버까지 유지한다.
 
 - F-027에서 장부 테이블과 UseCase를 추가하고, 기존 재고 변경 지점(`register`, `adjust`, `confirmDisposal`, 출고 점유 확정, 품질 전환)이

@@ -65,7 +65,7 @@ src
 │   │   │
 │   │   ├── warehouse                         // 창고(Warehouse) · 구역(Zone) · 작업구역(WorkArea) · 위치(Location)
 │   │   ├── product                           // 상품 마스터의 로컬 사본(inventory 이벤트로 유지, 조회 전용) (ADR-0021)
-│   │   ├── inventory                         // 재고(Inventory) · Lot · 재고 이력(InventoryHistory)
+│   │   ├── inventory                         // (레거시, 컷오버 후 미사용 — F-040에서 삭제) 재고(Inventory) · Lot · 재고 이력(InventoryHistory)
 │   │   ├── inventory_call                    // inventory 서비스 호출 아웃박스(InventoryCall) — 전송기, 재시도·격리, 운영 API (ADR-0019)
 │   │   ├── location_stock                    // Location 보조 장부(LocationStock) — 수량이 어느 Location에 있는지 기록 (ADR-0017, ADR-0018)
 │   │   ├── inbound                           // 입고(Inbound) · 입고 상품(InboundItem, 검수 포함)
@@ -137,7 +137,7 @@ src
 
 - Use Kotlin `data class` types for all request/response DTOs
 
-**Inventory Status & Allocation** (ADR-0008)
+**Inventory Status & Allocation** (ADR-0008 — 레거시, 컷오버(ADR-0024) 후 쓰이지 않으며 F-040에서 삭제된다. 아래는 삭제 전까지의 기록)
 
 - `Inventory` 엔티티는 `qualityStatus` (NORMAL / DEFECTIVE / DISPOSAL_SCHEDULED) × `quantity`/`allocatedQuantity`(파생 `availableQuantity`)로 재고량을 관리한다 — 이진 `allocationStatus` 필드는 두지 않는다(재고 로우 하나에 대한 부분 점유를 표현할 수 없어 ADR-0008로 제거)
 - 재고 점유는 별도의 `Allocation` 엔티티(`inventory` 도메인 소속)가 `Inventory` : `Allocation` = 1 : N으로 표현한다 — `referenceType`/`referenceId`로 점유 요청 주체를 범용적으로 참조하며 출고에 한정되지 않는다
@@ -198,7 +198,7 @@ F Zone   : MD 상품  (상온) — F-01(230), F-02(190)                         
 
 **Disposal**: `REQUESTED` → `APPROVED` → `COMPLETED`
 
-**Lot**: `NORMAL` → `EXPIRING_SOON` → `EXPIRED` (배치 스캔으로 자동 전환)
+**Lot**: inventory 서비스가 소유한다. WMS는 장부에 Lot 번호만 가지며 경과는 `LOT_EXPIRED` 이벤트로 받는다 (ADR-0024)
 
 ### Business Rules
 
@@ -207,7 +207,7 @@ F Zone   : MD 상품  (상온) — F-01(230), F-02(190)                         
 - 단일 Location에 모두 적재 불가 시 여러 Location으로 분산 배치
 - 입고 완료 후 해당 건이 점유했던 만큼 WorkArea의 `usedCapacity`를 release — WorkArea는 여러 입고 건이 동시에 점유할 수 있는 공유 자원이므로, 전체를 0으로 초기화(reset)하면 동시 처리 중인 다른 건의 점유량까지 지워지는 버그가 됨
 - 입고 검수 시 예정 수량과 실제 입고 수량을 비교하고, 파손·유통기한·품질 상태를 확인해 정상/불량 상품을 구분
-- 불량 상품은 정상 재고로 등록하지 않고 반품 처리장 또는 폐기 처리장으로 이동
+- 불량 상품은 불량(DEFECTIVE) 품질의 위치 재고로 반영하고 폐기 신청으로 연계 — 폐기 처리장 이동은 폐기 승인 단계
 
 **출고**
 - 출고는 inventory의 예약 확정 이벤트(`RESERVATION_CONFIRMED`)로만 만들어지고(수동 등록·WMS 자체 FIFO 없음), 피킹은 확정 예약이 할당한 Lot 수량만큼 한다 ([ADR-0017](docs/adr/0017-separate-inventory-service.md) 결정 3). 완료하면 예약 출고 확정(`fulfillment`) 호출을 아웃박스에 기록한다
@@ -217,26 +217,22 @@ F Zone   : MD 상품  (상온) — F-01(230), F-02(190)                         
 - Location `usedCapacity`는 적재 즉시 갱신, `maxCapacity` 초과 불가
 
 **재고 조회**
-- Zone/Location 단위로 실시간 재고 현황을 조회하며, 수량/유통기한/입고일 기준 정렬을 지원
-- 재고 상세 조회 시 연결된 Lot(제조일자/유통기한)과 최근 재고 이력을 함께 제공
-- 재고 이력 조회는 변동 유형(입고/출고/반품/폐기/조정)·기간으로 필터링 가능
+- 재고 목록·상세·Lot·이력 조회는 inventory 서비스 API가 맡는다. WMS는 Zone 단위 현황(`GET /api/inventories/zone-summary`, 품질 상태별 수량·사용률)만 Location 장부로 제공하고, inventory 대사용으로 창고 합계(`GET /api/v1/stock-quantities`)를 제공한다
 
-**유통기한 모니터링** (배치 스캔)
-- 임박 기준: 유통기한 **30일 이내** → Lot 상태 `EXPIRING_SOON` 자동 전환
-- 경과 재고: 유통기한 당일 경과 → Inventory `qualityStatus` = `DISPOSAL_SCHEDULED` 자동 전환, 출고 할당 즉시 제외
-- 임박 재고는 FIFO 순서와 별개로 우선 출고 권고 알림을 남김 (피킹 순서 자체를 강제로 바꾸지는 않음)
+**유통기한 모니터링** (inventory 서비스의 배치 스캔)
+- 경과 재고: 유통기한 스캔은 inventory 서비스가 하고, WMS는 `LOT_EXPIRED` 이벤트로 정상 재고를 가용 수량이 많은 Location부터 `DISPOSAL_SCHEDULED`로 옮기고 폐기 신청(`REQUESTED`)을 만든다 (ADR-0024)
 
-**재고 실사** (시나리오 존재, ERD 미포함 — 별도 구현 예정)
+**재고 실사**
 - 실사 상태: `SCHEDULED` → `IN_PROGRESS` → `COMPLETED` → `CLOSED` — 담당자 배정 시점에 `SCHEDULED` → `IN_PROGRESS`로 전환
-- 실사 계획 등록 시 대상 Zone/Location의 Inventory 수량을 스냅샷으로 저장하고, 실사 결과는 이 스냅샷과 비교
-- 차이 확인 시 실사 기준 시점 이후 미반영된 입출고 이력이 있는지 구분 (단순 오차 vs 실제 재고 이상)
+- 실사 계획 등록 시 대상 Zone의 Location 장부 행(수량이 있는 것)을 스냅샷으로 저장하고, 실사 결과는 이 스냅샷과 비교
+- 차이 확인 시 실사 기준 시점 이후 장부 행이 바뀌었는지(`updated_at`) 구분 (단순 오차 vs 실제 재고 이상)
 - 조정 수량이 임계치를 초과하면 상위 관리자 승인이 필요
-- 조정 결과는 `inventory_history.history_type = ADJUSTMENT`로 기록
+- 조정은 마감 시 위치 재고와 Location 사용량을 증감하고, 상품×Lot×품질로 합산해 inventory에 동기로 반영한다 (ADR-0023)
 
 **폐기**
-- 품질 상태가 `DISPOSAL_SCHEDULED`인 재고를 폐기 처리장으로 물리 이동시키고, 폐기 처리장 `usedCapacity`를 갱신
+- 품질 상태가 `DISPOSAL_SCHEDULED`(또는 `DEFECTIVE`)인 위치 재고를 폐기 처리장으로 물리 이동시키고, 폐기 처리장 `usedCapacity`를 갱신
 - 폐기 승인 시 사유(유통기한 경과/검수 불량/반품 불량 등)와 수량을 기록
-- 폐기 확정 시 대상 Inventory를 가용/총 수량에서 완전히 제외(soft delete)하고, 폐기 처리장 `usedCapacity`를 감소
+- 폐기 확정 시 폐기 수량만큼 위치 재고(와 Location 사용량)를 줄이고(부분 폐기 허용, 행은 수량 0으로 유지) 폐기 처리장 `usedCapacity`를 감소
 
 ### Testing Strategy
 
