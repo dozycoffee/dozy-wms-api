@@ -17,6 +17,7 @@ import com.dozycoffee.wms.disposal.domain.model.DisposalItem
 import com.dozycoffee.wms.global.security.WarehouseAccessGuard
 import com.dozycoffee.wms.inventory.application.port.`in`.ConfirmInventoryDisposalUseCase
 import com.dozycoffee.wms.inventory.application.port.`in`.GetInventoryUseCase
+import com.dozycoffee.wms.inventory.application.port.`in`.GetLotUseCase
 import com.dozycoffee.wms.inventory.application.port.`in`.result.InventoryResult
 import com.dozycoffee.wms.inventory.domain.enumeration.QualityStatus
 import com.dozycoffee.wms.warehouse.application.port.`in`.GetWorkAreaUseCase
@@ -43,7 +44,9 @@ class DisposalService(
     private val getWorkAreaUseCase: GetWorkAreaUseCase,
     private val occupyWorkAreaUseCase: OccupyWorkAreaUseCase,
     private val releaseWorkAreaUseCase: ReleaseWorkAreaUseCase,
-    private val releaseLocationUseCase: ReleaseLocationUseCase
+    private val releaseLocationUseCase: ReleaseLocationUseCase,
+    private val getLotUseCase: GetLotUseCase,
+    private val disposalInventoryCallRecorder: DisposalInventoryCallRecorder
 ) : RegisterDisposalUseCase,
     ApproveDisposalUseCase,
     CompleteDisposalUseCase,
@@ -80,7 +83,10 @@ class DisposalService(
         return DisposalResult.from(disposalRepository.save(disposal))
     }
 
-    /** 폐기 확정 — 대상 재고를 완전히 제외(soft delete)하고 Location/폐기 처리장 점유를 해제한다 */
+    /**
+     * 폐기 확정 — 대상 재고를 완전히 제외(soft delete)하고 Location/폐기 처리장 점유를 해제한다.
+     * 폐기 상품마다 inventory 폐기 확정 호출을 같은 트랜잭션에서 아웃박스에 기록한다.
+     */
     @Transactional
     override suspend fun complete(disposalId: Long): DisposalResult {
         val disposal = findAccessibleDisposalOrThrow(disposalId)
@@ -91,6 +97,12 @@ class DisposalService(
             val inventory = getInventoryUseCase.getById(item.inventoryId)
             releaseLocationUseCase.release(ReleaseLocationCommand(inventory.locationId, item.quantity))
             confirmInventoryDisposalUseCase.confirmDisposal(item.inventoryId, requireNotNull(item.disposalItemId))
+            disposalInventoryCallRecorder.record(
+                disposal.warehouseId,
+                item,
+                inventory,
+                getLotUseCase.getById(inventory.lotId).lotNumber
+            )
             totalQuantity += item.quantity
         }
 
