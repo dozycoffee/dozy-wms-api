@@ -192,7 +192,7 @@ F Zone   : MD 상품  (상온) — F-01(230), F-02(190)                         
 - PROCESSING: 상품 도착, 입고 처리장 이동 후 검수 진행 중
 - COMPLETED: 전체 적재 완료
 
-**Outbound**: `REQUESTED` → `PICKING` → `INSPECTING` → `COMPLETED`
+**Outbound**: `REQUESTED` → `PICKING` → `INSPECTING` → `COMPLETED` (취소: 피킹 전 `REQUESTED` → `CANCELED`, 피킹 이후 완료 전 → `CANCEL_REQUESTED` → 관리자 승인 → `CANCELED`)
 
 **ReturnRequest**: `RECEIVED` → `INSPECTING` → `COMPLETED`
 
