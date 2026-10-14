@@ -65,7 +65,6 @@ src
 │   │   │
 │   │   ├── warehouse                         // 창고(Warehouse) · 구역(Zone) · 작업구역(WorkArea) · 위치(Location)
 │   │   ├── product                           // 상품 마스터의 로컬 사본(inventory 이벤트로 유지, 조회 전용) (ADR-0021)
-│   │   ├── inventory                         // (레거시, 컷오버 후 미사용 — F-040에서 삭제) 재고(Inventory) · Lot · 재고 이력(InventoryHistory)
 │   │   ├── inventory_call                    // inventory 서비스 호출 아웃박스(InventoryCall) — 전송기, 재시도·격리, 운영 API (ADR-0019)
 │   │   ├── location_stock                    // Location 보조 장부(LocationStock) — 수량이 어느 Location에 있는지 기록 (ADR-0017, ADR-0018)
 │   │   ├── inbound                           // 입고(Inbound) · 입고 상품(InboundItem, 검수 포함)
@@ -123,7 +122,7 @@ src
 **Entities**
 
 - All entities extend `BaseEntity` (provides `createdAt`, `createdBy`, `updatedAt`, `updatedBy` via R2DBC Auditing — `@EnableR2dbcAuditing`)
-- Soft delete 적용 테이블(product, inventory)은 `deletedAt`, `deletedBy` 컬럼 추가
+- Soft delete 적용 테이블(warehouse)은 `deletedAt`, `deletedBy` 컬럼 추가
 - Entities use static `create()` factory methods that run validation
 - Business logic and invariant enforcement lives on the entity
 - R2DBC는 JPA cascade / orphanRemoval을 지원하지 않으므로 연관 엔티티는 별도 Repository를 통해 명시적으로 처리
@@ -131,19 +130,16 @@ src
 **Common Code**
 
 - 상태·분류 코드는 `common_code` 테이블 없이, 각 컬럼의 `VARCHAR(50)` + 컬럼별 `CHECK` 제약(`ck_{table}_{column}`)으로 허용 값을 제한한다 ([ADR-0013](docs/adr/0013-replace-common-code-with-check-constraints.md))
-- 애플리케이션 레벨에서는 Kotlin enum으로 정의하고 DB에는 enum 상수 이름(`name`)을 그대로 저장한다(예: `'EXPIRING_SOON'`). 영속성 어댑터에서 `enum.name`/`Enum.valueOf`로 변환한다. enum 상수를 추가·변경하면 해당 CHECK 제약을 바꾸는 마이그레이션이 필요하며, `EnumCheckConstraintMigrationTest`가 enum과 CHECK의 일치를 검증한다
+- 애플리케이션 레벨에서는 Kotlin enum으로 정의하고 DB에는 enum 상수 이름(`name`)을 그대로 저장한다(예: `'EXPIRING_SOON'`). 영속성 어댑터에서 `enum.name`/`Enum.valueOf`로 변환한다. enum 상수를 추가·변경하면 해당 CHECK 제약을 바꿔야 하며(아래 Flyway 규칙), `EnumCheckConstraintMigrationTest`가 enum과 CHECK의 일치를 검증한다
+
+**Flyway 마이그레이션**
+
+- 스키마는 `V1__create_tables.sql`(테이블·유니크·CHECK), `V2__create_indexes.sql`(조회용 인덱스), `V3__add_foreign_keys.sql`(외래키) 세 파일로만 둔다. 배포 전까지는 새 마이그레이션 파일을 추가하지 않고 이 세 파일을 직접 고친다
+- 고친 뒤에는 이미 적용된 개발 DB의 체크섬이 달라지므로 `./scripts/reset-dev-db.sh`로 초기화한다. 배포 후에는 이 방식을 멈추고 `V4__...`부터 추가한다
 
 **DTOs**
 
 - Use Kotlin `data class` types for all request/response DTOs
-
-**Inventory Status & Allocation** (ADR-0008 — 레거시, 컷오버(ADR-0024) 후 쓰이지 않으며 F-040에서 삭제된다. 아래는 삭제 전까지의 기록)
-
-- `Inventory` 엔티티는 `qualityStatus` (NORMAL / DEFECTIVE / DISPOSAL_SCHEDULED) × `quantity`/`allocatedQuantity`(파생 `availableQuantity`)로 재고량을 관리한다 — 이진 `allocationStatus` 필드는 두지 않는다(재고 로우 하나에 대한 부분 점유를 표현할 수 없어 ADR-0008로 제거)
-- 재고 점유는 별도의 `Allocation` 엔티티(`inventory` 도메인 소속)가 `Inventory` : `Allocation` = 1 : N으로 표현한다 — `referenceType`/`referenceId`로 점유 요청 주체를 범용적으로 참조하며 출고에 한정되지 않는다
-- `Allocation` 상태는 `HELD → RELEASED`, `HELD → FULFILLED`만 허용하는 완전 종단 전이이며, `quantity`는 생성 후 불변이다
-- `Inventory.hold()`/`releaseHold()`/`fulfillHold()`가 `Allocation`의 상태 전이에 대응해 `allocatedQuantity`(및 `fulfillHold`의 경우 `quantity`)를 갱신한다 — `qualityStatus != NORMAL`이면 `hold()` 불가, `allocatedQuantity > 0`이면 `markDefective()`/`markDisposalScheduled()` 불가
-- `(inventoryId, referenceType, referenceId)`는 `status = HELD`인 레코드에만 조건부 유니크 — 이벤트 기반(비동기) 처리에서의 멱등성 보장 목적, 자세한 배경은 ADR-0008 참고
 
 **Authentication & Authorization** (ADR-0012)
 

@@ -1,7 +1,7 @@
 # ADR-0008: 재고 부분 점유를 위한 Allocation 엔티티 도입
 
 ## 상태
-Accepted
+Superseded by ADR-0017 (재고·예약은 inventory 서비스 소유로 이관), ADR-0024 (WMS 점유는 Location 장부의 `held_quantity`)
 
 ## 배경 (Context)
 
