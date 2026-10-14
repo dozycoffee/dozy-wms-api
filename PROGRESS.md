@@ -31,6 +31,12 @@
   멱등 키는 `wms-disposal-{폐기 상품 ID}`, 품질 상태는 확정 시점 재고의 `DEFECTIVE`/`DISPOSAL_SCHEDULED`, Lot 번호는 재고의 Lot에서 가져온다. `LOT_EXPIRED` 수신과
   부분 폐기 허용은 장부 기준 전환이 필요해 F-037로 넘겼고(부분 폐기는 전량 유지), 두 서비스 스캔 시차로 호출이 `DEAD`가 되면 운영자가 재전송하는 방침을
   ADR-0023에 적었다.
+- F-036: 실사 마감(`StockAuditService.close`)이 조정 변동량을 상품×Lot 번호×품질로 합산(합 0은 제외)해 inventory `POST /api/v1/stock-adjustments`를 동기로 호출한다
+  (`StockAuditInventoryAdjuster`, 멱등 키 `wms-stock-audit-{실사 ID}`). 가용 수량 초과·승인 누락 같은 업무 거부를 마감 요청에서 바로 돌려주려고 아웃박스 대신 직접
+  호출하며(ADR-0017 결정 5, ADR-0023에 예외로 기록), 로컬 반영 뒤 마지막에 호출해 실패하면 롤백한다. 같은 창고에 PENDING/DEAD 호출이 있으면 409
+  (`STOCK_AUDIT_INVENTORY_CALLS_PENDING`), inventory 거부는 409(`STOCK_AUDIT_INVENTORY_REJECTED`), 통신 불가는 503(`STOCK_AUDIT_INVENTORY_UNAVAILABLE`, `ErrorType.UNAVAILABLE` 추가)이다.
+  승인 필요 판단은 Location 항목·합산 기준 중 엄격한 쪽이고 warehouse_admin이면 승인자를 항상 전달한다. 임계치는 WMS(`wms.stock-audit.adjustment-approval-threshold`)와
+  inventory(카테고리별, 기본 100)가 따로 있으므로 inventory 쪽 값이 더 낮게 설정되면 거부될 수 있다.
 
 ### 2026-10-13
 
@@ -106,7 +112,7 @@
 ## 다음 세션에서 할 일
 
 1. inventory 수신부를 공통 envelope으로 바꾸고(inventory 저장소) 처음 연동 때 `POST /api/warehouse-members/republish` 실행
-2. F-036 실사 조정 → F-035 출고(각각 호출 기록 추가, ADR-0023) → F-037(컷오버·재고 코드 제거·devseed 개편)
+2. F-035 출고(각각 호출 기록 추가, ADR-0023) → F-037(컷오버·재고 코드 제거·devseed 개편)
    - F-032 후속: 두 서비스를 reset해 같은 시작점에서 띄우고 입고 1건 → inventory 수량 반영 → 대사 0건 확인
 3. 배포 체크리스트: inventory가 `dozy.inventory.product` 토픽을 로그 압축(`cleanup.policy=compact`)으로 생성, `dozy-admin-console`의 상품 등록·상태 변경을 inventory `/api/v1/products` 호출로 변경, dozy-auth admin에 `wms:` role 8개(`service` 포함) 등록하고 `svc-inventory` system client에 `wms:service`를 부여 (코드 작업 아님)
 4. `dozy-admin-console`의 `httpClient`가 에러 메시지를 `detail`(없으면 `code` 기반 문구)로 읽도록 갱신 (F-026 후속, 콘솔 저장소 작업)
