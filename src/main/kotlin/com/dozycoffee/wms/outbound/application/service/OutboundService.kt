@@ -4,11 +4,7 @@ import com.dozycoffee.wms.global.security.WarehouseAccessGuard
 import com.dozycoffee.wms.inventory.application.port.`in`.FulfillAllocationUseCase
 import com.dozycoffee.wms.inventory.application.port.`in`.GetAllocationUseCase
 import com.dozycoffee.wms.inventory.application.port.`in`.GetInventoryUseCase
-import com.dozycoffee.wms.inventory.application.port.`in`.GetLotUseCase
-import com.dozycoffee.wms.inventory.application.port.`in`.HoldInventoryUseCase
-import com.dozycoffee.wms.inventory.application.port.`in`.command.HoldInventoryCommand
 import com.dozycoffee.wms.inventory.domain.enumeration.AllocationReferenceType
-import com.dozycoffee.wms.inventory.domain.enumeration.QualityStatus
 import com.dozycoffee.wms.outbound.application.port.`in`.CompleteOutboundUseCase
 import com.dozycoffee.wms.outbound.application.port.`in`.GetOutboundUseCase
 import com.dozycoffee.wms.outbound.application.port.`in`.StartOutboundInspectingUseCase
@@ -43,8 +39,7 @@ class OutboundService(
     private val outboundItemRepository: OutboundItemRepository,
     private val outboundAllocationRepository: OutboundAllocationRepository,
     private val getInventoryUseCase: GetInventoryUseCase,
-    private val getLotUseCase: GetLotUseCase,
-    private val holdInventoryUseCase: HoldInventoryUseCase,
+    private val outboundAllocationHolder: OutboundAllocationHolder,
     private val getAllocationUseCase: GetAllocationUseCase,
     private val fulfillAllocationUseCase: FulfillAllocationUseCase,
     private val getWorkAreaUseCase: GetWorkAreaUseCase,
@@ -73,7 +68,7 @@ class OutboundService(
         for (item in items) {
             var pickedQuantity = 0
             for (allocation in allocationsByItemId[item.outboundItemId].orEmpty()) {
-                val held = holdForAllocation(item, allocation, outbound.warehouseId)
+                val held = outboundAllocationHolder.hold(item, allocation, outbound.warehouseId)
                 allocation.pick(held)
                 outboundAllocationRepository.save(allocation)
                 pickedQuantity += held
@@ -138,33 +133,6 @@ class OutboundService(
     override fun getAll(status: OutboundStatus?): Flow<OutboundResult> {
         return warehouseAccessGuard.scoped { warehouseIds -> outboundRepository.findAll(status, warehouseIds) }
             .map { OutboundResult.from(it) }
-    }
-
-    /** 할당된 Lot의 정상 재고를 재고 행 ID 순으로 점유한다. 이 창고에 그 Lot의 가용 재고가 모자라면 확보한 만큼만 돌려준다 */
-    private suspend fun holdForAllocation(item: OutboundItem, allocation: OutboundAllocation, warehouseId: Long): Int {
-        val lot = getLotUseCase.getAllByProduct(item.productId).toList().find { it.lotNumber == allocation.lotNumber }
-            ?: return 0
-        val candidates = getInventoryUseCase.getAll(null, item.productId, QualityStatus.NORMAL, null, listOf(warehouseId)).toList()
-            .filter { it.lotId == lot.lotId }
-            .sortedBy { it.inventoryId }
-
-        var remainingQuantity = allocation.quantity
-        for (inventory in candidates) {
-            if (remainingQuantity <= 0) break
-            val allocatableQuantity = minOf(inventory.availableQuantity, remainingQuantity)
-            if (allocatableQuantity <= 0) continue
-
-            holdInventoryUseCase.hold(
-                HoldInventoryCommand(
-                    inventory.inventoryId,
-                    AllocationReferenceType.OUTBOUND,
-                    requireNotNull(item.outboundItemId),
-                    allocatableQuantity
-                )
-            )
-            remainingQuantity -= allocatableQuantity
-        }
-        return allocation.quantity - remainingQuantity
     }
 
     private suspend fun findAccessibleOutboundOrThrow(outboundId: Long): Outbound {

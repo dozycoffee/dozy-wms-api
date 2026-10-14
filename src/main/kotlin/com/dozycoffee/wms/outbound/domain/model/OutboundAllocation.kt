@@ -13,9 +13,12 @@ class OutboundAllocation private constructor(
     val inventoryId: Long,
     val lotNumber: String,
     val expirationDate: LocalDate?,
-    val quantity: Int,
+    quantity: Int,
     pickedQuantity: Int?
 ) : BaseEntity() {
+
+    var quantity: Int = quantity
+        private set
 
     var pickedQuantity: Int? = pickedQuantity
         private set
@@ -51,6 +54,15 @@ class OutboundAllocation private constructor(
         ): OutboundAllocation {
             return OutboundAllocation(outboundAllocationId, outboundItemId, inventoryId, lotNumber, expirationDate, quantity, pickedQuantity)
         }
+    }
+
+    /** 재할당으로 할당 수량이 바뀌면 피킹 수량은 다시 확보해야 하므로 비운다 */
+    fun reallocate(quantity: Int) {
+        if (quantity <= 0) {
+            throw InvalidDomainValueException(OutboundAllocationErrorCode.INVALID_QUANTITY)
+        }
+        this.quantity = quantity
+        this.pickedQuantity = null
     }
 
     /** 실제로 확보한 수량을 기록한다. 재고가 모자라면 할당 수량보다 적을 수 있다 */

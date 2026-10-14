@@ -61,6 +61,12 @@ class OutboundItem private constructor(
         this.pickedQuantity = pickedQuantity
     }
 
+    /** 재할당으로 할당이 바뀐 뒤 다시 확보한 수량을 기록한다 */
+    fun repick(pickedQuantity: Int) {
+        validatePickedQuantity(pickedQuantity)
+        this.pickedQuantity = pickedQuantity
+    }
+
     private fun validateNotAlreadyPicked() {
         if (pickedQuantity != null) {
             throw OutboundItemAlreadyPickedException()

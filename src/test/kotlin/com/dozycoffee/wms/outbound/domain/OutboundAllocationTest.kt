@@ -39,4 +39,16 @@ class OutboundAllocationTest {
         assertThatThrownBy { allocation.pick(6) }.isInstanceOf(InvalidDomainValueException::class.java)
         assertThatThrownBy { allocation.pick(-1) }.isInstanceOf(InvalidDomainValueException::class.java)
     }
+
+    @Test
+    fun `재할당하면 수량이 바뀌고 피킹 수량이 비워진다`() {
+        val allocation = allocation(5)
+        allocation.pick(5)
+
+        allocation.reallocate(3)
+
+        assertThat(allocation.quantity).isEqualTo(3)
+        assertThat(allocation.pickedQuantity).isNull()
+        assertThatThrownBy { allocation.reallocate(0) }.isInstanceOf(InvalidDomainValueException::class.java)
+    }
 }

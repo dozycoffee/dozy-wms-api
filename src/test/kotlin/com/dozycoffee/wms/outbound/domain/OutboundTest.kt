@@ -4,6 +4,7 @@ import com.dozycoffee.wms.global.error.InvalidDomainValueException
 import com.dozycoffee.wms.outbound.domain.enumeration.OutboundStatus
 import com.dozycoffee.wms.outbound.domain.exception.InvalidOutboundStatusTransitionException
 import com.dozycoffee.wms.outbound.domain.exception.OutboundErrorCode
+import com.dozycoffee.wms.outbound.domain.exception.OutboundNotReallocatableException
 import com.dozycoffee.wms.outbound.domain.model.Outbound
 import com.dozycoffee.wms.outbound.fixture.OutboundTestBuilder.Companion.outbound
 import org.assertj.core.api.Assertions.assertThat
@@ -112,6 +113,35 @@ class OutboundTest {
             assertThatThrownBy { outbound.complete() }
                 .isInstanceOf(InvalidOutboundStatusTransitionException::class.java)
                 .hasMessage(OutboundErrorCode.INVALID_STATUS_TRANSITION.message)
+        }
+    }
+
+    @Nested
+    inner class 재할당 {
+
+        @Test
+        fun `예약 정보가 있고 피킹 중이면 재할당할 수 있고 반영하면 횟수가 오른다`() {
+            val outbound = outbound().outboundId(1L).reservationId(7L).status(OutboundStatus.PICKING).build()
+
+            outbound.requireReallocatable()
+            outbound.markReallocated()
+
+            assertThat(outbound.reallocationCount).isEqualTo(1)
+        }
+
+        @ParameterizedTest
+        @EnumSource(value = OutboundStatus::class, names = ["PICKING"], mode = EnumSource.Mode.EXCLUDE)
+        fun `피킹 중이 아니면 재할당할 수 없다`(status: OutboundStatus) {
+            val outbound = outbound().outboundId(1L).reservationId(7L).status(status).build()
+
+            assertThatThrownBy { outbound.requireReallocatable() }.isInstanceOf(OutboundNotReallocatableException::class.java)
+        }
+
+        @Test
+        fun `예약 정보가 없는 이전 출고는 재할당할 수 없다`() {
+            val outbound = outbound().outboundId(1L).reservationId(null).status(OutboundStatus.PICKING).build()
+
+            assertThatThrownBy { outbound.requireReallocatable() }.isInstanceOf(OutboundNotReallocatableException::class.java)
         }
     }
 }

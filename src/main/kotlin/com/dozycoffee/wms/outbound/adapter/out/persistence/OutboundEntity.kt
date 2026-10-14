@@ -28,6 +28,9 @@ class OutboundEntity private constructor() : BaseEntity() {
     var status: String? = null
         private set
 
+    var reallocationCount: Int = 0
+        private set
+
     fun toDomain(): Outbound {
         return Outbound.reconstitute(
             requireNotNull(outboundId),
@@ -35,7 +38,8 @@ class OutboundEntity private constructor() : BaseEntity() {
             OutboundStatus.valueOf(requireNotNull(status)),
             reservationId,
             channel,
-            externalOrderId
+            externalOrderId,
+            reallocationCount
         )
     }
 
@@ -48,6 +52,7 @@ class OutboundEntity private constructor() : BaseEntity() {
             entity.channel = domain.channel
             entity.externalOrderId = domain.externalOrderId
             entity.status = domain.status.name
+            entity.reallocationCount = domain.reallocationCount
             return entity
         }
     }

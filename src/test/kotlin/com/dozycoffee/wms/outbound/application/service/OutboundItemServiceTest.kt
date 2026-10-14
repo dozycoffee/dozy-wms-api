@@ -3,9 +3,11 @@ package com.dozycoffee.wms.outbound.application.service
 import com.dozycoffee.wms.global.security.OnlyWarehouses
 import com.dozycoffee.wms.global.security.WarehouseAccessDeniedException
 import com.dozycoffee.wms.global.security.WarehouseAccessGuard
+import com.dozycoffee.wms.outbound.application.port.out.OutboundAllocationRepository
 import com.dozycoffee.wms.outbound.application.port.out.OutboundItemRepository
 import com.dozycoffee.wms.outbound.application.port.out.OutboundRepository
 import com.dozycoffee.wms.outbound.domain.exception.OutboundNotFoundException
+import com.dozycoffee.wms.outbound.domain.model.OutboundAllocation
 import com.dozycoffee.wms.outbound.domain.model.OutboundItem
 import com.dozycoffee.wms.outbound.fixture.OutboundItemTestBuilder.Companion.outboundItem
 import com.dozycoffee.wms.outbound.fixture.OutboundTestBuilder.Companion.outbound
@@ -39,6 +41,9 @@ class OutboundItemServiceTest {
     @Mock
     private lateinit var outboundRepository: OutboundRepository
 
+    @Mock
+    private lateinit var outboundAllocationRepository: OutboundAllocationRepository
+
     @Spy
     private var warehouseAccessGuard: WarehouseAccessGuard = warehouseAccessGuardOf()
 
@@ -69,10 +74,49 @@ class OutboundItemServiceTest {
     }
 
     @Nested
+    inner class 출고별_할당_조회 {
+
+        @Test
+        fun `출고 상품의 할당을 상품 ID와 함께 돌려준다`() = runTest {
+            val item: OutboundItem = outboundItem().outboundItemId(1L).outboundId(1L).productId(100L).build()
+            whenever(outboundItemRepository.findAllByOutboundId(1L)).thenReturn(flowOf(item))
+            whenever(outboundAllocationRepository.findAllByOutboundItemIds(setOf(1L)))
+                .thenReturn(listOf(OutboundAllocation.reconstitute(5L, 1L, 55L, "A", null, 4, 3)))
+
+            val result = outboundItemService.getAllocationsByOutbound(1L)
+
+            assertThat(result).hasSize(1)
+            assertThat(result.first().outboundAllocationId).isEqualTo(5L)
+            assertThat(result.first().productId).isEqualTo(100L)
+            assertThat(result.first().inventoryId).isEqualTo(55L)
+            assertThat(result.first().quantity).isEqualTo(4)
+            assertThat(result.first().pickedQuantity).isEqualTo(3)
+        }
+
+        @Test
+        fun `접근할 수 없는 창고의 할당은 조회할 수 없다`() = runTest {
+            val denied = OutboundItemService(
+                outboundItemRepository,
+                outboundRepository,
+                outboundAllocationRepository,
+                warehouseAccessGuardOf(OnlyWarehouses(setOf(2L)))
+            )
+
+            assertThatThrownBy { runBlocking { denied.getAllocationsByOutbound(1L) } }
+                .isInstanceOf(WarehouseAccessDeniedException::class.java)
+        }
+    }
+
+    @Nested
     inner class 창고_접근 {
 
         private fun deniedService(): OutboundItemService =
-            OutboundItemService(outboundItemRepository, outboundRepository, warehouseAccessGuardOf(OnlyWarehouses(setOf(2L))))
+            OutboundItemService(
+                outboundItemRepository,
+                outboundRepository,
+                outboundAllocationRepository,
+                warehouseAccessGuardOf(OnlyWarehouses(setOf(2L)))
+            )
 
         @Test
         fun `접근할 수 없는 창고의 목록은 조회할 수 없다`() = runTest {

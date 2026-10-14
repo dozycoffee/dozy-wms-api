@@ -5,6 +5,7 @@ import com.dozycoffee.wms.global.error.DomainValidator.requireNonNull
 import com.dozycoffee.wms.outbound.domain.enumeration.OutboundStatus
 import com.dozycoffee.wms.outbound.domain.exception.InvalidOutboundStatusTransitionException
 import com.dozycoffee.wms.outbound.domain.exception.OutboundErrorCode
+import com.dozycoffee.wms.outbound.domain.exception.OutboundNotReallocatableException
 
 class Outbound private constructor(
     val outboundId: Long?,
@@ -13,8 +14,13 @@ class Outbound private constructor(
     val reservationId: Long?,
     val channel: String?,
     val externalOrderId: String?,
-    status: OutboundStatus
+    status: OutboundStatus,
+    reallocationCount: Int
 ) : BaseEntity() {
+
+    /** 재할당 요청을 로컬에 반영한 횟수. 다음 요청의 inventory 멱등 키 회차를 정한다 */
+    var reallocationCount: Int = reallocationCount
+        private set
 
     var status: OutboundStatus = status
         private set
@@ -30,7 +36,8 @@ class Outbound private constructor(
                 reservationId = validReservationId,
                 channel = channel,
                 externalOrderId = externalOrderId,
-                status = OutboundStatus.REQUESTED
+                status = OutboundStatus.REQUESTED,
+                reallocationCount = 0
             )
         }
 
@@ -40,9 +47,10 @@ class Outbound private constructor(
             status: OutboundStatus,
             reservationId: Long? = null,
             channel: String? = null,
-            externalOrderId: String? = null
+            externalOrderId: String? = null,
+            reallocationCount: Int = 0
         ): Outbound {
-            return Outbound(outboundId, warehouseId, reservationId, channel, externalOrderId, status)
+            return Outbound(outboundId, warehouseId, reservationId, channel, externalOrderId, status, reallocationCount)
         }
     }
 
@@ -54,6 +62,18 @@ class Outbound private constructor(
 
     /** 검수를 마치고 출고를 확정할 때 호출한다 */
     fun complete() = transitionTo(OutboundStatus.COMPLETED)
+
+    /** 예약 정보가 있고 피킹 중일 때만 재할당할 수 있다 */
+    fun requireReallocatable() {
+        if (reservationId == null || status != OutboundStatus.PICKING) {
+            throw OutboundNotReallocatableException()
+        }
+    }
+
+    /** 재할당을 로컬에 반영했을 때 호출한다 */
+    fun markReallocated() {
+        reallocationCount += 1
+    }
 
     private fun transitionTo(target: OutboundStatus) {
         if (!status.canTransitionTo(target)) {
