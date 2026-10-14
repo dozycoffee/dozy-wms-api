@@ -1,7 +1,7 @@
 # ADR-0012: dozy-auth 연동과 접근 제어 모델
 
 ## 상태
-Accepted (ADR-0010을 대체한다. ADR-0011의 "1. 인증/인가" 절은 이 문서로 구체화한다)
+Accepted. role 계약 목록은 [ADR-0025](0025-role-consolidation.md)가 대체했다(`warehouse_admin`은 `admin`, 담당 role 5개는 `warehouse_manager`, `inventory_viewer`는 창고 마스터 전용 `viewer`). (ADR-0010을 대체한다. ADR-0011의 "1. 인증/인가" 절은 이 문서로 구체화한다)
 
 ## 배경 (Context)
 
