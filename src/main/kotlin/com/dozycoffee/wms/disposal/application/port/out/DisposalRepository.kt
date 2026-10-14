@@ -7,5 +7,6 @@ import kotlinx.coroutines.flow.Flow
 interface DisposalRepository {
     suspend fun save(disposal: Disposal): Disposal
     suspend fun findById(disposalId: Long): Disposal?
+    suspend fun existsBySourceEventIdAndWarehouseId(sourceEventId: String, warehouseId: Long): Boolean
     fun findAll(status: DisposalStatus?, warehouseIds: List<Long>?): Flow<Disposal>
 }

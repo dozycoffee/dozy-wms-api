@@ -1,12 +1,10 @@
 package com.dozycoffee.wms.outbound.application.service
 
 import com.dozycoffee.wms.global.security.WarehouseAccessGuard
-import com.dozycoffee.wms.inventory.application.port.`in`.GetAllocationUseCase
-import com.dozycoffee.wms.inventory.application.port.`in`.ReleaseAllocationUseCase
-import com.dozycoffee.wms.inventory.domain.enumeration.AllocationReferenceType
 import com.dozycoffee.wms.outbound.application.port.`in`.ApproveOutboundCancelUseCase
 import com.dozycoffee.wms.outbound.application.port.`in`.RequestOutboundCancelUseCase
 import com.dozycoffee.wms.outbound.application.port.`in`.result.OutboundResult
+import com.dozycoffee.wms.outbound.application.port.out.OutboundAllocationRepository
 import com.dozycoffee.wms.outbound.application.port.out.OutboundItemRepository
 import com.dozycoffee.wms.outbound.application.port.out.OutboundRepository
 import com.dozycoffee.wms.outbound.domain.enumeration.OutboundStatus
@@ -27,8 +25,8 @@ class OutboundCancelService(
     private val warehouseAccessGuard: WarehouseAccessGuard,
     private val outboundRepository: OutboundRepository,
     private val outboundItemRepository: OutboundItemRepository,
-    private val getAllocationUseCase: GetAllocationUseCase,
-    private val releaseAllocationUseCase: ReleaseAllocationUseCase,
+    private val outboundAllocationRepository: OutboundAllocationRepository,
+    private val outboundAllocationHolder: OutboundAllocationHolder,
     private val getWorkAreaUseCase: GetWorkAreaUseCase,
     private val releaseWorkAreaUseCase: ReleaseWorkAreaUseCase,
     private val outboundReleaseCallRecorder: OutboundReleaseCallRecorder
@@ -56,12 +54,9 @@ class OutboundCancelService(
         outbound.approveCancel()
 
         val items = outboundItemRepository.findAllByOutboundId(outboundId).toList()
-        var totalPickedQuantity = 0
-        for (item in items) {
-            getAllocationUseCase.getAllHeldByReference(AllocationReferenceType.OUTBOUND, requireNotNull(item.outboundItemId)).toList()
-                .forEach { releaseAllocationUseCase.release(it.allocationId) }
-            totalPickedQuantity += item.pickedQuantity ?: 0
-        }
+        outboundAllocationRepository.findAllByOutboundItemIds(items.mapNotNull { it.outboundItemId })
+            .forEach { outboundAllocationHolder.release(it) }
+        val totalPickedQuantity = items.sumOf { it.pickedQuantity ?: 0 }
         if (totalPickedQuantity > 0) {
             val workArea = getWorkAreaUseCase.getByWarehouseIdAndAreaCode(outbound.warehouseId, AreaCode.OUTBOUND)
             releaseWorkAreaUseCase.release(ReleaseWorkAreaCommand(workArea.workAreaId, totalPickedQuantity))

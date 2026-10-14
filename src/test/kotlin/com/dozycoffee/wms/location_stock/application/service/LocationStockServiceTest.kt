@@ -7,11 +7,16 @@ import com.dozycoffee.wms.location_stock.application.port.`in`.command.TransferL
 import com.dozycoffee.wms.location_stock.application.port.out.LocationStockRepository
 import com.dozycoffee.wms.location_stock.domain.enumeration.StockQualityStatus
 import com.dozycoffee.wms.location_stock.domain.exception.DuplicateLocationStockException
+import com.dozycoffee.wms.location_stock.domain.exception.InsufficientHeldLocationStockQuantityException
 import com.dozycoffee.wms.location_stock.domain.exception.InsufficientLocationStockQuantityException
 import com.dozycoffee.wms.location_stock.domain.exception.LocationStockNotFoundException
 import com.dozycoffee.wms.location_stock.domain.model.LocationStock
 import com.dozycoffee.wms.location_stock.fixture.LocationStockTestBuilder.Companion.locationStock
 import com.dozycoffee.wms.support.duplicateKeyViolation
+import com.dozycoffee.wms.warehouse.application.port.`in`.OccupyLocationUseCase
+import com.dozycoffee.wms.warehouse.application.port.`in`.ReleaseLocationUseCase
+import com.dozycoffee.wms.warehouse.application.port.`in`.command.OccupyLocationCommand
+import com.dozycoffee.wms.warehouse.application.port.`in`.command.ReleaseLocationCommand
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.test.runTest
 import org.assertj.core.api.Assertions.assertThat
@@ -34,6 +39,12 @@ class LocationStockServiceTest {
 
     @Mock
     private lateinit var locationStockRepository: LocationStockRepository
+
+    @Mock(strictness = org.mockito.Mock.Strictness.LENIENT)
+    private lateinit var occupyLocationUseCase: OccupyLocationUseCase
+
+    @Mock(strictness = org.mockito.Mock.Strictness.LENIENT)
+    private lateinit var releaseLocationUseCase: ReleaseLocationUseCase
 
     @InjectMocks
     private lateinit var locationStockService: LocationStockService
@@ -64,6 +75,7 @@ class LocationStockServiceTest {
             val result = locationStockService.increase(IncreaseLocationStockCommand(1L, 2L, "L-1", normal, 7))
 
             assertThat(result.quantity).isEqualTo(7)
+            verify(occupyLocationUseCase).occupy(OccupyLocationCommand(1L, 7))
             val captor = argumentCaptor<LocationStock>()
             verify(locationStockRepository).save(captor.capture())
             assertThat(captor.firstValue.locationId).isEqualTo(1L)
@@ -80,6 +92,7 @@ class LocationStockServiceTest {
 
             assertThat(result.locationStockId).isEqualTo(5L)
             assertThat(result.quantity).isEqualTo(17)
+            verify(occupyLocationUseCase).occupy(OccupyLocationCommand(1L, 7))
         }
 
         @Test
@@ -189,6 +202,161 @@ class LocationStockServiceTest {
                 }
             }.isInstanceOf(InsufficientLocationStockQuantityException::class.java)
             verify(locationStockRepository, never()).findForUpdate(1L, 2L, "L-1", defective)
+        }
+    }
+
+    @Nested
+    inner class 감소_사용량 {
+
+        @Test
+        fun `감소하면 Location 사용량도 함께 해제한다`() = runTest {
+            val existing = locationStock().locationStockId(5L).locationId(1L).productId(2L).lotNumber("L-1").quantity(10).build()
+            whenever(locationStockRepository.findForUpdate(1L, 2L, "L-1", normal)).thenReturn(existing)
+            whenever(locationStockRepository.save(any())).thenAnswer { it.getArgument(0) }
+
+            locationStockService.decrease(DecreaseLocationStockCommand(1L, 2L, "L-1", normal, 4))
+
+            verify(releaseLocationUseCase).release(ReleaseLocationCommand(1L, 4))
+        }
+
+        @Test
+        fun `품질 전환은 같은 Location 안의 이동이라 사용량을 바꾸지 않는다`() = runTest {
+            val from = locationStock().locationStockId(5L).locationId(1L).productId(2L).lotNumber("L-1").quantity(10).build()
+            whenever(locationStockRepository.findForUpdate(1L, 2L, "L-1", normal)).thenReturn(from)
+            whenever(locationStockRepository.findForUpdate(1L, 2L, "L-1", defective)).thenReturn(null)
+            assignIdOnSave()
+
+            locationStockService.transferQuality(TransferLocationStockQualityCommand(1L, 2L, "L-1", normal, defective, 4))
+
+            verify(occupyLocationUseCase, never()).occupy(any())
+            verify(releaseLocationUseCase, never()).release(any())
+        }
+    }
+
+    @Nested
+    inner class 출고_점유 {
+
+        private fun row(id: Long, locationId: Long, quantity: Int, held: Int = 0): LocationStock =
+            locationStock().locationStockId(id).locationId(locationId).productId(2L).lotNumber("L-1")
+                .quantity(quantity).heldQuantity(held).build()
+
+        @Test
+        fun `가용 수량이 많은 행부터 필요한 수량만큼 점유한다`() = runTest {
+            val big = row(1L, 10L, 8)
+            val small = row(2L, 20L, 5, held = 2)
+            whenever(locationStockRepository.findAvailableForUpdate(1L, 2L, "L-1", normal)).thenReturn(listOf(big, small))
+            whenever(locationStockRepository.save(any())).thenAnswer { it.getArgument(0) }
+
+            val held = locationStockService.holdForOutbound(1L, 2L, "L-1", 10)
+
+            assertThat(held.map { Triple(it.locationStockId, it.locationId, it.quantity) })
+                .containsExactly(Triple(1L, 10L, 8), Triple(2L, 20L, 2))
+            assertThat(big.heldQuantity).isEqualTo(8)
+            assertThat(small.heldQuantity).isEqualTo(4)
+        }
+
+        @Test
+        fun `가용 수량이 모자라면 확보한 만큼만 점유한다`() = runTest {
+            whenever(locationStockRepository.findAvailableForUpdate(1L, 2L, "L-1", normal)).thenReturn(listOf(row(1L, 10L, 3)))
+            whenever(locationStockRepository.save(any())).thenAnswer { it.getArgument(0) }
+
+            assertThat(locationStockService.holdForOutbound(1L, 2L, "L-1", 10).sumOf { it.quantity }).isEqualTo(3)
+        }
+
+        @Test
+        fun `점유를 해제한다`() = runTest {
+            val stock = row(1L, 10L, 8, held = 5)
+            whenever(locationStockRepository.findByIdForUpdate(1L)).thenReturn(stock)
+            whenever(locationStockRepository.save(any())).thenAnswer { it.getArgument(0) }
+
+            locationStockService.releaseHold(1L, 3)
+
+            assertThat(stock.heldQuantity).isEqualTo(2)
+        }
+
+        @Test
+        fun `소비하면 총 수량과 점유가 줄고 Location 사용량이 해제된다`() = runTest {
+            val stock = row(1L, 10L, 8, held = 5)
+            whenever(locationStockRepository.findByIdForUpdate(1L)).thenReturn(stock)
+            whenever(locationStockRepository.save(any())).thenAnswer { it.getArgument(0) }
+
+            locationStockService.consume(1L, 5)
+
+            assertThat(stock.quantity).isEqualTo(3)
+            assertThat(stock.heldQuantity).isEqualTo(0)
+            verify(releaseLocationUseCase).release(ReleaseLocationCommand(10L, 5))
+        }
+
+        @Test
+        fun `점유가 모자라면 소비할 수 없고 행이 없으면 예외를 던진다`() = runTest {
+            whenever(locationStockRepository.findByIdForUpdate(1L)).thenReturn(row(1L, 10L, 8, held = 2))
+            whenever(locationStockRepository.findByIdForUpdate(9L)).thenReturn(null)
+
+            assertThatThrownBy { runBlocking { locationStockService.consume(1L, 3) } }
+                .isInstanceOf(InsufficientHeldLocationStockQuantityException::class.java)
+            assertThatThrownBy { runBlocking { locationStockService.releaseHold(9L, 1) } }
+                .isInstanceOf(LocationStockNotFoundException::class.java)
+        }
+    }
+
+    @Nested
+    inner class 폐기_예정_전환 {
+
+        @Test
+        fun `정상 행의 가용 수량을 Location별로 폐기 예정 행으로 옮긴다`() = runTest {
+            val a = locationStock().locationStockId(1L).locationId(10L).productId(2L).lotNumber("L-1").quantity(8).heldQuantity(3).build()
+            val b = locationStock().locationStockId(2L).locationId(20L).productId(2L).lotNumber("L-1").quantity(4).build()
+            val scheduled = StockQualityStatus.DISPOSAL_SCHEDULED
+            whenever(locationStockRepository.findAvailableForUpdate(1L, 2L, "L-1", normal)).thenReturn(listOf(a, b))
+            whenever(locationStockRepository.findForUpdate(10L, 2L, "L-1", scheduled)).thenReturn(null)
+            whenever(locationStockRepository.findForUpdate(20L, 2L, "L-1", scheduled)).thenReturn(null)
+            assignIdOnSave()
+
+            val moved = locationStockService.moveToDisposalScheduled(1L, 2L, "L-1", 7)
+
+            assertThat(moved.map { it.locationId to it.quantity }).containsExactly(10L to 5, 20L to 2)
+            assertThat(a.quantity).isEqualTo(3)
+            assertThat(a.heldQuantity).isEqualTo(3)
+            assertThat(b.quantity).isEqualTo(2)
+        }
+
+        @Test
+        fun `정상 재고가 모자라면 옮길 수 있는 만큼만 옮긴다`() = runTest {
+            val a = locationStock().locationStockId(1L).locationId(10L).productId(2L).lotNumber("L-1").quantity(3).build()
+            whenever(locationStockRepository.findAvailableForUpdate(1L, 2L, "L-1", normal)).thenReturn(listOf(a))
+            whenever(locationStockRepository.findForUpdate(10L, 2L, "L-1", StockQualityStatus.DISPOSAL_SCHEDULED)).thenReturn(null)
+            assignIdOnSave()
+
+            assertThat(locationStockService.moveToDisposalScheduled(1L, 2L, "L-1", 10).sumOf { it.quantity }).isEqualTo(3)
+        }
+    }
+
+    @Nested
+    inner class 조회 {
+
+        @Test
+        fun `행 단건·목록·Lot 존재·변경 여부를 저장소에 위임한다`() = runTest {
+            val stock = locationStock().locationStockId(5L).locationId(1L).build()
+            val since = java.time.LocalDateTime.of(2026, 10, 14, 10, 0)
+            whenever(locationStockRepository.findById(5L)).thenReturn(stock)
+            whenever(locationStockRepository.findAllByIds(listOf(5L))).thenReturn(listOf(stock))
+            whenever(locationStockRepository.findAllByLocationId(1L)).thenReturn(kotlinx.coroutines.flow.flowOf(stock))
+            whenever(locationStockRepository.existsByProductIdAndLotNumber(2L, "L-1")).thenReturn(true)
+            whenever(locationStockRepository.existsUpdatedAfter(5L, since)).thenReturn(true)
+
+            assertThat(locationStockService.getById(5L).locationStockId).isEqualTo(5L)
+            assertThat(locationStockService.getAllByIds(listOf(5L))).hasSize(1)
+            assertThat(locationStockService.getAllByLocationId(1L)).hasSize(1)
+            assertThat(locationStockService.existsLot(2L, "L-1")).isTrue()
+            assertThat(locationStockService.hasChangedSince(5L, since)).isTrue()
+        }
+
+        @Test
+        fun `없는 행을 조회하면 예외를 던진다`() = runTest {
+            whenever(locationStockRepository.findById(9L)).thenReturn(null)
+
+            assertThatThrownBy { runBlocking { locationStockService.getById(9L) } }
+                .isInstanceOf(LocationStockNotFoundException::class.java)
         }
     }
 }

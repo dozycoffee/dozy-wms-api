@@ -9,7 +9,7 @@ import java.time.LocalDateTime
 class StockAuditItem private constructor(
     val stockAuditItemId: Long?,
     val stockAuditId: Long,
-    val inventoryId: Long,
+    val locationStockId: Long,
     val snapshotQuantity: Int,
     /**
      * 스냅샷을 뜬 시각 — BaseEntity.createdAt(감사용, 재구성 시 채워지지 않음)에 기대지 않고 이 도메인이
@@ -35,14 +35,14 @@ class StockAuditItem private constructor(
 
     companion object {
 
-        fun create(stockAuditId: Long?, inventoryId: Long?, snapshotQuantity: Int): StockAuditItem {
+        fun create(stockAuditId: Long?, locationStockId: Long?, snapshotQuantity: Int): StockAuditItem {
             val validStockAuditId: Long = requireNonNull(stockAuditId, StockAuditItemErrorCode.INVALID_STOCK_AUDIT_ID)
-            val validInventoryId: Long = requireNonNull(inventoryId, StockAuditItemErrorCode.INVALID_INVENTORY_ID)
+            val validLocationStockId: Long = requireNonNull(locationStockId, StockAuditItemErrorCode.INVALID_LOCATION_STOCK_ID)
             validateQuantity(snapshotQuantity, StockAuditItemErrorCode.INVALID_SNAPSHOT_QUANTITY)
             return StockAuditItem(
                 stockAuditItemId = null,
                 stockAuditId = validStockAuditId,
-                inventoryId = validInventoryId,
+                locationStockId = validLocationStockId,
                 snapshotQuantity = snapshotQuantity,
                 snapshotTakenAt = LocalDateTime.now(),
                 countedQuantity = null,
@@ -53,7 +53,7 @@ class StockAuditItem private constructor(
         fun reconstitute(
             stockAuditItemId: Long,
             stockAuditId: Long,
-            inventoryId: Long,
+            locationStockId: Long,
             snapshotQuantity: Int,
             snapshotTakenAt: LocalDateTime,
             countedQuantity: Int?,
@@ -62,7 +62,7 @@ class StockAuditItem private constructor(
             return StockAuditItem(
                 stockAuditItemId,
                 stockAuditId,
-                inventoryId,
+                locationStockId,
                 snapshotQuantity,
                 snapshotTakenAt,
                 countedQuantity,

@@ -28,7 +28,6 @@ class InboundItemService(
     private val inboundReceiptRepository: InboundReceiptRepository,
     private val inboundRepository: InboundRepository,
     private val getProductUseCase: GetProductUseCase,
-    private val inboundLotResolver: InboundLotResolver,
     private val warehouseAccessGuard: WarehouseAccessGuard
 ) : InspectInboundItemUseCase, GetInboundItemUseCase {
 
@@ -51,9 +50,6 @@ class InboundItemService(
                 it.defectReason,
                 today
             )
-        }
-        receipts.map { it.lotNumber to it.expirationDate }.distinct().forEach { (lotNumber, expirationDate) ->
-            inboundLotResolver.requireNoExpirationConflict(inboundItem.productId, lotNumber, expirationDate)
         }
 
         inboundItem.inspect(receipts)

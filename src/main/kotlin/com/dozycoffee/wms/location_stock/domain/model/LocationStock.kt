@@ -4,6 +4,7 @@ import com.dozycoffee.wms.global.common.BaseEntity
 import com.dozycoffee.wms.global.error.DomainValidator.requireNonNull
 import com.dozycoffee.wms.global.error.InvalidDomainValueException
 import com.dozycoffee.wms.location_stock.domain.enumeration.StockQualityStatus
+import com.dozycoffee.wms.location_stock.domain.exception.InsufficientHeldLocationStockQuantityException
 import com.dozycoffee.wms.location_stock.domain.exception.InsufficientLocationStockQuantityException
 import com.dozycoffee.wms.location_stock.domain.exception.LocationStockErrorCode
 
@@ -14,11 +15,19 @@ class LocationStock private constructor(
     val productId: Long,
     val lotNumber: String,
     val qualityStatus: StockQualityStatus,
-    quantity: Int
+    quantity: Int,
+    heldQuantity: Int
 ) : BaseEntity() {
 
     var quantity: Int = quantity
         private set
+
+    /** 출고 피킹 계획이 잡아 둔 수량. 다른 출고나 감소가 쓸 수 없다 */
+    var heldQuantity: Int = heldQuantity
+        private set
+
+    val availableQuantity: Int
+        get() = quantity - heldQuantity
 
     companion object {
         private const val MAX_LOT_NUMBER_LENGTH = 50
@@ -34,7 +43,7 @@ class LocationStock private constructor(
             val validProductId: Long = requireNonNull(productId, LocationStockErrorCode.INVALID_PRODUCT_ID)
             val validLotNumber: String = validateLotNumber(lotNumber)
             validateAmount(quantity)
-            return LocationStock(null, validLocationId, validProductId, validLotNumber, qualityStatus, quantity)
+            return LocationStock(null, validLocationId, validProductId, validLotNumber, qualityStatus, quantity, 0)
         }
 
         fun reconstitute(
@@ -43,9 +52,10 @@ class LocationStock private constructor(
             productId: Long,
             lotNumber: String,
             qualityStatus: StockQualityStatus,
-            quantity: Int
+            quantity: Int,
+            heldQuantity: Int = 0
         ): LocationStock {
-            return LocationStock(locationStockId, locationId, productId, lotNumber, qualityStatus, quantity)
+            return LocationStock(locationStockId, locationId, productId, lotNumber, qualityStatus, quantity, heldQuantity)
         }
 
         private fun validateLotNumber(lotNumber: String?): String {
@@ -67,11 +77,38 @@ class LocationStock private constructor(
         quantity += amount
     }
 
+    /** 점유되지 않은 수량 안에서만 줄일 수 있다 */
     fun decrease(amount: Int) {
         validateAmount(amount)
-        if (amount > quantity) {
+        if (amount > availableQuantity) {
             throw InsufficientLocationStockQuantityException()
         }
+        quantity -= amount
+    }
+
+    fun hold(amount: Int) {
+        validateAmount(amount)
+        if (amount > availableQuantity) {
+            throw InsufficientLocationStockQuantityException()
+        }
+        heldQuantity += amount
+    }
+
+    fun releaseHold(amount: Int) {
+        validateAmount(amount)
+        if (amount > heldQuantity) {
+            throw InsufficientHeldLocationStockQuantityException()
+        }
+        heldQuantity -= amount
+    }
+
+    /** 점유한 수량을 실제로 내보낸다. 총 수량과 점유 수량이 함께 준다 */
+    fun consume(amount: Int) {
+        validateAmount(amount)
+        if (amount > heldQuantity) {
+            throw InsufficientHeldLocationStockQuantityException()
+        }
+        heldQuantity -= amount
         quantity -= amount
     }
 

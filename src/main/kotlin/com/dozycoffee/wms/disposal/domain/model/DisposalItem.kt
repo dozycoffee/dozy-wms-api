@@ -9,21 +9,21 @@ import com.dozycoffee.wms.global.error.InvalidDomainValueException
 class DisposalItem private constructor(
     val disposalItemId: Long?,
     val disposalId: Long,
-    val inventoryId: Long,
+    val locationStockId: Long,
     val quantity: Int,
     val reason: DisposalReason
 ) : BaseEntity() {
 
     companion object {
 
-        fun create(disposalId: Long?, inventoryId: Long?, quantity: Int, reason: DisposalReason): DisposalItem {
+        fun create(disposalId: Long?, locationStockId: Long?, quantity: Int, reason: DisposalReason): DisposalItem {
             val validDisposalId: Long = requireNonNull(disposalId, DisposalItemErrorCode.INVALID_DISPOSAL_ID)
-            val validInventoryId: Long = requireNonNull(inventoryId, DisposalItemErrorCode.INVALID_INVENTORY_ID)
+            val validLocationStockId: Long = requireNonNull(locationStockId, DisposalItemErrorCode.INVALID_LOCATION_STOCK_ID)
             validateQuantity(quantity)
             return DisposalItem(
                 disposalItemId = null,
                 disposalId = validDisposalId,
-                inventoryId = validInventoryId,
+                locationStockId = validLocationStockId,
                 quantity = quantity,
                 reason = reason
             )
@@ -32,11 +32,11 @@ class DisposalItem private constructor(
         fun reconstitute(
             disposalItemId: Long,
             disposalId: Long,
-            inventoryId: Long,
+            locationStockId: Long,
             quantity: Int,
             reason: DisposalReason
         ): DisposalItem {
-            return DisposalItem(disposalItemId, disposalId, inventoryId, quantity, reason)
+            return DisposalItem(disposalItemId, disposalId, locationStockId, quantity, reason)
         }
 
         private fun validateQuantity(quantity: Int) {

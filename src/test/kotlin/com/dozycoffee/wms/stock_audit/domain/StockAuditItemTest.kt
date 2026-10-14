@@ -21,7 +21,7 @@ class StockAuditItemTest {
             val item: StockAuditItem = stockAuditItem().snapshotQuantity(20).build()
 
             assertThat(item.stockAuditId).isEqualTo(1L)
-            assertThat(item.inventoryId).isEqualTo(1L)
+            assertThat(item.locationStockId).isEqualTo(1L)
             assertThat(item.snapshotQuantity).isEqualTo(20)
             assertThat(item.isCounted).isFalse()
             assertThat(item.discrepancy).isNull()
@@ -38,9 +38,9 @@ class StockAuditItemTest {
 
         @Test
         fun `재고 ID가 null이면 예외를 던진다`() {
-            assertThatThrownBy { stockAuditItem().inventoryId(null).build() }
+            assertThatThrownBy { stockAuditItem().locationStockId(null).build() }
                 .isInstanceOf(InvalidDomainValueException::class.java)
-                .hasMessage(StockAuditItemErrorCode.INVALID_INVENTORY_ID.message)
+                .hasMessage(StockAuditItemErrorCode.INVALID_LOCATION_STOCK_ID.message)
         }
 
         @ParameterizedTest

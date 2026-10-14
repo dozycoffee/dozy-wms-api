@@ -22,7 +22,7 @@ class DisposalItemTest {
             val item: DisposalItem = disposalItem().build()
 
             assertThat(item.disposalId).isEqualTo(1L)
-            assertThat(item.inventoryId).isEqualTo(1L)
+            assertThat(item.locationStockId).isEqualTo(1L)
             assertThat(item.quantity).isEqualTo(10)
             assertThat(item.reason).isEqualTo(DisposalReason.EXPIRED)
         }
@@ -36,9 +36,9 @@ class DisposalItemTest {
 
         @Test
         fun `재고 ID가 null이면 예외를 던진다`() {
-            assertThatThrownBy { disposalItem().inventoryId(null).build() }
+            assertThatThrownBy { disposalItem().locationStockId(null).build() }
                 .isInstanceOf(InvalidDomainValueException::class.java)
-                .hasMessage(DisposalItemErrorCode.INVALID_INVENTORY_ID.message)
+                .hasMessage(DisposalItemErrorCode.INVALID_LOCATION_STOCK_ID.message)
         }
 
         @ParameterizedTest

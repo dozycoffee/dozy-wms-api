@@ -6,6 +6,8 @@ import org.springframework.data.repository.kotlin.CoroutineCrudRepository
 
 interface DisposalR2dbcRepository : CoroutineCrudRepository<DisposalEntity, Long> {
 
+    suspend fun existsBySourceEventIdAndWarehouseId(sourceEventId: String, warehouseId: Long): Boolean
+
     @Query(
         """
         SELECT * FROM disposal

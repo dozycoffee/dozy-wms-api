@@ -1,8 +1,8 @@
-package com.dozycoffee.wms.inventory.adapter.out.persistence
+package com.dozycoffee.wms.location_stock.adapter.out.persistence
 
-import com.dozycoffee.wms.inventory.application.port.`in`.result.ZoneInventorySummaryResult
-import com.dozycoffee.wms.inventory.application.port.out.ZoneInventorySummaryRepository
-import com.dozycoffee.wms.inventory.domain.enumeration.QualityStatus
+import com.dozycoffee.wms.location_stock.application.port.`in`.result.ZoneStockSummaryResult
+import com.dozycoffee.wms.location_stock.application.port.out.ZoneStockSummaryRepository
+import com.dozycoffee.wms.location_stock.domain.enumeration.StockQualityStatus
 import com.dozycoffee.wms.warehouse.domain.enumeration.ZoneCode
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
@@ -12,21 +12,21 @@ import org.springframework.r2dbc.core.flow
 import org.springframework.stereotype.Component
 
 @Component
-class ZoneInventorySummaryPersistenceAdapter(
+class ZoneStockSummaryPersistenceAdapter(
     private val databaseClient: DatabaseClient
-) : ZoneInventorySummaryRepository {
+) : ZoneStockSummaryRepository {
 
     /**
-     * Capacity(Zone←Location 합산)와 품질상태별 수량(Zone←Location←Inventory 합산)을 한 쿼리로 묶으면
+     * Capacity(Zone←Location 합산)와 품질상태별 수량(Zone←Location←location_stock 합산)을 한 쿼리로 묶으면
      * Location 1건에 걸린 Inventory 행 수만큼 capacity가 중복 합산된다 — 두 집계를 별도 쿼리로 분리해
      * 합치는 이유.
      */
-    override fun findAll(warehouseIds: List<Long>?): Flow<ZoneInventorySummaryResult> = flow {
+    override fun findAll(warehouseIds: List<Long>?): Flow<ZoneStockSummaryResult> = flow {
         val capacities = fetchZoneCapacities(warehouseIds)
         val quantities = fetchQuantitiesByZone(warehouseIds)
         capacities.forEach { capacity ->
             emit(
-                ZoneInventorySummaryResult(
+                ZoneStockSummaryResult(
                     zoneId = capacity.zoneId,
                     zoneCode = capacity.zoneCode,
                     warehouseId = capacity.warehouseId,
@@ -54,13 +54,13 @@ class ZoneInventorySummaryPersistenceAdapter(
             .toList()
     }
 
-    private suspend fun fetchQuantitiesByZone(warehouseIds: List<Long>?): Map<Long, Map<QualityStatus, Int>> {
+    private suspend fun fetchQuantitiesByZone(warehouseIds: List<Long>?): Map<Long, Map<StockQualityStatus, Int>> {
         val sql = ZONE_QUANTITY_QUERY_TEMPLATE.format(warehouseFilterClause(warehouseIds))
         val rows = bindWarehouseIds(databaseClient.sql(sql), warehouseIds)
             .map { row, _ ->
                 ZoneQuantityRow(
                     zoneId = requireNotNull(row.get("zone_id", java.lang.Long::class.java)).toLong(),
-                    qualityStatus = QualityStatus.valueOf(requireNotNull(row.get("quality_status", String::class.java))),
+                    qualityStatus = StockQualityStatus.valueOf(requireNotNull(row.get("quality_status", String::class.java))),
                     quantity = requireNotNull(row.get("quantity", java.lang.Long::class.java)).toInt()
                 )
             }
@@ -97,7 +97,7 @@ class ZoneInventorySummaryPersistenceAdapter(
         val maxCapacity: Int,
         val usedCapacity: Int
     )
-    private data class ZoneQuantityRow(val zoneId: Long, val qualityStatus: QualityStatus, val quantity: Int)
+    private data class ZoneQuantityRow(val zoneId: Long, val qualityStatus: StockQualityStatus, val quantity: Int)
 
     companion object {
         private const val WAREHOUSE_ID_PARAM_PREFIX = "warehouseId"
@@ -116,10 +116,10 @@ class ZoneInventorySummaryPersistenceAdapter(
         private const val ZONE_QUANTITY_QUERY_TEMPLATE = """
             SELECT l.zone_id AS zone_id, i.quality_status AS quality_status,
                    CAST(COALESCE(SUM(i.quantity), 0) AS SIGNED) AS quantity
-            FROM inventory i
+            FROM location_stock i
             JOIN location l ON l.location_id = i.location_id
             JOIN zone z ON z.zone_id = l.zone_id
-            WHERE i.deleted_at IS NULL AND %s
+            WHERE %s
             GROUP BY l.zone_id, i.quality_status
         """
     }

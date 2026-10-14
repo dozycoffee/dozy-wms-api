@@ -7,6 +7,7 @@ class DisposalTestBuilder {
 
     private var disposalId: Long? = null
     private var warehouseId: Long? = 1L
+    private var sourceEventId: String? = null
     private var status: DisposalStatus = DisposalStatus.REQUESTED
 
     companion object {
@@ -23,6 +24,11 @@ class DisposalTestBuilder {
         return this
     }
 
+    fun sourceEventId(sourceEventId: String?): DisposalTestBuilder {
+        this.sourceEventId = sourceEventId
+        return this
+    }
+
     fun status(status: DisposalStatus): DisposalTestBuilder {
         this.status = status
         return this
@@ -34,9 +40,10 @@ class DisposalTestBuilder {
             return Disposal.reconstitute(
                 disposalId = id,
                 warehouseId = requireNotNull(warehouseId) { "warehouseId는 재구성 시 필수입니다." },
-                status = status
+                status = status,
+                sourceEventId = sourceEventId
             )
         }
-        return Disposal.create(warehouseId = warehouseId)
+        return Disposal.create(warehouseId = warehouseId, sourceEventId = sourceEventId)
     }
 }

@@ -1,8 +1,8 @@
 package com.dozycoffee.wms.disposal.application.service
 
 import com.dozycoffee.wms.disposal.fixture.DisposalItemTestBuilder.Companion.disposalItem
-import com.dozycoffee.wms.inventory.application.port.`in`.result.InventoryResult
-import com.dozycoffee.wms.inventory.domain.enumeration.QualityStatus
+import com.dozycoffee.wms.location_stock.application.port.`in`.result.LocationStockResult
+import com.dozycoffee.wms.location_stock.domain.enumeration.StockQualityStatus
 import com.dozycoffee.wms.inventory_call.application.port.`in`.RecordInventoryCallUseCase
 import com.dozycoffee.wms.inventory_call.application.port.`in`.command.RecordInventoryCallCommand
 import com.dozycoffee.wms.inventory_call.domain.enumeration.InventoryCallType
@@ -26,10 +26,10 @@ class DisposalInventoryCallRecorderTest {
 
     @Test
     fun `폐기 상품을 폐기 상품 ID 기반 멱등 키와 요청 본문으로 기록한다`() = runTest {
-        val item = disposalItem().disposalItemId(41L).inventoryId(10L).quantity(5).build()
-        val inventory = InventoryResult(10L, 100L, 1L, 200L, 5, 0, 5, QualityStatus.DISPOSAL_SCHEDULED)
+        val item = disposalItem().disposalItemId(41L).locationStockId(10L).quantity(5).build()
+        val inventory = LocationStockResult(10L, 200L, 100L, "LOT-1", StockQualityStatus.DISPOSAL_SCHEDULED, 5)
 
-        DisposalInventoryCallRecorder(recordInventoryCallUseCase, jsonMapper).record(7L, item, inventory, "LOT-1")
+        DisposalInventoryCallRecorder(recordInventoryCallUseCase, jsonMapper).record(7L, item, inventory)
 
         val captor = argumentCaptor<RecordInventoryCallCommand>()
         verify(recordInventoryCallUseCase).record(captor.capture())
@@ -48,10 +48,10 @@ class DisposalInventoryCallRecorderTest {
 
     @Test
     fun `불량 재고는 DEFECTIVE로 전달한다`() = runTest {
-        val item = disposalItem().disposalItemId(42L).inventoryId(11L).quantity(2).build()
-        val inventory = InventoryResult(11L, 100L, 1L, 200L, 2, 0, 2, QualityStatus.DEFECTIVE)
+        val item = disposalItem().disposalItemId(42L).locationStockId(11L).quantity(2).build()
+        val inventory = LocationStockResult(11L, 200L, 100L, "LOT-1", StockQualityStatus.DEFECTIVE, 2)
 
-        DisposalInventoryCallRecorder(recordInventoryCallUseCase, jsonMapper).record(7L, item, inventory, "LOT-1")
+        DisposalInventoryCallRecorder(recordInventoryCallUseCase, jsonMapper).record(7L, item, inventory)
 
         val captor = argumentCaptor<RecordInventoryCallCommand>()
         verify(recordInventoryCallUseCase).record(captor.capture())

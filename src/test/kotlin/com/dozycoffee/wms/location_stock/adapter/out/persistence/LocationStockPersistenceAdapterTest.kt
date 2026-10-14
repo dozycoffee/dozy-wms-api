@@ -3,6 +3,7 @@ package com.dozycoffee.wms.location_stock.adapter.out.persistence
 import com.dozycoffee.wms.global.config.R2dbcConfig
 import com.dozycoffee.wms.global.persistence.isDuplicateKey
 import com.dozycoffee.wms.location_stock.domain.enumeration.StockQualityStatus
+import com.dozycoffee.wms.location_stock.domain.model.LocationStock
 import com.dozycoffee.wms.location_stock.fixture.LocationStockTestBuilder.Companion.locationStock
 import com.dozycoffee.wms.product.adapter.out.persistence.ProductPersistenceAdapter
 import com.dozycoffee.wms.product.adapter.out.persistence.ProductR2dbcRepository
@@ -27,6 +28,7 @@ import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.data.r2dbc.test.autoconfigure.DataR2dbcTest
 import org.springframework.context.annotation.Import
 import org.springframework.dao.DataIntegrityViolationException
+import java.time.LocalDateTime
 
 @DataR2dbcTest
 @Import(
@@ -183,5 +185,99 @@ class LocationStockPersistenceAdapterTest {
 
         assertThat(locationStockPersistenceAdapter.findAllByLocationId(locationId).toList()).hasSize(2)
         assertThat(locationStockPersistenceAdapter.findAllByLocationId(locationId + 999).toList()).isEmpty()
+    }
+
+    private data class Site(val warehouseId: Long, val zoneId: Long)
+
+    private suspend fun createSite(): Site {
+        val warehouseId: Long = requireNotNull(warehousePersistenceAdapter.save(warehouse().build()).warehouseId)
+        val zoneId: Long = requireNotNull(zonePersistenceAdapter.save(zone().warehouseId(warehouseId).build()).zoneId)
+        return Site(warehouseId, zoneId)
+    }
+
+    private suspend fun createLocationIn(zoneId: Long, code: String): Long =
+        requireNotNull(locationPersistenceAdapter.save(location().zoneId(zoneId).locationCode(code).build()).locationId)
+
+    private suspend fun save(locationId: Long, productId: Long, lot: String, quality: StockQualityStatus, quantity: Int, held: Int = 0): LocationStock {
+        val created = locationStockPersistenceAdapter.save(LocationStock.create(locationId, productId, lot, quality, quantity))
+        if (held == 0) return created
+        created.hold(held)
+        return locationStockPersistenceAdapter.save(created)
+    }
+
+    @Test
+    fun `점유 수량이 저장되고 ID로 한 번에 조회된다`() = runTest {
+        val site = createSite()
+        val productId = createProduct()
+        val locationId = createLocationIn(site.zoneId, "A-01")
+        val saved = save(locationId, productId, "L-1", StockQualityStatus.NORMAL, 10, held = 4)
+
+        val found = locationStockPersistenceAdapter.findAllByIds(listOf(requireNotNull(saved.locationStockId)))
+
+        assertThat(found.single().heldQuantity).isEqualTo(4)
+        assertThat(found.single().availableQuantity).isEqualTo(6)
+        assertThat(locationStockPersistenceAdapter.findByIdForUpdate(requireNotNull(saved.locationStockId))?.heldQuantity).isEqualTo(4)
+        assertThat(locationStockPersistenceAdapter.findAllByIds(emptyList())).isEmpty()
+    }
+
+    @Test
+    fun `창고의 같은 Lot 정상 행을 가용 수량이 많은 순으로 가져오고 가용이 없거나 다른 조건은 뺀다`() = runTest {
+        val site = createSite()
+        val other = createSite()
+        val productId = createProduct()
+        val a01 = createLocationIn(site.zoneId, "A-01")
+        val a02 = createLocationIn(site.zoneId, "A-02")
+        val a03 = createLocationIn(site.zoneId, "A-03")
+        val a04 = createLocationIn(site.zoneId, "A-04")
+        val otherLocation = createLocationIn(other.zoneId, "A-01")
+        save(a01, productId, "L-1", StockQualityStatus.NORMAL, 10, held = 4)
+        save(a02, productId, "L-1", StockQualityStatus.NORMAL, 6)
+        save(a03, productId, "L-1", StockQualityStatus.NORMAL, 5, held = 5)
+        save(a04, productId, "L-1", StockQualityStatus.DEFECTIVE, 9)
+        save(a04, productId, "L-2", StockQualityStatus.NORMAL, 9)
+        save(otherLocation, productId, "L-1", StockQualityStatus.NORMAL, 20)
+
+        val rows = locationStockPersistenceAdapter.findAvailableForUpdate(site.warehouseId, productId, "L-1", StockQualityStatus.NORMAL)
+
+        assertThat(rows.map { it.locationId }).containsExactly(a01, a02)
+        assertThat(rows.map { it.availableQuantity }).containsExactly(6, 6)
+    }
+
+    @Test
+    fun `가용 수량이 같으면 Location 코드 오름차순이다`() = runTest {
+        val site = createSite()
+        val productId = createProduct()
+        val a02 = createLocationIn(site.zoneId, "A-02")
+        val a01 = createLocationIn(site.zoneId, "A-01")
+        save(a02, productId, "L-1", StockQualityStatus.NORMAL, 7)
+        save(a01, productId, "L-1", StockQualityStatus.NORMAL, 7)
+
+        val rows = locationStockPersistenceAdapter.findAvailableForUpdate(site.warehouseId, productId, "L-1", StockQualityStatus.NORMAL)
+
+        assertThat(rows.map { it.locationId }).containsExactly(a01, a02)
+    }
+
+    @Test
+    fun `수량이 0인 행도 Lot이 있는 것으로 본다`() = runTest {
+        val site = createSite()
+        val productId = createProduct()
+        val locationId = createLocationIn(site.zoneId, "A-01")
+        val row = save(locationId, productId, "L-1", StockQualityStatus.NORMAL, 3)
+        row.decrease(3)
+        locationStockPersistenceAdapter.save(row)
+
+        assertThat(locationStockPersistenceAdapter.existsByProductIdAndLotNumber(productId, "L-1")).isTrue()
+        assertThat(locationStockPersistenceAdapter.existsByProductIdAndLotNumber(productId, "L-9")).isFalse()
+    }
+
+    @Test
+    fun `기준 시각 이후에 갱신된 행만 변경으로 본다`() = runTest {
+        val site = createSite()
+        val productId = createProduct()
+        val locationId = createLocationIn(site.zoneId, "A-01")
+        val id = requireNotNull(save(locationId, productId, "L-1", StockQualityStatus.NORMAL, 3).locationStockId)
+
+        assertThat(locationStockPersistenceAdapter.existsUpdatedAfter(id, LocalDateTime.now().minusHours(1))).isTrue()
+        assertThat(locationStockPersistenceAdapter.existsUpdatedAfter(id, LocalDateTime.now().plusHours(1))).isFalse()
     }
 }

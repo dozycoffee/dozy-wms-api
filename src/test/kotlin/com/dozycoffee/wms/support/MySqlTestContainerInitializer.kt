@@ -29,7 +29,8 @@ class MySqlTestContainerInitializer : ApplicationContextInitializer<Configurable
                     "wms.inventory-call.dispatch.enabled" to "false",
                     "wms.warehouse-access-event.publisher.enabled" to "false",
                     "wms.product-event.listener.enabled" to "false",
-                    "wms.reservation-event.listener.enabled" to "false"
+                    "wms.reservation-event.listener.enabled" to "false",
+                    "wms.lot-event.listener.enabled" to "false"
                 )
             )
         )

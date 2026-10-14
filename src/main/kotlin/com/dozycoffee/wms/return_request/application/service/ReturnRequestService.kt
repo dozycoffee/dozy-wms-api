@@ -5,13 +5,10 @@ import com.dozycoffee.wms.disposal.application.port.`in`.command.RegisterDisposa
 import com.dozycoffee.wms.disposal.application.port.`in`.command.RegisterDisposalItemCommand
 import com.dozycoffee.wms.disposal.domain.enumeration.DisposalReason
 import com.dozycoffee.wms.global.security.WarehouseAccessGuard
-import com.dozycoffee.wms.inventory.application.port.`in`.GetLotUseCase
-import com.dozycoffee.wms.inventory.application.port.`in`.MarkInventoryDefectiveUseCase
-import com.dozycoffee.wms.inventory.application.port.`in`.RegisterInventoryUseCase
-import com.dozycoffee.wms.inventory.application.port.`in`.command.RegisterInventoryCommand
-import com.dozycoffee.wms.inventory.application.port.`in`.result.InventoryResult
-import com.dozycoffee.wms.inventory.application.port.`in`.result.LotResult
-import com.dozycoffee.wms.inventory.domain.enumeration.InventoryHistoryType
+import com.dozycoffee.wms.location_stock.application.port.`in`.GetLocationStockUseCase
+import com.dozycoffee.wms.location_stock.application.port.`in`.IncreaseLocationStockUseCase
+import com.dozycoffee.wms.location_stock.application.port.`in`.command.IncreaseLocationStockCommand
+import com.dozycoffee.wms.location_stock.domain.enumeration.StockQualityStatus
 import com.dozycoffee.wms.product.application.port.`in`.GetProductUseCase
 import com.dozycoffee.wms.return_request.application.port.`in`.CompleteReturnRequestUseCase
 import com.dozycoffee.wms.return_request.application.port.`in`.GetReturnRequestUseCase
@@ -34,10 +31,8 @@ import com.dozycoffee.wms.return_request.domain.model.ReturnRequest
 import com.dozycoffee.wms.warehouse.application.port.`in`.GetLocationUseCase
 import com.dozycoffee.wms.warehouse.application.port.`in`.GetWorkAreaUseCase
 import com.dozycoffee.wms.warehouse.application.port.`in`.GetZoneUseCase
-import com.dozycoffee.wms.warehouse.application.port.`in`.OccupyLocationUseCase
 import com.dozycoffee.wms.warehouse.application.port.`in`.OccupyWorkAreaUseCase
 import com.dozycoffee.wms.warehouse.application.port.`in`.ReleaseWorkAreaUseCase
-import com.dozycoffee.wms.warehouse.application.port.`in`.command.OccupyLocationCommand
 import com.dozycoffee.wms.warehouse.application.port.`in`.command.OccupyWorkAreaCommand
 import com.dozycoffee.wms.warehouse.application.port.`in`.command.ReleaseWorkAreaCommand
 import com.dozycoffee.wms.warehouse.domain.enumeration.AreaCode
@@ -55,13 +50,11 @@ class ReturnRequestService(
     private val getProductUseCase: GetProductUseCase,
     private val getZoneUseCase: GetZoneUseCase,
     private val getLocationUseCase: GetLocationUseCase,
-    private val occupyLocationUseCase: OccupyLocationUseCase,
     private val getWorkAreaUseCase: GetWorkAreaUseCase,
     private val occupyWorkAreaUseCase: OccupyWorkAreaUseCase,
     private val releaseWorkAreaUseCase: ReleaseWorkAreaUseCase,
-    private val getLotUseCase: GetLotUseCase,
-    private val registerInventoryUseCase: RegisterInventoryUseCase,
-    private val markInventoryDefectiveUseCase: MarkInventoryDefectiveUseCase,
+    private val getLocationStockUseCase: GetLocationStockUseCase,
+    private val increaseLocationStockUseCase: IncreaseLocationStockUseCase,
     private val registerDisposalUseCase: RegisterDisposalUseCase,
     private val returnInventoryCallRecorder: ReturnInventoryCallRecorder
 ) : RegisterReturnRequestUseCase,
@@ -100,11 +93,10 @@ class ReturnRequestService(
     }
 
     /**
-     * 모든 반품 상품의 검수가 끝나야 완료할 수 있다. 정상/불량 판정 상품 모두 등록된 Lot을 확인하고 Zone 내
-     * Location에 분산 배치해 Inventory로 등록한다. 불량 판정 상품은 등록 직후 DEFECTIVE로 전환하고
-     * Disposal(REQUESTED, RETURN_DEFECT)로 연계한다 — Inbound의 검수 불량 처리와 동일한 패턴이다.
-     * 상품마다 inventory 반품 확정 호출을 같은 트랜잭션에서 아웃박스에 기록한다.
-     * 완료 시 점유했던 반품 처리장을 해제한다.
+     * 모든 반품 상품의 검수가 끝나야 완료할 수 있다. 정상/불량 판정 상품 모두 이미 입고된 Lot인지 확인하고 Zone 내 Location에
+     * 분산 배치해 Location 장부에 반영한다(Location 사용량은 장부가 갱신한다, ADR-0024). 불량 판정 상품은 불량(DEFECTIVE) 품질로
+     * 반영하고 Disposal(REQUESTED, RETURN_DEFECT)로 연계한다 — Inbound의 검수 불량 처리와 동일한 패턴이다.
+     * 상품마다 inventory 반품 확정 호출을 같은 트랜잭션에서 아웃박스에 기록한다. 완료 시 점유했던 반품 처리장을 해제한다.
      */
     @Transactional
     override suspend fun complete(command: CompleteReturnRequestCommand): ReturnRequestResult {
@@ -119,17 +111,20 @@ class ReturnRequestService(
         val defectiveDisposalItems = mutableListOf<RegisterDisposalItemCommand>()
         items.forEach { item ->
             val assignment = lotAssignmentByItemId[item.returnItemId] ?: throw MissingLotAssignmentException()
-            val lot = requireRegisteredLot(item.productId, assignment.lotNumber)
-            val registeredInventories = distributeToLocations(returnRequest.warehouseId, item, lot.lotId)
+            requireRegisteredLot(item.productId, assignment.lotNumber)
+            val defective = item.inspectionResult == ReturnInspectionResult.DEFECTIVE
+            val placements = distributeToLocations(
+                returnRequest.warehouseId, item, assignment.lotNumber,
+                if (defective) StockQualityStatus.DEFECTIVE else StockQualityStatus.NORMAL
+            )
             if (requireNotNull(item.actualQuantity) > 0) {
                 returnInventoryCallRecorder.record(returnRequest.warehouseId, item, assignment.lotNumber)
             }
 
-            if (item.inspectionResult == ReturnInspectionResult.DEFECTIVE) {
-                registeredInventories.forEach { inventory ->
-                    markInventoryDefectiveUseCase.markDefective(inventory.inventoryId)
+            if (defective) {
+                placements.forEach { placement ->
                     defectiveDisposalItems.add(
-                        RegisterDisposalItemCommand(inventory.inventoryId, inventory.quantity, DisposalReason.RETURN_DEFECT)
+                        RegisterDisposalItemCommand(placement.locationStockId, placement.quantity, DisposalReason.RETURN_DEFECT)
                     )
                 }
             }
@@ -158,17 +153,23 @@ class ReturnRequestService(
             .map { ReturnRequestResult.from(it) }
     }
 
-    /** 반품은 이미 입고된 Lot만 받는다 — 반품으로 Lot을 새로 만들지 않는다 (ADR-0017 결정 4) */
-    private suspend fun requireRegisteredLot(productId: Long, lotNumber: String): LotResult {
-        return getLotUseCase.getAllByProduct(productId).toList().find { it.lotNumber == lotNumber }
-            ?: throw ReturnLotNotRegisteredException()
+    /** 반품은 이미 입고된 Lot만 받는다 — 반품으로 Lot을 새로 만들지 않는다. 장부에 상품·Lot 번호의 행이 있으면 입고된 Lot이다 (ADR-0017 결정 4, ADR-0024) */
+    private suspend fun requireRegisteredLot(productId: Long, lotNumber: String) {
+        if (!getLocationStockUseCase.existsLot(productId, lotNumber)) {
+            throw ReturnLotNotRegisteredException()
+        }
     }
 
     /**
-     * 상품의 지정 Zone(`product.category` 기준) 내에서 잔여 capacity가 큰 Location부터 채우는
-     * First-Fit 방식으로 분산 배치한다 — Inbound의 `distributeToLocations`와 동일한 알고리즘이다.
+     * 상품의 지정 Zone(`product.category` 기준) 내에서 잔여 capacity가 큰 Location부터 채우는 First-Fit 방식으로 분산 배치한다 —
+     * Inbound의 `distributeToLocations`와 동일한 알고리즘이다.
      */
-    private suspend fun distributeToLocations(warehouseId: Long, item: ReturnItem, lotId: Long): List<InventoryResult> {
+    private suspend fun distributeToLocations(
+        warehouseId: Long,
+        item: ReturnItem,
+        lotNumber: String,
+        qualityStatus: StockQualityStatus
+    ): List<Placement> {
         val product = getProductUseCase.getById(item.productId)
         val zoneCode = product.category.zoneCode
         val zone = getZoneUseCase.getByWarehouseIdAndZoneCode(warehouseId, zoneCode)
@@ -177,27 +178,27 @@ class ReturnRequestService(
         val locations = getLocationUseCase.getByZoneId(zone.zoneId).toList()
             .sortedByDescending { it.maxCapacity - it.usedCapacity }
 
-        val registeredInventories = mutableListOf<InventoryResult>()
+        val placements = mutableListOf<Placement>()
         for (location in locations) {
             if (remainingQuantity <= 0) break
             val availableCapacity = location.maxCapacity - location.usedCapacity
             if (availableCapacity <= 0) continue
 
             val allocatedQuantity = minOf(availableCapacity, remainingQuantity)
-            occupyLocationUseCase.occupy(OccupyLocationCommand(location.locationId, allocatedQuantity))
-            registeredInventories.add(
-                registerInventoryUseCase.register(
-                    RegisterInventoryCommand(lotId, location.locationId, allocatedQuantity, requireNotNull(item.returnItemId), InventoryHistoryType.RETURN)
-                )
+            val stock = increaseLocationStockUseCase.increase(
+                IncreaseLocationStockCommand(location.locationId, item.productId, lotNumber, qualityStatus, allocatedQuantity)
             )
+            placements.add(Placement(stock.locationStockId, allocatedQuantity))
             remainingQuantity -= allocatedQuantity
         }
 
         if (remainingQuantity > 0) {
             throw InsufficientZoneCapacityException()
         }
-        return registeredInventories
+        return placements
     }
+
+    private data class Placement(val locationStockId: Long, val quantity: Int)
 
     private suspend fun findAccessibleReturnRequestOrThrow(returnRequestId: Long): ReturnRequest {
         val returnRequest = returnRequestRepository.findById(returnRequestId) ?: throw ReturnRequestNotFoundException()

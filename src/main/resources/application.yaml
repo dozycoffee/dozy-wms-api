@@ -61,6 +61,11 @@ wms:
     listener:
       enabled: true
       topic: dozy.inventory.reservation
+  # inventory의 Lot 경과 이벤트를 받아 폐기 신청을 만드는 리스너(ADR-0024). 테스트에서는 끈다
+  lot-event:
+    listener:
+      enabled: true
+      topic: dozy.inventory.lot
   # 직원 창고 소속 변경 이벤트 발행(ADR-0020). 테스트에서는 발행기와 토픽 생성을 끈다
   warehouse-access-event:
     publisher:

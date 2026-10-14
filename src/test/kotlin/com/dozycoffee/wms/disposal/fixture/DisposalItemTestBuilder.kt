@@ -7,7 +7,7 @@ class DisposalItemTestBuilder {
 
     private var disposalItemId: Long? = null
     private var disposalId: Long? = 1L
-    private var inventoryId: Long? = 1L
+    private var locationStockId: Long? = 1L
     private var quantity: Int = 10
     private var reason: DisposalReason = DisposalReason.EXPIRED
 
@@ -25,8 +25,8 @@ class DisposalItemTestBuilder {
         return this
     }
 
-    fun inventoryId(inventoryId: Long?): DisposalItemTestBuilder {
-        this.inventoryId = inventoryId
+    fun locationStockId(locationStockId: Long?): DisposalItemTestBuilder {
+        this.locationStockId = locationStockId
         return this
     }
 
@@ -46,14 +46,14 @@ class DisposalItemTestBuilder {
             return DisposalItem.reconstitute(
                 disposalItemId = id,
                 disposalId = requireNotNull(disposalId) { "disposalId는 재구성 시 필수입니다." },
-                inventoryId = requireNotNull(inventoryId) { "inventoryId는 재구성 시 필수입니다." },
+                locationStockId = requireNotNull(locationStockId) { "locationStockId는 재구성 시 필수입니다." },
                 quantity = quantity,
                 reason = reason
             )
         }
         return DisposalItem.create(
             disposalId = disposalId,
-            inventoryId = inventoryId,
+            locationStockId = locationStockId,
             quantity = quantity,
             reason = reason
         )

@@ -7,7 +7,8 @@ import com.dozycoffee.wms.disposal.application.port.out.DisposalRepository
 import com.dozycoffee.wms.disposal.domain.enumeration.DisposalReason
 import com.dozycoffee.wms.disposal.domain.enumeration.DisposalStatus
 import com.dozycoffee.wms.disposal.domain.exception.DisposalNotFoundException
-import com.dozycoffee.wms.disposal.domain.exception.DisposalQuantityMismatchException
+import com.dozycoffee.wms.disposal.domain.exception.DisposalQuantityExceededException
+import com.dozycoffee.wms.disposal.domain.exception.DisposalStockWarehouseMismatchException
 import com.dozycoffee.wms.disposal.domain.exception.InventoryNotDisposableException
 import com.dozycoffee.wms.disposal.domain.model.Disposal
 import com.dozycoffee.wms.disposal.domain.model.DisposalItem
@@ -16,25 +17,26 @@ import com.dozycoffee.wms.disposal.fixture.DisposalTestBuilder.Companion.disposa
 import com.dozycoffee.wms.global.security.OnlyWarehouses
 import com.dozycoffee.wms.global.security.WarehouseAccessDeniedException
 import com.dozycoffee.wms.global.security.WarehouseAccessGuard
-import com.dozycoffee.wms.inventory.application.port.`in`.ConfirmInventoryDisposalUseCase
-import com.dozycoffee.wms.inventory.application.port.`in`.GetInventoryUseCase
-import com.dozycoffee.wms.inventory.application.port.`in`.GetLotUseCase
-import com.dozycoffee.wms.inventory.application.port.`in`.result.LotResult
-import com.dozycoffee.wms.inventory.domain.enumeration.LotStatus
-import com.dozycoffee.wms.inventory.application.port.`in`.result.InventoryResult
-import com.dozycoffee.wms.inventory.domain.enumeration.QualityStatus
+import com.dozycoffee.wms.location_stock.application.port.`in`.DecreaseLocationStockUseCase
+import com.dozycoffee.wms.location_stock.application.port.`in`.GetLocationStockUseCase
+import com.dozycoffee.wms.location_stock.application.port.`in`.command.DecreaseLocationStockCommand
+import com.dozycoffee.wms.location_stock.application.port.`in`.result.LocationStockResult
+import com.dozycoffee.wms.location_stock.domain.enumeration.StockQualityStatus
 import com.dozycoffee.wms.support.SwitchableWarehouseAccess
+import com.dozycoffee.wms.warehouse.application.port.`in`.GetLocationUseCase
 import com.dozycoffee.wms.warehouse.application.port.`in`.GetWorkAreaUseCase
+import com.dozycoffee.wms.warehouse.application.port.`in`.GetZoneUseCase
 import com.dozycoffee.wms.warehouse.application.port.`in`.OccupyWorkAreaUseCase
-import com.dozycoffee.wms.warehouse.application.port.`in`.ReleaseLocationUseCase
 import com.dozycoffee.wms.warehouse.application.port.`in`.ReleaseWorkAreaUseCase
 import com.dozycoffee.wms.warehouse.application.port.`in`.command.OccupyWorkAreaCommand
-import com.dozycoffee.wms.warehouse.application.port.`in`.command.ReleaseLocationCommand
 import com.dozycoffee.wms.warehouse.application.port.`in`.command.ReleaseWorkAreaCommand
 import com.dozycoffee.wms.warehouse.application.port.`in`.result.LocationResult
 import com.dozycoffee.wms.warehouse.application.port.`in`.result.WorkAreaResult
+import com.dozycoffee.wms.warehouse.application.port.`in`.result.ZoneResult
 import com.dozycoffee.wms.warehouse.domain.enumeration.AreaCode
 import com.dozycoffee.wms.warehouse.domain.enumeration.AvailabilityStatus
+import com.dozycoffee.wms.warehouse.domain.enumeration.TemperatureType
+import com.dozycoffee.wms.warehouse.domain.enumeration.ZoneCode
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.toList
 import kotlinx.coroutines.runBlocking
@@ -63,10 +65,16 @@ class DisposalServiceTest {
     private lateinit var disposalItemRepository: DisposalItemRepository
 
     @Mock
-    private lateinit var getInventoryUseCase: GetInventoryUseCase
+    private lateinit var getLocationStockUseCase: GetLocationStockUseCase
 
     @Mock
-    private lateinit var confirmInventoryDisposalUseCase: ConfirmInventoryDisposalUseCase
+    private lateinit var decreaseLocationStockUseCase: DecreaseLocationStockUseCase
+
+    @Mock
+    private lateinit var getLocationUseCase: GetLocationUseCase
+
+    @Mock
+    private lateinit var getZoneUseCase: GetZoneUseCase
 
     @Mock
     private lateinit var getWorkAreaUseCase: GetWorkAreaUseCase
@@ -76,12 +84,6 @@ class DisposalServiceTest {
 
     @Mock
     private lateinit var releaseWorkAreaUseCase: ReleaseWorkAreaUseCase
-
-    @Mock
-    private lateinit var releaseLocationUseCase: ReleaseLocationUseCase
-
-    @Mock
-    private lateinit var getLotUseCase: GetLotUseCase
 
     @Mock
     private lateinit var disposalInventoryCallRecorder: DisposalInventoryCallRecorder
@@ -100,28 +102,33 @@ class DisposalServiceTest {
         )
     }
 
-    private fun locationResult(locationId: Long): LocationResult {
-        return LocationResult(locationId, 10L, "A-0$locationId", 70, 30, AvailabilityStatus.AVAILABLE)
-    }
-
-    private fun inventoryResult(
-        inventoryId: Long,
+    private fun stockResult(
+        locationStockId: Long,
         quantity: Int,
         locationId: Long = 100L,
-        qualityStatus: QualityStatus = QualityStatus.DISPOSAL_SCHEDULED
-    ): InventoryResult {
-        return InventoryResult(inventoryId, 100L, 1L, locationId, quantity, 0, quantity, qualityStatus)
+        qualityStatus: StockQualityStatus = StockQualityStatus.DISPOSAL_SCHEDULED
+    ): LocationStockResult {
+        return LocationStockResult(locationStockId, locationId, 100L, "LOT-1", qualityStatus, quantity)
+    }
+
+    private suspend fun stubWarehouseOf(locationId: Long, warehouseId: Long) {
+        whenever(getLocationUseCase.getById(locationId))
+            .thenReturn(LocationResult(locationId, 10L, "A-01", 70, 30, AvailabilityStatus.AVAILABLE))
+        whenever(getZoneUseCase.getById(10L)).thenReturn(
+            ZoneResult(10L, warehouseId, ZoneCode.A, "A Zone", TemperatureType.AMBIENT, 820, AvailabilityStatus.AVAILABLE)
+        )
     }
 
     @Nested
     inner class 폐기_등록 {
 
         @Test
-        fun `대상 재고가 폐기예정 상태이고 수량이 일치하면 REQUESTED 상태로 등록된다`() = runTest {
+        fun `대상이 폐기예정 상태이고 수량이 위치 재고 이내면 REQUESTED 상태로 등록된다`() = runTest {
             val command = RegisterDisposalCommand(1L, listOf(RegisterDisposalItemCommand(10L, 5, DisposalReason.EXPIRED)))
-            val savedDisposal: Disposal = disposal().disposalId(1L).build()
-            whenever(disposalRepository.save(any())).thenReturn(savedDisposal)
-            whenever(getInventoryUseCase.getById(10L)).thenReturn(inventoryResult(10L, 5))
+            whenever(disposalRepository.save(any())).thenReturn(disposal().disposalId(1L).build())
+            whenever(getLocationStockUseCase.getById(10L)).thenReturn(stockResult(10L, 5))
+            stubWarehouseOf(100L, 1L)
+            whenever(disposalItemRepository.sumPendingQuantityByLocationStockId(10L)).thenReturn(0)
 
             val result = disposalService.register(command)
 
@@ -131,23 +138,79 @@ class DisposalServiceTest {
         }
 
         @Test
-        fun `대상 재고가 정상 품질이면 예외를 던진다`() = runTest {
+        fun `일부 수량만 폐기해도 등록된다`() = runTest {
+            val command = RegisterDisposalCommand(1L, listOf(RegisterDisposalItemCommand(10L, 3, DisposalReason.INSPECTION_DEFECT)))
+            whenever(disposalRepository.save(any())).thenReturn(disposal().disposalId(1L).build())
+            whenever(getLocationStockUseCase.getById(10L)).thenReturn(stockResult(10L, 5, qualityStatus = StockQualityStatus.DEFECTIVE))
+            stubWarehouseOf(100L, 1L)
+            whenever(disposalItemRepository.sumPendingQuantityByLocationStockId(10L)).thenReturn(0)
+
+            disposalService.register(command)
+
+            verify(disposalItemRepository).save(any())
+        }
+
+        @Test
+        fun `정상 품질 재고는 폐기 대상으로 등록할 수 없다`() = runTest {
             val command = RegisterDisposalCommand(1L, listOf(RegisterDisposalItemCommand(10L, 5, DisposalReason.EXPIRED)))
             whenever(disposalRepository.save(any())).thenReturn(disposal().disposalId(1L).build())
-            whenever(getInventoryUseCase.getById(10L)).thenReturn(inventoryResult(10L, 5, qualityStatus = QualityStatus.NORMAL))
+            whenever(getLocationStockUseCase.getById(10L)).thenReturn(stockResult(10L, 5, qualityStatus = StockQualityStatus.NORMAL))
 
             assertThatThrownBy { runBlocking { disposalService.register(command) } }
                 .isInstanceOf(InventoryNotDisposableException::class.java)
         }
 
         @Test
-        fun `폐기 수량이 대상 재고 수량과 다르면 예외를 던진다`() = runTest {
-            val command = RegisterDisposalCommand(1L, listOf(RegisterDisposalItemCommand(10L, 3, DisposalReason.EXPIRED)))
+        fun `폐기 수량이 위치 재고 수량을 넘으면 예외를 던진다`() = runTest {
+            val command = RegisterDisposalCommand(1L, listOf(RegisterDisposalItemCommand(10L, 6, DisposalReason.EXPIRED)))
             whenever(disposalRepository.save(any())).thenReturn(disposal().disposalId(1L).build())
-            whenever(getInventoryUseCase.getById(10L)).thenReturn(inventoryResult(10L, 5))
+            whenever(getLocationStockUseCase.getById(10L)).thenReturn(stockResult(10L, 5))
+            stubWarehouseOf(100L, 1L)
+            whenever(disposalItemRepository.sumPendingQuantityByLocationStockId(10L)).thenReturn(0)
 
             assertThatThrownBy { runBlocking { disposalService.register(command) } }
-                .isInstanceOf(DisposalQuantityMismatchException::class.java)
+                .isInstanceOf(DisposalQuantityExceededException::class.java)
+        }
+
+        @Test
+        fun `다른 미완료 폐기 신청 수량을 더해 위치 재고를 넘으면 예외를 던진다`() = runTest {
+            val command = RegisterDisposalCommand(1L, listOf(RegisterDisposalItemCommand(10L, 3, DisposalReason.EXPIRED)))
+            whenever(disposalRepository.save(any())).thenReturn(disposal().disposalId(1L).build())
+            whenever(getLocationStockUseCase.getById(10L)).thenReturn(stockResult(10L, 5))
+            stubWarehouseOf(100L, 1L)
+            whenever(disposalItemRepository.sumPendingQuantityByLocationStockId(10L)).thenReturn(3)
+
+            assertThatThrownBy { runBlocking { disposalService.register(command) } }
+                .isInstanceOf(DisposalQuantityExceededException::class.java)
+        }
+
+        @Test
+        fun `같은 요청 안에서 같은 위치 재고를 여러 번 담아도 합이 위치 재고를 넘으면 예외를 던진다`() = runTest {
+            val command = RegisterDisposalCommand(
+                1L,
+                listOf(
+                    RegisterDisposalItemCommand(10L, 3, DisposalReason.EXPIRED),
+                    RegisterDisposalItemCommand(10L, 3, DisposalReason.OTHER)
+                )
+            )
+            whenever(disposalRepository.save(any())).thenReturn(disposal().disposalId(1L).build())
+            whenever(getLocationStockUseCase.getById(10L)).thenReturn(stockResult(10L, 5))
+            stubWarehouseOf(100L, 1L)
+            whenever(disposalItemRepository.sumPendingQuantityByLocationStockId(10L)).thenReturn(0)
+
+            assertThatThrownBy { runBlocking { disposalService.register(command) } }
+                .isInstanceOf(DisposalQuantityExceededException::class.java)
+        }
+
+        @Test
+        fun `대상 재고가 요청한 창고에 속하지 않으면 예외를 던진다`() = runTest {
+            val command = RegisterDisposalCommand(1L, listOf(RegisterDisposalItemCommand(10L, 5, DisposalReason.EXPIRED)))
+            whenever(disposalRepository.save(any())).thenReturn(disposal().disposalId(1L).build())
+            whenever(getLocationStockUseCase.getById(10L)).thenReturn(stockResult(10L, 5))
+            stubWarehouseOf(100L, 2L)
+
+            assertThatThrownBy { runBlocking { disposalService.register(command) } }
+                .isInstanceOf(DisposalStockWarehouseMismatchException::class.java)
         }
     }
 
@@ -155,9 +218,9 @@ class DisposalServiceTest {
     inner class 폐기_승인 {
 
         @Test
-        fun `대상 재고 수량만큼 폐기 처리장을 점유하고 APPROVED로 전환한다`() = runTest {
+        fun `대상 수량만큼 폐기 처리장을 점유하고 APPROVED로 전환한다`() = runTest {
             val existingDisposal: Disposal = disposal().disposalId(1L).warehouseId(1L).status(DisposalStatus.REQUESTED).build()
-            val item: DisposalItem = disposalItem().disposalItemId(1L).disposalId(1L).inventoryId(10L).quantity(5).build()
+            val item: DisposalItem = disposalItem().disposalItemId(1L).disposalId(1L).locationStockId(10L).quantity(5).build()
             whenever(disposalRepository.findById(1L)).thenReturn(existingDisposal)
             whenever(disposalItemRepository.findAllByDisposalId(1L)).thenReturn(flowOf(item))
             whenever(getWorkAreaUseCase.getByWarehouseIdAndAreaCode(1L, AreaCode.DISPOSAL)).thenReturn(workAreaResult(0))
@@ -183,26 +246,25 @@ class DisposalServiceTest {
     inner class 폐기_완료 {
 
         @Test
-        fun `대상 재고를 soft delete하고 Location과 폐기 처리장 점유를 해제한다`() = runTest {
+        fun `폐기 수량만큼 위치 재고를 줄이고 폐기 처리장 점유를 해제하며 inventory 호출을 기록한다`() = runTest {
             val existingDisposal: Disposal = disposal().disposalId(1L).warehouseId(1L).status(DisposalStatus.APPROVED).build()
-            val item: DisposalItem = disposalItem().disposalItemId(1L).disposalId(1L).inventoryId(10L).quantity(5).build()
+            val item: DisposalItem = disposalItem().disposalItemId(1L).disposalId(1L).locationStockId(10L).quantity(3).build()
+            val stock = stockResult(10L, 5, 200L)
             whenever(disposalRepository.findById(1L)).thenReturn(existingDisposal)
             whenever(disposalItemRepository.findAllByDisposalId(1L)).thenReturn(flowOf(item))
-            whenever(getInventoryUseCase.getById(10L)).thenReturn(inventoryResult(10L, 5, 200L))
-            whenever(getLotUseCase.getById(1L)).thenReturn(LotResult(1L, "LOT-1", 100L, null, null, LotStatus.EXPIRED))
-            whenever(releaseLocationUseCase.release(any())).thenReturn(locationResult(200L))
-            whenever(confirmInventoryDisposalUseCase.confirmDisposal(10L, 1L)).thenReturn(inventoryResult(10L, 0))
-            whenever(getWorkAreaUseCase.getByWarehouseIdAndAreaCode(1L, AreaCode.DISPOSAL)).thenReturn(workAreaResult(5))
+            whenever(getLocationStockUseCase.getById(10L)).thenReturn(stock)
+            whenever(decreaseLocationStockUseCase.decrease(any())).thenReturn(stockResult(10L, 2, 200L))
+            whenever(getWorkAreaUseCase.getByWarehouseIdAndAreaCode(1L, AreaCode.DISPOSAL)).thenReturn(workAreaResult(3))
             whenever(releaseWorkAreaUseCase.release(any())).thenReturn(workAreaResult(0))
             whenever(disposalRepository.save(any())).thenAnswer { it.getArgument(0) }
 
             val result = disposalService.complete(1L)
 
             assertThat(result.status).isEqualTo(DisposalStatus.COMPLETED)
-            verify(releaseLocationUseCase).release(ReleaseLocationCommand(200L, 5))
-            verify(confirmInventoryDisposalUseCase).confirmDisposal(10L, 1L)
-            verify(releaseWorkAreaUseCase).release(ReleaseWorkAreaCommand(1L, 5))
-            verify(disposalInventoryCallRecorder).record(1L, item, inventoryResult(10L, 5, 200L), "LOT-1")
+            verify(decreaseLocationStockUseCase)
+                .decrease(DecreaseLocationStockCommand(200L, 100L, "LOT-1", StockQualityStatus.DISPOSAL_SCHEDULED, 3))
+            verify(releaseWorkAreaUseCase).release(ReleaseWorkAreaCommand(1L, 3))
+            verify(disposalInventoryCallRecorder).record(1L, item, stock)
         }
 
         @Test

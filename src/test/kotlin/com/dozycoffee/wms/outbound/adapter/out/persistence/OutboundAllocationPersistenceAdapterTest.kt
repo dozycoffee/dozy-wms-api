@@ -1,16 +1,27 @@
 package com.dozycoffee.wms.outbound.adapter.out.persistence
 
 import com.dozycoffee.wms.global.config.R2dbcConfig
+import com.dozycoffee.wms.location_stock.adapter.out.persistence.LocationStockPersistenceAdapter
+import com.dozycoffee.wms.location_stock.adapter.out.persistence.LocationStockR2dbcRepository
+import com.dozycoffee.wms.location_stock.domain.enumeration.StockQualityStatus
+import com.dozycoffee.wms.location_stock.domain.model.LocationStock
 import com.dozycoffee.wms.outbound.domain.model.OutboundAllocation
+import com.dozycoffee.wms.outbound.domain.model.OutboundAllocationPick
 import com.dozycoffee.wms.outbound.domain.model.OutboundItem
 import com.dozycoffee.wms.outbound.fixture.OutboundTestBuilder.Companion.outbound
 import com.dozycoffee.wms.product.adapter.out.persistence.ProductPersistenceAdapter
 import com.dozycoffee.wms.product.adapter.out.persistence.ProductR2dbcRepository
 import com.dozycoffee.wms.product.fixture.ProductTestBuilder.Companion.product
 import com.dozycoffee.wms.support.SystemActorProvider
+import com.dozycoffee.wms.warehouse.adapter.out.persistence.LocationPersistenceAdapter
+import com.dozycoffee.wms.warehouse.adapter.out.persistence.LocationR2dbcRepository
 import com.dozycoffee.wms.warehouse.adapter.out.persistence.WarehousePersistenceAdapter
 import com.dozycoffee.wms.warehouse.adapter.out.persistence.WarehouseR2dbcRepository
+import com.dozycoffee.wms.warehouse.fixture.LocationTestBuilder.Companion.location
 import com.dozycoffee.wms.warehouse.fixture.WarehouseTestBuilder.Companion.warehouse
+import com.dozycoffee.wms.warehouse.adapter.out.persistence.ZonePersistenceAdapter
+import com.dozycoffee.wms.warehouse.adapter.out.persistence.ZoneR2dbcRepository
+import com.dozycoffee.wms.warehouse.fixture.ZoneTestBuilder.Companion.zone
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.test.runTest
 import org.assertj.core.api.Assertions.assertThat
@@ -31,7 +42,11 @@ import java.time.LocalDate
     WarehousePersistenceAdapter::class,
     OutboundPersistenceAdapter::class,
     OutboundItemPersistenceAdapter::class,
-    OutboundAllocationPersistenceAdapter::class
+    OutboundAllocationPersistenceAdapter::class,
+    OutboundAllocationPickPersistenceAdapter::class,
+    LocationStockPersistenceAdapter::class,
+    LocationPersistenceAdapter::class,
+    ZonePersistenceAdapter::class
 )
 class OutboundAllocationPersistenceAdapterTest {
 
@@ -54,6 +69,30 @@ class OutboundAllocationPersistenceAdapterTest {
     private lateinit var outboundAllocationR2dbcRepository: OutboundAllocationR2dbcRepository
 
     @Autowired
+    private lateinit var outboundAllocationPickPersistenceAdapter: OutboundAllocationPickPersistenceAdapter
+
+    @Autowired
+    private lateinit var outboundAllocationPickR2dbcRepository: OutboundAllocationPickR2dbcRepository
+
+    @Autowired
+    private lateinit var locationStockPersistenceAdapter: LocationStockPersistenceAdapter
+
+    @Autowired
+    private lateinit var locationStockR2dbcRepository: LocationStockR2dbcRepository
+
+    @Autowired
+    private lateinit var locationPersistenceAdapter: LocationPersistenceAdapter
+
+    @Autowired
+    private lateinit var locationR2dbcRepository: LocationR2dbcRepository
+
+    @Autowired
+    private lateinit var zonePersistenceAdapter: ZonePersistenceAdapter
+
+    @Autowired
+    private lateinit var zoneR2dbcRepository: ZoneR2dbcRepository
+
+    @Autowired
     private lateinit var outboundItemR2dbcRepository: OutboundItemR2dbcRepository
 
     @Autowired
@@ -68,10 +107,14 @@ class OutboundAllocationPersistenceAdapterTest {
     @AfterEach
     fun cleanUp() {
         runTest {
+            outboundAllocationPickR2dbcRepository.deleteAll()
             outboundAllocationR2dbcRepository.deleteAll()
             outboundItemR2dbcRepository.deleteAll()
             outboundR2dbcRepository.deleteAll()
+            locationStockR2dbcRepository.deleteAll()
             productR2dbcRepository.deleteAll()
+            locationR2dbcRepository.deleteAll()
+            zoneR2dbcRepository.deleteAll()
             warehouseR2dbcRepository.deleteAll()
         }
     }
@@ -151,5 +194,32 @@ class OutboundAllocationPersistenceAdapterTest {
         outboundPersistenceAdapter.save(saved)
 
         assertThat(outboundPersistenceAdapter.findById(requireNotNull(saved.outboundId))?.reallocationCount).isEqualTo(1)
+    }
+
+    @Test
+    fun `피킹 계획을 저장하고 할당 ID로 모아 조회하고 할당별로 지운다`() = runTest {
+        val warehouseId = createWarehouseId()
+        val zoneId = requireNotNull(zonePersistenceAdapter.save(zone().warehouseId(warehouseId).build()).zoneId)
+        val locationId = requireNotNull(locationPersistenceAdapter.save(location().zoneId(zoneId).build()).locationId)
+        val productId = productPersistenceAdapter.save(product().build()).productId
+        val stockId = requireNotNull(
+            locationStockPersistenceAdapter.save(LocationStock.create(locationId, productId, "A", StockQualityStatus.NORMAL, 10)).locationStockId
+        )
+        val itemId = createOutboundItemId(warehouseId, productId, 7L)
+        val first = outboundAllocationPersistenceAdapter.save(OutboundAllocation.create(itemId, 55L, "A", null, 4))
+        val second = outboundAllocationPersistenceAdapter.save(OutboundAllocation.create(itemId, 56L, "B", null, 2))
+        val firstId = requireNotNull(first.outboundAllocationId)
+        val secondId = requireNotNull(second.outboundAllocationId)
+        outboundAllocationPickPersistenceAdapter.save(OutboundAllocationPick.create(firstId, stockId, 4))
+        outboundAllocationPickPersistenceAdapter.save(OutboundAllocationPick.create(secondId, stockId, 2))
+
+        val picks = outboundAllocationPickPersistenceAdapter.findAllByOutboundAllocationIds(listOf(firstId, secondId))
+        assertThat(picks.map { it.outboundAllocationId to it.quantity }).containsExactlyInAnyOrder(firstId to 4, secondId to 2)
+
+        outboundAllocationPickPersistenceAdapter.deleteAllByOutboundAllocationId(firstId)
+
+        assertThat(outboundAllocationPickPersistenceAdapter.findAllByOutboundAllocationIds(listOf(firstId, secondId)).map { it.outboundAllocationId })
+            .containsExactly(secondId)
+        assertThat(outboundAllocationPickPersistenceAdapter.findAllByOutboundAllocationIds(emptyList())).isEmpty()
     }
 }

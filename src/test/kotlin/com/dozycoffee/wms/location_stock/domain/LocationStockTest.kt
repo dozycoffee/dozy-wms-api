@@ -1,6 +1,7 @@
 package com.dozycoffee.wms.location_stock.domain
 
 import com.dozycoffee.wms.global.error.InvalidDomainValueException
+import com.dozycoffee.wms.location_stock.domain.exception.InsufficientHeldLocationStockQuantityException
 import com.dozycoffee.wms.location_stock.domain.exception.InsufficientLocationStockQuantityException
 import com.dozycoffee.wms.location_stock.domain.exception.LocationStockErrorCode
 import com.dozycoffee.wms.location_stock.fixture.LocationStockTestBuilder.Companion.locationStock
@@ -111,6 +112,69 @@ class LocationStockTest {
         @Test
         fun `식별자가 없으면 서로 다른 인스턴스는 같지 않다`() {
             assertThat(locationStock().build()).isNotEqualTo(locationStock().build())
+        }
+    }
+
+    @Nested
+    inner class 점유 {
+
+        @Test
+        fun `가용 수량은 총 수량에서 점유 수량을 뺀 값이다`() {
+            val stock = locationStock().locationStockId(1L).quantity(10).heldQuantity(4).build()
+
+            assertThat(stock.availableQuantity).isEqualTo(6)
+        }
+
+        @Test
+        fun `가용 수량 안에서 점유하고 해제한다`() {
+            val stock = locationStock().locationStockId(1L).quantity(10).build()
+
+            stock.hold(7)
+            assertThat(stock.heldQuantity).isEqualTo(7)
+            assertThat(stock.quantity).isEqualTo(10)
+
+            stock.releaseHold(3)
+            assertThat(stock.heldQuantity).isEqualTo(4)
+        }
+
+        @Test
+        fun `가용 수량보다 많이 점유하면 예외를 던진다`() {
+            val stock = locationStock().locationStockId(1L).quantity(10).heldQuantity(4).build()
+
+            assertThatThrownBy { stock.hold(7) }.isInstanceOf(InsufficientLocationStockQuantityException::class.java)
+        }
+
+        @Test
+        fun `점유 수량보다 많이 해제하면 예외를 던진다`() {
+            val stock = locationStock().locationStockId(1L).quantity(10).heldQuantity(2).build()
+
+            assertThatThrownBy { stock.releaseHold(3) }.isInstanceOf(InsufficientHeldLocationStockQuantityException::class.java)
+        }
+
+        @Test
+        fun `소비하면 총 수량과 점유 수량이 함께 준다`() {
+            val stock = locationStock().locationStockId(1L).quantity(10).heldQuantity(6).build()
+
+            stock.consume(4)
+
+            assertThat(stock.quantity).isEqualTo(6)
+            assertThat(stock.heldQuantity).isEqualTo(2)
+        }
+
+        @Test
+        fun `점유 수량보다 많이 소비하면 예외를 던진다`() {
+            val stock = locationStock().locationStockId(1L).quantity(10).heldQuantity(2).build()
+
+            assertThatThrownBy { stock.consume(3) }.isInstanceOf(InsufficientHeldLocationStockQuantityException::class.java)
+        }
+
+        @Test
+        fun `점유된 수량은 감소할 수 없다`() {
+            val stock = locationStock().locationStockId(1L).quantity(10).heldQuantity(8).build()
+
+            assertThatThrownBy { stock.decrease(3) }.isInstanceOf(InsufficientLocationStockQuantityException::class.java)
+            stock.decrease(2)
+            assertThat(stock.quantity).isEqualTo(8)
         }
     }
 }

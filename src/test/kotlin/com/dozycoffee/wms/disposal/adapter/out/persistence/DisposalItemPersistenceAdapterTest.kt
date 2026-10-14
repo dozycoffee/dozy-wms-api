@@ -1,16 +1,15 @@
 package com.dozycoffee.wms.disposal.adapter.out.persistence
 
 import com.dozycoffee.wms.disposal.domain.enumeration.DisposalReason
+import com.dozycoffee.wms.disposal.domain.enumeration.DisposalStatus
 import com.dozycoffee.wms.disposal.fixture.DisposalItemTestBuilder.Companion.disposalItem
 import com.dozycoffee.wms.disposal.fixture.DisposalTestBuilder.Companion.disposal
 import com.dozycoffee.wms.global.config.R2dbcConfig
 import com.dozycoffee.wms.support.SystemActorProvider
-import com.dozycoffee.wms.inventory.adapter.out.persistence.InventoryPersistenceAdapter
-import com.dozycoffee.wms.inventory.adapter.out.persistence.InventoryR2dbcRepository
-import com.dozycoffee.wms.inventory.adapter.out.persistence.LotPersistenceAdapter
-import com.dozycoffee.wms.inventory.adapter.out.persistence.LotR2dbcRepository
-import com.dozycoffee.wms.inventory.fixture.InventoryTestBuilder.Companion.inventory
-import com.dozycoffee.wms.inventory.fixture.LotTestBuilder.Companion.lot
+import com.dozycoffee.wms.location_stock.adapter.out.persistence.LocationStockPersistenceAdapter
+import com.dozycoffee.wms.location_stock.adapter.out.persistence.LocationStockR2dbcRepository
+import com.dozycoffee.wms.location_stock.domain.enumeration.StockQualityStatus
+import com.dozycoffee.wms.location_stock.domain.model.LocationStock
 import com.dozycoffee.wms.product.adapter.out.persistence.ProductPersistenceAdapter
 import com.dozycoffee.wms.product.adapter.out.persistence.ProductR2dbcRepository
 import com.dozycoffee.wms.product.fixture.ProductTestBuilder.Companion.product
@@ -37,8 +36,7 @@ import org.springframework.context.annotation.Import
     R2dbcConfig::class,
     SystemActorProvider::class,
     ProductPersistenceAdapter::class,
-    LotPersistenceAdapter::class,
-    InventoryPersistenceAdapter::class,
+    LocationStockPersistenceAdapter::class,
     WarehousePersistenceAdapter::class,
     ZonePersistenceAdapter::class,
     LocationPersistenceAdapter::class,
@@ -51,10 +49,7 @@ class DisposalItemPersistenceAdapterTest {
     private lateinit var productPersistenceAdapter: ProductPersistenceAdapter
 
     @Autowired
-    private lateinit var lotPersistenceAdapter: LotPersistenceAdapter
-
-    @Autowired
-    private lateinit var inventoryPersistenceAdapter: InventoryPersistenceAdapter
+    private lateinit var locationStockPersistenceAdapter: LocationStockPersistenceAdapter
 
     @Autowired
     private lateinit var warehousePersistenceAdapter: WarehousePersistenceAdapter
@@ -75,10 +70,7 @@ class DisposalItemPersistenceAdapterTest {
     private lateinit var productR2dbcRepository: ProductR2dbcRepository
 
     @Autowired
-    private lateinit var lotR2dbcRepository: LotR2dbcRepository
-
-    @Autowired
-    private lateinit var inventoryR2dbcRepository: InventoryR2dbcRepository
+    private lateinit var locationStockR2dbcRepository: LocationStockR2dbcRepository
 
     @Autowired
     private lateinit var warehouseR2dbcRepository: WarehouseR2dbcRepository
@@ -100,8 +92,7 @@ class DisposalItemPersistenceAdapterTest {
         runTest {
             disposalItemR2dbcRepository.deleteAll()
             disposalR2dbcRepository.deleteAll()
-            inventoryR2dbcRepository.deleteAll()
-            lotR2dbcRepository.deleteAll()
+            locationStockR2dbcRepository.deleteAll()
             productR2dbcRepository.deleteAll()
             locationR2dbcRepository.deleteAll()
             zoneR2dbcRepository.deleteAll()
@@ -123,11 +114,10 @@ class DisposalItemPersistenceAdapterTest {
     private suspend fun createInventoryId(locationId: Long, quantity: Int = 5): Long {
         val productCode = "PRD-DISPOSAL-${productSequence++}"
         val productId = requireNotNull(productPersistenceAdapter.save(product().productCode(productCode).build()).productId)
-        val lotId = requireNotNull(lotPersistenceAdapter.save(lot().productId(productId).build()).lotId)
-        val saved = inventoryPersistenceAdapter.save(
-            inventory().productId(productId).lotId(lotId).locationId(locationId).quantity(quantity).build()
+        val saved = locationStockPersistenceAdapter.save(
+            LocationStock.create(locationId, productId, "LOT-1", StockQualityStatus.DEFECTIVE, quantity)
         )
-        return requireNotNull(saved.inventoryId)
+        return requireNotNull(saved.locationStockId)
     }
 
     private suspend fun createDisposalId(warehouseId: Long): Long {
@@ -138,16 +128,16 @@ class DisposalItemPersistenceAdapterTest {
     fun `폐기 상품을 저장하면 ID가 채번되고 정보가 정상적으로 왕복된다`() = runTest {
         val warehouseId = createWarehouseId()
         val locationId = createLocationId(warehouseId)
-        val inventoryId = createInventoryId(locationId)
+        val locationStockId = createInventoryId(locationId)
         val disposalId = createDisposalId(warehouseId)
-        val newItem = disposalItem().disposalId(disposalId).inventoryId(inventoryId).quantity(5).reason(DisposalReason.EXPIRED).build()
+        val newItem = disposalItem().disposalId(disposalId).locationStockId(locationStockId).quantity(5).reason(DisposalReason.EXPIRED).build()
 
         val saved = disposalItemPersistenceAdapter.save(newItem)
         val found = disposalItemPersistenceAdapter.findById(requireNotNull(saved.disposalItemId))
 
         assertThat(found).isNotNull
         assertThat(found?.disposalId).isEqualTo(disposalId)
-        assertThat(found?.inventoryId).isEqualTo(inventoryId)
+        assertThat(found?.locationStockId).isEqualTo(locationStockId)
         assertThat(found?.quantity).isEqualTo(5)
         assertThat(found?.reason).isEqualTo(DisposalReason.EXPIRED)
     }
@@ -164,15 +154,49 @@ class DisposalItemPersistenceAdapterTest {
         val disposalId = createDisposalId(warehouseId)
         val otherDisposalId = createDisposalId(warehouseId)
         val target = disposalItemPersistenceAdapter.save(
-            disposalItem().disposalId(disposalId).inventoryId(createInventoryId(locationId)).build()
+            disposalItem().disposalId(disposalId).locationStockId(createInventoryId(locationId)).build()
         )
         disposalItemPersistenceAdapter.save(
-            disposalItem().disposalId(otherDisposalId).inventoryId(createInventoryId(locationId)).build()
+            disposalItem().disposalId(otherDisposalId).locationStockId(createInventoryId(locationId)).build()
         )
 
         val result = disposalItemPersistenceAdapter.findAllByDisposalId(disposalId).toList()
 
         assertThat(result).hasSize(1)
         assertThat(result.first().disposalItemId).isEqualTo(target.disposalItemId)
+    }
+
+    @Test
+    fun `같은 위치 재고의 완료 전 폐기 신청 수량만 합산한다`() = runTest {
+        val warehouseId = createWarehouseId()
+        val locationId = createLocationId(warehouseId)
+        val locationStockId = createInventoryId(locationId, 10)
+        val requested = createDisposalId(warehouseId)
+        val approved = requireNotNull(
+            disposalPersistenceAdapter.save(disposal().warehouseId(warehouseId).status(DisposalStatus.REQUESTED).build()).disposalId
+        )
+        val completed = disposalPersistenceAdapter.save(disposal().warehouseId(warehouseId).build()).let {
+            it.approve()
+            it.complete()
+            disposalPersistenceAdapter.save(it)
+        }
+        disposalItemPersistenceAdapter.save(disposalItem().disposalId(requested).locationStockId(locationStockId).quantity(3).build())
+        disposalItemPersistenceAdapter.save(disposalItem().disposalId(approved).locationStockId(locationStockId).quantity(2).build())
+        disposalItemPersistenceAdapter.save(
+            disposalItem().disposalId(requireNotNull(completed.disposalId)).locationStockId(locationStockId).quantity(4).build()
+        )
+
+        assertThat(disposalItemPersistenceAdapter.sumPendingQuantityByLocationStockId(locationStockId)).isEqualTo(5)
+        assertThat(disposalItemPersistenceAdapter.sumPendingQuantityByLocationStockId(999_999L)).isEqualTo(0)
+    }
+
+    @Test
+    fun `이벤트 ID와 창고로 이미 만든 폐기 신청인지 확인한다`() = runTest {
+        val warehouseId = createWarehouseId()
+        disposalPersistenceAdapter.save(disposal().warehouseId(warehouseId).sourceEventId("event-1").build())
+
+        assertThat(disposalPersistenceAdapter.existsBySourceEventIdAndWarehouseId("event-1", warehouseId)).isTrue()
+        assertThat(disposalPersistenceAdapter.existsBySourceEventIdAndWarehouseId("event-1", warehouseId + 1)).isFalse()
+        assertThat(disposalPersistenceAdapter.existsBySourceEventIdAndWarehouseId("event-2", warehouseId)).isFalse()
     }
 }

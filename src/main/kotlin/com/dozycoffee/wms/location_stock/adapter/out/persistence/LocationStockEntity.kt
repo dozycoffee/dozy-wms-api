@@ -28,6 +28,9 @@ class LocationStockEntity private constructor() : BaseEntity() {
     var quantity: Int? = null
         private set
 
+    var heldQuantity: Int = 0
+        private set
+
     fun toDomain(): LocationStock {
         return LocationStock.reconstitute(
             requireNotNull(locationStockId),
@@ -35,7 +38,8 @@ class LocationStockEntity private constructor() : BaseEntity() {
             requireNotNull(productId),
             requireNotNull(lotNumber),
             StockQualityStatus.valueOf(requireNotNull(qualityStatus)),
-            requireNotNull(quantity)
+            requireNotNull(quantity),
+            heldQuantity
         )
     }
 
@@ -48,6 +52,7 @@ class LocationStockEntity private constructor() : BaseEntity() {
             entity.lotNumber = domain.lotNumber
             entity.qualityStatus = domain.qualityStatus.name
             entity.quantity = domain.quantity
+            entity.heldQuantity = domain.heldQuantity
             return entity
         }
     }

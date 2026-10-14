@@ -16,6 +16,9 @@ class DisposalEntity private constructor() : BaseEntity() {
     var warehouseId: Long? = null
         private set
 
+    var sourceEventId: String? = null
+        private set
+
     var status: String? = null
         private set
 
@@ -23,7 +26,8 @@ class DisposalEntity private constructor() : BaseEntity() {
         return Disposal.reconstitute(
             requireNotNull(disposalId),
             requireNotNull(warehouseId),
-            DisposalStatus.valueOf(requireNotNull(status))
+            DisposalStatus.valueOf(requireNotNull(status)),
+            sourceEventId
         )
     }
 
@@ -32,6 +36,7 @@ class DisposalEntity private constructor() : BaseEntity() {
             val entity = DisposalEntity()
             entity.disposalId = domain.disposalId
             entity.warehouseId = domain.warehouseId
+            entity.sourceEventId = domain.sourceEventId
             entity.status = domain.status.name
             return entity
         }

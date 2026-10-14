@@ -25,6 +25,10 @@ class DisposalPersistenceAdapter(
         return disposalR2dbcRepository.findById(disposalId)?.toDomain()
     }
 
+    override suspend fun existsBySourceEventIdAndWarehouseId(sourceEventId: String, warehouseId: Long): Boolean {
+        return disposalR2dbcRepository.existsBySourceEventIdAndWarehouseId(sourceEventId, warehouseId)
+    }
+
     override fun findAll(status: DisposalStatus?, warehouseIds: List<Long>?): Flow<Disposal> {
         val statusCode = status?.name
         val ids: List<Long>? = warehouseIds?.takeIf { it.isNotEmpty() }

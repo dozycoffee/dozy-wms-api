@@ -7,7 +7,7 @@ class StockAuditItemTestBuilder {
 
     private var stockAuditItemId: Long? = null
     private var stockAuditId: Long? = 1L
-    private var inventoryId: Long? = 1L
+    private var locationStockId: Long? = 1L
     private var snapshotQuantity: Int = 10
     private var snapshotTakenAt: LocalDateTime = LocalDateTime.now().minusHours(1)
     private var countedQuantity: Int? = null
@@ -27,8 +27,8 @@ class StockAuditItemTestBuilder {
         return this
     }
 
-    fun inventoryId(inventoryId: Long?): StockAuditItemTestBuilder {
-        this.inventoryId = inventoryId
+    fun locationStockId(locationStockId: Long?): StockAuditItemTestBuilder {
+        this.locationStockId = locationStockId
         return this
     }
 
@@ -58,7 +58,7 @@ class StockAuditItemTestBuilder {
             return StockAuditItem.reconstitute(
                 stockAuditItemId = id,
                 stockAuditId = requireNotNull(stockAuditId) { "stockAuditId는 재구성 시 필수입니다." },
-                inventoryId = requireNotNull(inventoryId) { "inventoryId는 재구성 시 필수입니다." },
+                locationStockId = requireNotNull(locationStockId) { "locationStockId는 재구성 시 필수입니다." },
                 snapshotQuantity = snapshotQuantity,
                 snapshotTakenAt = snapshotTakenAt,
                 countedQuantity = countedQuantity,
@@ -67,7 +67,7 @@ class StockAuditItemTestBuilder {
         }
         return StockAuditItem.create(
             stockAuditId = stockAuditId,
-            inventoryId = inventoryId,
+            locationStockId = locationStockId,
             snapshotQuantity = snapshotQuantity
         )
     }

@@ -2,12 +2,10 @@ package com.dozycoffee.wms.stock_audit.adapter.out.persistence
 
 import com.dozycoffee.wms.global.config.R2dbcConfig
 import com.dozycoffee.wms.support.SystemActorProvider
-import com.dozycoffee.wms.inventory.adapter.out.persistence.InventoryPersistenceAdapter
-import com.dozycoffee.wms.inventory.adapter.out.persistence.InventoryR2dbcRepository
-import com.dozycoffee.wms.inventory.adapter.out.persistence.LotPersistenceAdapter
-import com.dozycoffee.wms.inventory.adapter.out.persistence.LotR2dbcRepository
-import com.dozycoffee.wms.inventory.fixture.InventoryTestBuilder.Companion.inventory
-import com.dozycoffee.wms.inventory.fixture.LotTestBuilder.Companion.lot
+import com.dozycoffee.wms.location_stock.adapter.out.persistence.LocationStockPersistenceAdapter
+import com.dozycoffee.wms.location_stock.adapter.out.persistence.LocationStockR2dbcRepository
+import com.dozycoffee.wms.location_stock.domain.enumeration.StockQualityStatus
+import com.dozycoffee.wms.location_stock.domain.model.LocationStock
 import com.dozycoffee.wms.product.adapter.out.persistence.ProductPersistenceAdapter
 import com.dozycoffee.wms.product.adapter.out.persistence.ProductR2dbcRepository
 import com.dozycoffee.wms.product.fixture.ProductTestBuilder.Companion.product
@@ -37,8 +35,7 @@ import org.springframework.context.annotation.Import
     R2dbcConfig::class,
     SystemActorProvider::class,
     ProductPersistenceAdapter::class,
-    LotPersistenceAdapter::class,
-    InventoryPersistenceAdapter::class,
+    LocationStockPersistenceAdapter::class,
     WarehousePersistenceAdapter::class,
     ZonePersistenceAdapter::class,
     LocationPersistenceAdapter::class,
@@ -51,10 +48,7 @@ class StockAuditItemPersistenceAdapterTest {
     private lateinit var productPersistenceAdapter: ProductPersistenceAdapter
 
     @Autowired
-    private lateinit var lotPersistenceAdapter: LotPersistenceAdapter
-
-    @Autowired
-    private lateinit var inventoryPersistenceAdapter: InventoryPersistenceAdapter
+    private lateinit var locationStockPersistenceAdapter: LocationStockPersistenceAdapter
 
     @Autowired
     private lateinit var warehousePersistenceAdapter: WarehousePersistenceAdapter
@@ -75,10 +69,7 @@ class StockAuditItemPersistenceAdapterTest {
     private lateinit var productR2dbcRepository: ProductR2dbcRepository
 
     @Autowired
-    private lateinit var lotR2dbcRepository: LotR2dbcRepository
-
-    @Autowired
-    private lateinit var inventoryR2dbcRepository: InventoryR2dbcRepository
+    private lateinit var locationStockR2dbcRepository: LocationStockR2dbcRepository
 
     @Autowired
     private lateinit var warehouseR2dbcRepository: WarehouseR2dbcRepository
@@ -100,8 +91,7 @@ class StockAuditItemPersistenceAdapterTest {
         runTest {
             stockAuditItemR2dbcRepository.deleteAll()
             stockAuditR2dbcRepository.deleteAll()
-            inventoryR2dbcRepository.deleteAll()
-            lotR2dbcRepository.deleteAll()
+            locationStockR2dbcRepository.deleteAll()
             productR2dbcRepository.deleteAll()
             locationR2dbcRepository.deleteAll()
             zoneR2dbcRepository.deleteAll()
@@ -118,11 +108,10 @@ class StockAuditItemPersistenceAdapterTest {
     private suspend fun createInventory(zoneId: Long): Long {
         val locationId: Long = requireNotNull(locationPersistenceAdapter.save(location().zoneId(zoneId).build()).locationId)
         val productId = requireNotNull(productPersistenceAdapter.save(product().build()).productId)
-        val lotId = requireNotNull(lotPersistenceAdapter.save(lot().productId(productId).build()).lotId)
         return requireNotNull(
-            inventoryPersistenceAdapter.save(
-                inventory().productId(productId).lotId(lotId).locationId(locationId).quantity(20).build()
-            ).inventoryId
+            locationStockPersistenceAdapter.save(
+                LocationStock.create(locationId, productId, "LOT-1", StockQualityStatus.NORMAL, 20)
+            ).locationStockId
         )
     }
 
@@ -134,32 +123,32 @@ class StockAuditItemPersistenceAdapterTest {
 
     private suspend fun createStockAuditAndInventory(): Pair<Long, Long> {
         val (warehouseId, zoneId) = createWarehouseAndZone()
-        val inventoryId = createInventory(zoneId)
+        val locationStockId = createInventory(zoneId)
         val stockAuditId = createStockAudit(warehouseId, zoneId)
-        return stockAuditId to inventoryId
+        return stockAuditId to locationStockId
     }
 
     @Test
     fun `실사 항목을 저장하면 ID가 채번되고 정보가 정상적으로 왕복된다`() = runTest {
-        val (stockAuditId, inventoryId) = createStockAuditAndInventory()
+        val (stockAuditId, locationStockId) = createStockAuditAndInventory()
         val newItem: StockAuditItem =
-            stockAuditItem().stockAuditId(stockAuditId).inventoryId(inventoryId).snapshotQuantity(20).build()
+            stockAuditItem().stockAuditId(stockAuditId).locationStockId(locationStockId).snapshotQuantity(20).build()
 
         val saved = stockAuditItemPersistenceAdapter.save(newItem)
         val found = stockAuditItemPersistenceAdapter.findById(requireNotNull(saved.stockAuditItemId))
 
         assertThat(found).isNotNull
         assertThat(found?.stockAuditId).isEqualTo(stockAuditId)
-        assertThat(found?.inventoryId).isEqualTo(inventoryId)
+        assertThat(found?.locationStockId).isEqualTo(locationStockId)
         assertThat(found?.snapshotQuantity).isEqualTo(20)
         assertThat(found?.isCounted).isFalse()
     }
 
     @Test
     fun `실측 수량을 입력한 뒤 재저장하면 카운트 결과가 반영된다`() = runTest {
-        val (stockAuditId, inventoryId) = createStockAuditAndInventory()
+        val (stockAuditId, locationStockId) = createStockAuditAndInventory()
         val saved = stockAuditItemPersistenceAdapter.save(
-            stockAuditItem().stockAuditId(stockAuditId).inventoryId(inventoryId).snapshotQuantity(20).build()
+            stockAuditItem().stockAuditId(stockAuditId).locationStockId(locationStockId).snapshotQuantity(20).build()
         )
 
         saved.count(18)
@@ -173,14 +162,14 @@ class StockAuditItemPersistenceAdapterTest {
     @Test
     fun `실사 ID로 항목 목록을 조회한다`() = runTest {
         val (warehouseId, zoneId) = createWarehouseAndZone()
-        val inventoryId = createInventory(zoneId)
+        val locationStockId = createInventory(zoneId)
         val stockAuditId = createStockAudit(warehouseId, zoneId)
         val otherStockAuditId = createStockAudit(warehouseId, zoneId)
         val target = stockAuditItemPersistenceAdapter.save(
-            stockAuditItem().stockAuditId(stockAuditId).inventoryId(inventoryId).snapshotQuantity(20).build()
+            stockAuditItem().stockAuditId(stockAuditId).locationStockId(locationStockId).snapshotQuantity(20).build()
         )
         stockAuditItemPersistenceAdapter.save(
-            stockAuditItem().stockAuditId(otherStockAuditId).inventoryId(inventoryId).snapshotQuantity(5).build()
+            stockAuditItem().stockAuditId(otherStockAuditId).locationStockId(locationStockId).snapshotQuantity(5).build()
         )
 
         val result = stockAuditItemPersistenceAdapter.findAllByStockAuditId(stockAuditId).toList()

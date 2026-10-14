@@ -3,11 +3,7 @@ package com.dozycoffee.wms.outbound.application.service
 import com.dozycoffee.wms.global.security.OnlyWarehouses
 import com.dozycoffee.wms.global.security.WarehouseAccessDeniedException
 import com.dozycoffee.wms.global.security.WarehouseAccessGuard
-import com.dozycoffee.wms.inventory.application.port.`in`.GetAllocationUseCase
-import com.dozycoffee.wms.inventory.application.port.`in`.ReleaseAllocationUseCase
-import com.dozycoffee.wms.inventory.application.port.`in`.result.AllocationResult
-import com.dozycoffee.wms.inventory.domain.enumeration.AllocationReferenceType
-import com.dozycoffee.wms.inventory.domain.enumeration.AllocationStatus
+import com.dozycoffee.wms.outbound.application.port.out.OutboundAllocationRepository
 import com.dozycoffee.wms.outbound.application.port.out.OutboundItemRepository
 import com.dozycoffee.wms.outbound.application.port.out.OutboundRepository
 import com.dozycoffee.wms.outbound.domain.enumeration.OutboundStatus
@@ -15,6 +11,7 @@ import com.dozycoffee.wms.outbound.domain.exception.InvalidOutboundStatusTransit
 import com.dozycoffee.wms.outbound.domain.exception.OutboundNotCancelableException
 import com.dozycoffee.wms.outbound.domain.exception.OutboundNotFoundException
 import com.dozycoffee.wms.outbound.domain.model.Outbound
+import com.dozycoffee.wms.outbound.domain.model.OutboundAllocation
 import com.dozycoffee.wms.outbound.fixture.OutboundItemTestBuilder.Companion.outboundItem
 import com.dozycoffee.wms.outbound.fixture.OutboundTestBuilder.Companion.outbound
 import com.dozycoffee.wms.support.SwitchableWarehouseAccess
@@ -49,10 +46,10 @@ class OutboundCancelServiceTest {
     private lateinit var outboundItemRepository: OutboundItemRepository
 
     @Mock
-    private lateinit var getAllocationUseCase: GetAllocationUseCase
+    private lateinit var outboundAllocationRepository: OutboundAllocationRepository
 
     @Mock
-    private lateinit var releaseAllocationUseCase: ReleaseAllocationUseCase
+    private lateinit var outboundAllocationHolder: OutboundAllocationHolder
 
     @Mock
     private lateinit var getWorkAreaUseCase: GetWorkAreaUseCase
@@ -73,8 +70,8 @@ class OutboundCancelServiceTest {
             WarehouseAccessGuard(warehouseAccess),
             outboundRepository,
             outboundItemRepository,
-            getAllocationUseCase,
-            releaseAllocationUseCase,
+            outboundAllocationRepository,
+            outboundAllocationHolder,
             getWorkAreaUseCase,
             releaseWorkAreaUseCase,
             outboundReleaseCallRecorder
@@ -100,7 +97,7 @@ class OutboundCancelServiceTest {
 
         assertThat(result.status).isEqualTo(OutboundStatus.CANCELED)
         verify(outboundReleaseCallRecorder).record(existing)
-        verify(releaseAllocationUseCase, never()).release(any())
+        verify(outboundAllocationHolder, never()).release(any())
     }
 
     @Test
@@ -112,7 +109,7 @@ class OutboundCancelServiceTest {
 
         assertThat(result.status).isEqualTo(OutboundStatus.CANCEL_REQUESTED)
         verify(outboundReleaseCallRecorder, never()).record(any())
-        verify(releaseAllocationUseCase, never()).release(any())
+        verify(outboundAllocationHolder, never()).release(any())
     }
 
     @Test
@@ -139,12 +136,11 @@ class OutboundCancelServiceTest {
         val existing = stub(OutboundStatus.CANCEL_REQUESTED)
         val item = outboundItem().outboundItemId(1L).outboundId(1L).requestedQuantity(10).pickedQuantity(8).build()
         whenever(outboundItemRepository.findAllByOutboundId(1L)).thenReturn(flowOf(item))
-        whenever(getAllocationUseCase.getAllHeldByReference(AllocationReferenceType.OUTBOUND, 1L)).thenReturn(
-            flowOf(
-                AllocationResult(900L, 1L, AllocationReferenceType.OUTBOUND, 1L, 5, AllocationStatus.HELD),
-                AllocationResult(901L, 2L, AllocationReferenceType.OUTBOUND, 1L, 3, AllocationStatus.HELD)
-            )
+        val allocations = listOf(
+            OutboundAllocation.reconstitute(1L, 1L, 11L, "A", null, 5, 5),
+            OutboundAllocation.reconstitute(2L, 1L, 12L, "B", null, 3, 3)
         )
+        whenever(outboundAllocationRepository.findAllByOutboundItemIds(listOf(1L))).thenReturn(allocations)
         whenever(getWorkAreaUseCase.getByWarehouseIdAndAreaCode(1L, AreaCode.OUTBOUND)).thenReturn(workArea())
         whenever(releaseWorkAreaUseCase.release(any())).thenReturn(workArea())
         whenever(outboundRepository.save(any())).thenAnswer { it.getArgument(0) }
@@ -152,8 +148,7 @@ class OutboundCancelServiceTest {
         val result = service.approveCancel(1L)
 
         assertThat(result.status).isEqualTo(OutboundStatus.CANCELED)
-        verify(releaseAllocationUseCase).release(900L)
-        verify(releaseAllocationUseCase).release(901L)
+        allocations.forEach { verify(outboundAllocationHolder).release(it) }
         verify(releaseWorkAreaUseCase).release(ReleaseWorkAreaCommand(1L, 8))
         verify(outboundReleaseCallRecorder).record(existing)
     }
@@ -163,7 +158,7 @@ class OutboundCancelServiceTest {
         stub(OutboundStatus.CANCEL_REQUESTED)
         val item = outboundItem().outboundItemId(1L).outboundId(1L).requestedQuantity(10).pickedQuantity(0).build()
         whenever(outboundItemRepository.findAllByOutboundId(1L)).thenReturn(flowOf(item))
-        whenever(getAllocationUseCase.getAllHeldByReference(AllocationReferenceType.OUTBOUND, 1L)).thenReturn(flowOf())
+        whenever(outboundAllocationRepository.findAllByOutboundItemIds(listOf(1L))).thenReturn(emptyList())
         whenever(outboundRepository.save(any())).thenAnswer { it.getArgument(0) }
 
         service.approveCancel(1L)

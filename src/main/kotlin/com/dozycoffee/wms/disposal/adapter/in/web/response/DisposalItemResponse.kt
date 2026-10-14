@@ -6,7 +6,7 @@ import com.dozycoffee.wms.disposal.domain.enumeration.DisposalReason
 data class DisposalItemResponse(
     val disposalItemId: Long,
     val disposalId: Long,
-    val inventoryId: Long,
+    val locationStockId: Long,
     val quantity: Int,
     val reason: DisposalReason
 ) {
@@ -15,7 +15,7 @@ data class DisposalItemResponse(
             return DisposalItemResponse(
                 result.disposalItemId,
                 result.disposalId,
-                result.inventoryId,
+                result.locationStockId,
                 result.quantity,
                 result.reason
             )
