@@ -115,7 +115,9 @@ class OutboundReallocationService(
         }
 
         var pickedQuantity = 0
-        for (allocation in current) {
+        for (candidate in current) {
+            val allocation: OutboundAllocation =
+                if (candidate.outboundAllocationId == null) outboundAllocationRepository.save(candidate) else candidate
             val held = outboundAllocationHolder.hold(item, allocation, outbound.warehouseId)
             allocation.pick(held)
             results.add(OutboundAllocationResult.from(outboundAllocationRepository.save(allocation), item.productId))
