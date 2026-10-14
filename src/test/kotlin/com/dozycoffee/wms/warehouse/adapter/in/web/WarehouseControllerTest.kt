@@ -5,10 +5,13 @@ import com.dozycoffee.wms.warehouse.adapter.`in`.web.request.RegisterWarehouseRe
 import com.dozycoffee.wms.warehouse.application.port.`in`.ActivateWarehouseUseCase
 import com.dozycoffee.wms.warehouse.application.port.`in`.DeactivateWarehouseUseCase
 import com.dozycoffee.wms.warehouse.application.port.`in`.GetWarehouseUseCase
+import com.dozycoffee.wms.warehouse.application.port.`in`.ListWarehousesUseCase
 import com.dozycoffee.wms.warehouse.application.port.`in`.RegisterWarehouseUseCase
 import com.dozycoffee.wms.warehouse.application.port.`in`.result.WarehouseResult
 import com.dozycoffee.wms.warehouse.domain.enumeration.AvailabilityStatus
 import com.dozycoffee.wms.warehouse.domain.exception.WarehouseNotFoundException
+import kotlinx.coroutines.flow.emptyFlow
+import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.runBlocking
 import org.junit.jupiter.api.Nested
 import org.junit.jupiter.api.Test
@@ -39,6 +42,9 @@ class WarehouseControllerTest {
 
     @MockitoBean
     private lateinit var getWarehouseUseCase: GetWarehouseUseCase
+
+    @MockitoBean
+    private lateinit var listWarehousesUseCase: ListWarehousesUseCase
 
     private fun sampleResult(): WarehouseResult {
         return WarehouseResult(
@@ -99,6 +105,61 @@ class WarehouseControllerTest {
             webTestClient.get().uri("/api/warehouses/{warehouseId}", 999L)
                 .exchange()
                 .expectStatus().isNotFound
+        }
+    }
+
+    @Nested
+    inner class 창고_목록_조회 {
+
+        @Test
+        fun `200과 items 래퍼로 창고 목록을 반환한다`() {
+            val second = WarehouseResult(
+                2L, "경기 물류센터", "경기도 이천시", BigDecimal.valueOf(37.2792), BigDecimal.valueOf(127.4425),
+                AvailabilityStatus.UNAVAILABLE
+            )
+            whenever(listWarehousesUseCase.getAll()).thenReturn(flowOf(sampleResult(), second))
+
+            webTestClient.get().uri("/api/warehouses")
+                .exchange()
+                .expectStatus().isOk
+                .expectBody()
+                .jsonPath("$.items.length()").isEqualTo(2)
+                .jsonPath("$.items[0].warehouseId").isEqualTo(1)
+                .jsonPath("$.items[0].warehouseName").isEqualTo("도지하우스 제주 센터")
+                .jsonPath("$.items[0].address").isEqualTo("제주특별자치도 제주시")
+                .jsonPath("$.items[0].latitude").isEqualTo(33.4996)
+                .jsonPath("$.items[0].longitude").isEqualTo(126.5312)
+                .jsonPath("$.items[0].warehouseStatus").isEqualTo("AVAILABLE")
+                .jsonPath("$.items[1].warehouseStatus").isEqualTo("UNAVAILABLE")
+        }
+
+        @Test
+        fun `창고가 없으면 빈 items를 반환한다`() {
+            whenever(listWarehousesUseCase.getAll()).thenReturn(emptyFlow())
+
+            webTestClient.get().uri("/api/warehouses")
+                .exchange()
+                .expectStatus().isOk
+                .expectBody()
+                .jsonPath("$.items.length()").isEqualTo(0)
+        }
+
+        @Test
+        @WithDozyPrincipal(roles = ["wms:inventory_viewer"])
+        fun `조회 role이면 목록을 조회할 수 있다`() {
+            whenever(listWarehousesUseCase.getAll()).thenReturn(emptyFlow())
+
+            webTestClient.get().uri("/api/warehouses")
+                .exchange()
+                .expectStatus().isOk
+        }
+
+        @Test
+        @WithDozyPrincipal(roles = ["wms:service"])
+        fun `service role만으로는 403을 반환한다`() {
+            webTestClient.get().uri("/api/warehouses")
+                .exchange()
+                .expectStatus().isForbidden
         }
     }
 

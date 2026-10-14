@@ -2,12 +2,15 @@ package com.dozycoffee.wms.warehouse.adapter.`in`.web
 
 import com.dozycoffee.wms.global.security.WmsAuthorize
 import com.dozycoffee.wms.warehouse.adapter.`in`.web.request.RegisterWarehouseRequest
+import com.dozycoffee.wms.warehouse.adapter.`in`.web.response.WarehouseListResponse
 import com.dozycoffee.wms.warehouse.adapter.`in`.web.response.WarehouseResponse
 import com.dozycoffee.wms.warehouse.application.port.`in`.ActivateWarehouseUseCase
 import com.dozycoffee.wms.warehouse.application.port.`in`.DeactivateWarehouseUseCase
 import com.dozycoffee.wms.warehouse.application.port.`in`.GetWarehouseUseCase
+import com.dozycoffee.wms.warehouse.application.port.`in`.ListWarehousesUseCase
 import com.dozycoffee.wms.warehouse.application.port.`in`.RegisterWarehouseUseCase
 import jakarta.validation.Valid
+import kotlinx.coroutines.flow.toList
 import org.springframework.http.HttpStatus
 import org.springframework.security.access.prepost.PreAuthorize
 import org.springframework.web.bind.annotation.GetMapping
@@ -25,7 +28,8 @@ class WarehouseController(
     private val registerWarehouseUseCase: RegisterWarehouseUseCase,
     private val activateWarehouseUseCase: ActivateWarehouseUseCase,
     private val deactivateWarehouseUseCase: DeactivateWarehouseUseCase,
-    private val getWarehouseUseCase: GetWarehouseUseCase
+    private val getWarehouseUseCase: GetWarehouseUseCase,
+    private val listWarehousesUseCase: ListWarehousesUseCase
 ) {
 
     @PostMapping
@@ -33,6 +37,12 @@ class WarehouseController(
     @ResponseStatus(HttpStatus.CREATED)
     suspend fun register(@Valid @RequestBody request: RegisterWarehouseRequest): WarehouseResponse {
         return WarehouseResponse.from(registerWarehouseUseCase.register(request.toCommand()))
+    }
+
+    @GetMapping
+    @PreAuthorize(WmsAuthorize.READ)
+    suspend fun getAll(): WarehouseListResponse {
+        return WarehouseListResponse.from(listWarehousesUseCase.getAll().toList())
     }
 
     @GetMapping("/{warehouseId}")
