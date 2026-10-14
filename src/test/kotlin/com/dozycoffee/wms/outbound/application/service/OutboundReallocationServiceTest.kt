@@ -173,6 +173,36 @@ class OutboundReallocationServiceTest {
     }
 
     @Test
+    fun `새로 생긴 할당은 저장해 ID를 받은 뒤에 점유한다`() = runTest {
+        val a = allocation(1L, 55L, "A", 6)
+        stubExisting(listOf(a))
+        whenever(outboundInventoryReallocator.reallocate(eq(7L), eq("wms-reallocation-1-1"), any())).thenReturn(
+            listOf(
+                OutboundInventoryReallocator.ReallocatedItem(
+                    100L,
+                    listOf(
+                        OutboundInventoryReallocator.ReallocatedAllocation(55L, "A", null, 2),
+                        OutboundInventoryReallocator.ReallocatedAllocation(57L, "C", LocalDate.of(2027, 5, 1), 4)
+                    )
+                )
+            )
+        )
+        whenever(outboundAllocationHolder.hold(any(), any(), eq(1L))).thenAnswer {
+            val held = it.getArgument<OutboundAllocation>(1)
+            requireNotNull(held.outboundAllocationId) { "ID가 없는 할당은 점유할 수 없다" }
+            held.quantity
+        }
+        whenever(outboundAllocationRepository.save(any())).thenAnswer { persisted(it.getArgument(0)) }
+        whenever(outboundItemRepository.save(any())).thenAnswer { it.getArgument(0) }
+        whenever(outboundRepository.save(any())).thenAnswer { it.getArgument(0) }
+
+        val results = service.report(command(1L to 4))
+
+        assertThat(results.map { it.inventoryId }).containsExactly(55L, 57L)
+        assertThat(results.map { it.pickedQuantity }).containsExactly(2, 4)
+    }
+
+    @Test
     fun `응답에서 빠진 할당은 지우고 줄어든 피킹 수량만큼 출고장 점유를 해제한다`() = runTest {
         val a = allocation(1L, 55L, "A", 4)
         val b = allocation(2L, 56L, "B", 2)
