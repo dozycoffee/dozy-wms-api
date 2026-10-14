@@ -16,13 +16,13 @@ import com.dozycoffee.wms.inventory.domain.enumeration.AllocationReferenceType
 import com.dozycoffee.wms.inventory.domain.enumeration.AllocationStatus
 import com.dozycoffee.wms.inventory.domain.enumeration.LotStatus
 import com.dozycoffee.wms.inventory.domain.enumeration.QualityStatus
-import com.dozycoffee.wms.outbound.application.port.`in`.command.RegisterOutboundCommand
-import com.dozycoffee.wms.outbound.application.port.`in`.command.RegisterOutboundItemCommand
+import com.dozycoffee.wms.outbound.application.port.out.OutboundAllocationRepository
 import com.dozycoffee.wms.outbound.application.port.out.OutboundItemRepository
 import com.dozycoffee.wms.outbound.application.port.out.OutboundRepository
 import com.dozycoffee.wms.outbound.domain.enumeration.OutboundStatus
 import com.dozycoffee.wms.outbound.domain.exception.OutboundNotFoundException
 import com.dozycoffee.wms.outbound.domain.model.Outbound
+import com.dozycoffee.wms.outbound.domain.model.OutboundAllocation
 import com.dozycoffee.wms.outbound.domain.model.OutboundItem
 import com.dozycoffee.wms.outbound.fixture.OutboundItemTestBuilder.Companion.outboundItem
 import com.dozycoffee.wms.outbound.fixture.OutboundTestBuilder.Companion.outbound
@@ -67,6 +67,12 @@ class OutboundServiceTest {
 
     @Mock
     private lateinit var outboundItemRepository: OutboundItemRepository
+
+    @Mock
+    private lateinit var outboundAllocationRepository: OutboundAllocationRepository
+
+    @Mock
+    private lateinit var outboundFulfillmentCallRecorder: OutboundFulfillmentCallRecorder
 
     @Mock
     private lateinit var getInventoryUseCase: GetInventoryUseCase
@@ -126,48 +132,35 @@ class OutboundServiceTest {
     }
 
     @Nested
-    inner class 출고_등록 {
-
-        @Test
-        fun `출고를 REQUESTED 상태로 등록하고 출고 상품이 함께 저장된다`() = runTest {
-            val command = RegisterOutboundCommand(1L, listOf(RegisterOutboundItemCommand(100L, 15)))
-            val savedOutbound: Outbound = outbound().outboundId(1L).build()
-            whenever(outboundRepository.save(any())).thenReturn(savedOutbound)
-
-            val result = outboundService.register(command)
-
-            assertThat(result.outboundId).isEqualTo(1L)
-            assertThat(result.status).isEqualTo(OutboundStatus.REQUESTED)
-            verify(outboundItemRepository).save(any())
-        }
-    }
-
-    @Nested
     inner class 피킹_시작 {
 
-        @Test
-        fun `유통기한이 이른 Lot부터 FIFO로 피킹하고 출고장을 점유한다`() = runTest {
+        private fun allocation(id: Long, inventoryId: Long, lotNumber: String, quantity: Int): OutboundAllocation =
+            OutboundAllocation.reconstitute(id, 1L, inventoryId, lotNumber, null, quantity, null)
+
+        private suspend fun stubPicking(allocations: List<OutboundAllocation>, requestedQuantity: Int = 15) {
             val existingOutbound: Outbound = outbound().outboundId(1L).warehouseId(1L).status(OutboundStatus.REQUESTED).build()
-            val item: OutboundItem = outboundItem().outboundItemId(1L).outboundId(1L).productId(100L).requestedQuantity(15).build()
+            val item: OutboundItem =
+                outboundItem().outboundItemId(1L).outboundId(1L).productId(100L).requestedQuantity(requestedQuantity).build()
             whenever(outboundRepository.findById(1L)).thenReturn(existingOutbound)
             whenever(outboundItemRepository.findAllByOutboundId(1L)).thenReturn(flowOf(item))
-            whenever(getLotUseCase.getAllByProduct(100L)).thenReturn(
-                flowOf(
-                    lotResult(20L, LocalDate.of(2026, 2, 1)),
-                    lotResult(10L, LocalDate.of(2026, 1, 1))
-                )
-            )
-            whenever(getInventoryUseCase.getAll(null, 100L, QualityStatus.NORMAL, null, listOf(1L))).thenReturn(
-                flowOf(
-                    inventoryResult(2L, 20L, 200L, 20),
-                    inventoryResult(1L, 10L, 100L, 5)
-                )
-            )
-            whenever(holdInventoryUseCase.hold(any())).thenReturn(allocationResult(900L, 1L, 5))
+            whenever(outboundAllocationRepository.findAllByOutboundItemIds(listOf(1L))).thenReturn(allocations)
             whenever(getWorkAreaUseCase.getByWarehouseIdAndAreaCode(1L, AreaCode.OUTBOUND)).thenReturn(workAreaResult(0))
             whenever(occupyWorkAreaUseCase.occupy(any())).thenReturn(workAreaResult(15))
             whenever(outboundItemRepository.save(any())).thenAnswer { it.getArgument(0) }
+            whenever(outboundAllocationRepository.save(any())).thenAnswer { it.getArgument(0) }
             whenever(outboundRepository.save(any())).thenAnswer { it.getArgument(0) }
+        }
+
+        @Test
+        fun `확정 예약이 할당한 Lot별 수량만큼 점유하고 출고장을 점유한다`() = runTest {
+            stubPicking(listOf(allocation(1L, 11L, "LOT-10", 5), allocation(2L, 12L, "LOT-20", 10)))
+            whenever(getLotUseCase.getAllByProduct(100L)).thenReturn(
+                flowOf(lotResult(10L, LocalDate.of(2026, 1, 1)), lotResult(20L, LocalDate.of(2026, 2, 1)))
+            )
+            whenever(getInventoryUseCase.getAll(null, 100L, QualityStatus.NORMAL, null, listOf(1L))).thenReturn(
+                flowOf(inventoryResult(1L, 10L, 100L, 8), inventoryResult(2L, 20L, 200L, 20))
+            )
+            whenever(holdInventoryUseCase.hold(any())).thenReturn(allocationResult(900L, 1L, 5))
 
             val result = outboundService.startPicking(1L)
 
@@ -178,79 +171,38 @@ class OutboundServiceTest {
             assertThat(holdCaptor.secondValue).isEqualTo(HoldInventoryCommand(2L, AllocationReferenceType.OUTBOUND, 1L, 10))
             verify(occupyWorkAreaUseCase).occupy(OccupyWorkAreaCommand(1L, 15))
 
+            val allocationCaptor = argumentCaptor<OutboundAllocation>()
+            verify(outboundAllocationRepository, times(2)).save(allocationCaptor.capture())
+            assertThat(allocationCaptor.allValues.map { it.pickedQuantity }).containsExactly(5, 10)
             val itemCaptor = argumentCaptor<OutboundItem>()
             verify(outboundItemRepository).save(itemCaptor.capture())
             assertThat(itemCaptor.firstValue.pickedQuantity).isEqualTo(15)
         }
 
         @Test
-        fun `유통기한이 없는 Lot은 유통기한이 있는 Lot보다 나중에 피킹한다`() = runTest {
-            val existingOutbound: Outbound = outbound().outboundId(1L).warehouseId(1L).status(OutboundStatus.REQUESTED).build()
-            val item: OutboundItem = outboundItem().outboundItemId(1L).outboundId(1L).productId(100L).requestedQuantity(15).build()
-            whenever(outboundRepository.findById(1L)).thenReturn(existingOutbound)
-            whenever(outboundItemRepository.findAllByOutboundId(1L)).thenReturn(flowOf(item))
-            whenever(getLotUseCase.getAllByProduct(100L)).thenReturn(
-                flowOf(lotResult(10L, null), lotResult(20L, LocalDate.of(2026, 2, 1)))
-            )
+        fun `같은 Lot이 여러 Location에 나뉘어 있으면 재고 행 순서대로 점유한다`() = runTest {
+            stubPicking(listOf(allocation(1L, 11L, "LOT-10", 5)), 5)
+            whenever(getLotUseCase.getAllByProduct(100L)).thenReturn(flowOf(lotResult(10L, null)))
             whenever(getInventoryUseCase.getAll(null, 100L, QualityStatus.NORMAL, null, listOf(1L))).thenReturn(
-                flowOf(
-                    inventoryResult(1L, 10L, 100L, 20),
-                    inventoryResult(2L, 20L, 200L, 10)
-                )
+                flowOf(inventoryResult(7L, 10L, 200L, 10), inventoryResult(3L, 10L, 100L, 3))
             )
-            whenever(holdInventoryUseCase.hold(any())).thenReturn(allocationResult(900L, 1L, 5))
-            whenever(getWorkAreaUseCase.getByWarehouseIdAndAreaCode(1L, AreaCode.OUTBOUND)).thenReturn(workAreaResult(0))
-            whenever(occupyWorkAreaUseCase.occupy(any())).thenReturn(workAreaResult(15))
-            whenever(outboundItemRepository.save(any())).thenAnswer { it.getArgument(0) }
-            whenever(outboundRepository.save(any())).thenAnswer { it.getArgument(0) }
+            whenever(holdInventoryUseCase.hold(any())).thenReturn(allocationResult(900L, 1L, 3))
 
             outboundService.startPicking(1L)
 
             val holdCaptor = argumentCaptor<HoldInventoryCommand>()
             verify(holdInventoryUseCase, times(2)).hold(holdCaptor.capture())
-            assertThat(holdCaptor.firstValue).isEqualTo(HoldInventoryCommand(2L, AllocationReferenceType.OUTBOUND, 1L, 10))
-            assertThat(holdCaptor.secondValue).isEqualTo(HoldInventoryCommand(1L, AllocationReferenceType.OUTBOUND, 1L, 5))
-        }
-
-        @Test
-        fun `유통기한이 모두 없으면 재고 생성 순서로 피킹한다`() = runTest {
-            val existingOutbound: Outbound = outbound().outboundId(1L).warehouseId(1L).status(OutboundStatus.REQUESTED).build()
-            val item: OutboundItem = outboundItem().outboundItemId(1L).outboundId(1L).productId(100L).requestedQuantity(15).build()
-            whenever(outboundRepository.findById(1L)).thenReturn(existingOutbound)
-            whenever(outboundItemRepository.findAllByOutboundId(1L)).thenReturn(flowOf(item))
-            whenever(getLotUseCase.getAllByProduct(100L)).thenReturn(flowOf(lotResult(10L, null), lotResult(20L, null)))
-            whenever(getInventoryUseCase.getAll(null, 100L, QualityStatus.NORMAL, null, listOf(1L))).thenReturn(
-                flowOf(
-                    inventoryResult(7L, 20L, 200L, 10),
-                    inventoryResult(3L, 10L, 100L, 20)
-                )
-            )
-            whenever(holdInventoryUseCase.hold(any())).thenReturn(allocationResult(900L, 1L, 5))
-            whenever(getWorkAreaUseCase.getByWarehouseIdAndAreaCode(1L, AreaCode.OUTBOUND)).thenReturn(workAreaResult(0))
-            whenever(occupyWorkAreaUseCase.occupy(any())).thenReturn(workAreaResult(15))
-            whenever(outboundItemRepository.save(any())).thenAnswer { it.getArgument(0) }
-            whenever(outboundRepository.save(any())).thenAnswer { it.getArgument(0) }
-
-            outboundService.startPicking(1L)
-
-            val holdCaptor = argumentCaptor<HoldInventoryCommand>()
-            verify(holdInventoryUseCase, times(1)).hold(holdCaptor.capture())
-            assertThat(holdCaptor.firstValue).isEqualTo(HoldInventoryCommand(3L, AllocationReferenceType.OUTBOUND, 1L, 15))
+            assertThat(holdCaptor.firstValue).isEqualTo(HoldInventoryCommand(3L, AllocationReferenceType.OUTBOUND, 1L, 3))
+            assertThat(holdCaptor.secondValue).isEqualTo(HoldInventoryCommand(7L, AllocationReferenceType.OUTBOUND, 1L, 2))
         }
 
         @Test
         fun `가용 재고가 부족하면 확보 가능한 만큼만 피킹한다`() = runTest {
-            val existingOutbound: Outbound = outbound().outboundId(1L).warehouseId(1L).status(OutboundStatus.REQUESTED).build()
-            val item: OutboundItem = outboundItem().outboundItemId(1L).outboundId(1L).productId(100L).requestedQuantity(15).build()
-            whenever(outboundRepository.findById(1L)).thenReturn(existingOutbound)
-            whenever(outboundItemRepository.findAllByOutboundId(1L)).thenReturn(flowOf(item))
-            whenever(getLotUseCase.getAllByProduct(100L)).thenReturn(flowOf(lotResult(10L, LocalDate.of(2026, 1, 1))))
-            whenever(getInventoryUseCase.getAll(null, 100L, QualityStatus.NORMAL, null, listOf(1L))).thenReturn(flowOf(inventoryResult(1L, 10L, 100L, 10)))
+            stubPicking(listOf(allocation(1L, 11L, "LOT-10", 15)))
+            whenever(getLotUseCase.getAllByProduct(100L)).thenReturn(flowOf(lotResult(10L, null)))
+            whenever(getInventoryUseCase.getAll(null, 100L, QualityStatus.NORMAL, null, listOf(1L)))
+                .thenReturn(flowOf(inventoryResult(1L, 10L, 100L, 10)))
             whenever(holdInventoryUseCase.hold(any())).thenReturn(allocationResult(900L, 1L, 10))
-            whenever(getWorkAreaUseCase.getByWarehouseIdAndAreaCode(1L, AreaCode.OUTBOUND)).thenReturn(workAreaResult(0))
-            whenever(occupyWorkAreaUseCase.occupy(any())).thenReturn(workAreaResult(10))
-            whenever(outboundItemRepository.save(any())).thenAnswer { it.getArgument(0) }
-            whenever(outboundRepository.save(any())).thenAnswer { it.getArgument(0) }
 
             outboundService.startPicking(1L)
 
@@ -259,6 +211,19 @@ class OutboundServiceTest {
             assertThat(itemCaptor.firstValue.pickedQuantity).isEqualTo(10)
             assertThat(itemCaptor.firstValue.shortageQuantity).isEqualTo(5)
             verify(occupyWorkAreaUseCase).occupy(OccupyWorkAreaCommand(1L, 10))
+        }
+
+        @Test
+        fun `WMS에 없는 Lot이면 점유하지 않고 0으로 피킹한다`() = runTest {
+            stubPicking(listOf(allocation(1L, 11L, "LOT-UNKNOWN", 5)), 5)
+            whenever(getLotUseCase.getAllByProduct(100L)).thenReturn(flowOf(lotResult(10L, null)))
+
+            outboundService.startPicking(1L)
+
+            verify(holdInventoryUseCase, never()).hold(any())
+            val allocationCaptor = argumentCaptor<OutboundAllocation>()
+            verify(outboundAllocationRepository).save(allocationCaptor.capture())
+            assertThat(allocationCaptor.firstValue.pickedQuantity).isEqualTo(0)
         }
 
         @Test
@@ -295,6 +260,8 @@ class OutboundServiceTest {
                 .outboundItemId(1L).outboundId(1L).productId(100L).requestedQuantity(15).pickedQuantity(15).build()
             whenever(outboundRepository.findById(1L)).thenReturn(existingOutbound)
             whenever(outboundItemRepository.findAllByOutboundId(1L)).thenReturn(flowOf(item))
+            val allocations = listOf(OutboundAllocation.reconstitute(1L, 1L, 11L, "LOT-10", null, 15, 15))
+            whenever(outboundAllocationRepository.findAllByOutboundItemIds(listOf(1L))).thenReturn(allocations)
             whenever(getAllocationUseCase.getAllHeldByReference(AllocationReferenceType.OUTBOUND, 1L)).thenReturn(
                 flowOf(allocationResult(901L, 1L, 5), allocationResult(902L, 2L, 10))
             )
@@ -314,6 +281,7 @@ class OutboundServiceTest {
             verify(releaseLocationUseCase).release(ReleaseLocationCommand(100L, 5))
             verify(releaseLocationUseCase).release(ReleaseLocationCommand(200L, 10))
             verify(releaseWorkAreaUseCase).release(ReleaseWorkAreaCommand(1L, 15))
+            verify(outboundFulfillmentCallRecorder).record(existingOutbound, allocations)
         }
 
         @Test
@@ -339,15 +307,6 @@ class OutboundServiceTest {
 
     @Nested
     inner class 창고_접근 {
-
-        @Test
-        fun `접근할 수 없는 창고에는 등록할 수 없다`() = runTest {
-            warehouseAccess.access = OnlyWarehouses(setOf(2L))
-
-            assertThatThrownBy { runBlocking { outboundService.register(RegisterOutboundCommand(1L, listOf(RegisterOutboundItemCommand(100L, 15)))) } }
-                .isInstanceOf(WarehouseAccessDeniedException::class.java)
-            verify(outboundRepository, never()).save(any())
-        }
 
         @Test
         fun `접근할 수 없는 창고의 문서는 단건 조회할 수 없다`() = runTest {

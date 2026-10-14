@@ -25,6 +25,10 @@ class OutboundPersistenceAdapter(
         return outboundR2dbcRepository.findById(outboundId)?.toDomain()
     }
 
+    override suspend fun findByWarehouseIdAndReservationId(warehouseId: Long, reservationId: Long): Outbound? {
+        return outboundR2dbcRepository.findByWarehouseIdAndReservationId(warehouseId, reservationId)?.toDomain()
+    }
+
     override fun findAll(status: OutboundStatus?, warehouseIds: List<Long>?): Flow<Outbound> {
         val statusCode = status?.name
         val ids: List<Long>? = warehouseIds?.takeIf { it.isNotEmpty() }

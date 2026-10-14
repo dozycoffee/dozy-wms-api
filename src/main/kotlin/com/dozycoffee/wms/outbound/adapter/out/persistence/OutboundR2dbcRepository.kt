@@ -6,6 +6,8 @@ import org.springframework.data.repository.kotlin.CoroutineCrudRepository
 
 interface OutboundR2dbcRepository : CoroutineCrudRepository<OutboundEntity, Long> {
 
+    suspend fun findByWarehouseIdAndReservationId(warehouseId: Long, reservationId: Long): OutboundEntity?
+
     @Query(
         """
         SELECT * FROM outbound

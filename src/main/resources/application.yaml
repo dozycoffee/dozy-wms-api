@@ -56,6 +56,11 @@ wms:
     listener:
       enabled: true
       topic: dozy.inventory.product
+  # inventory의 예약 확정 이벤트를 받아 출고를 만드는 리스너(ADR-0017 결정 3). 테스트에서는 끈다
+  reservation-event:
+    listener:
+      enabled: true
+      topic: dozy.inventory.reservation
   # 직원 창고 소속 변경 이벤트 발행(ADR-0020). 테스트에서는 발행기와 토픽 생성을 끈다
   warehouse-access-event:
     publisher:

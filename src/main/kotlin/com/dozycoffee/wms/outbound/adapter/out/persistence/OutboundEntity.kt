@@ -16,6 +16,15 @@ class OutboundEntity private constructor() : BaseEntity() {
     var warehouseId: Long? = null
         private set
 
+    var reservationId: Long? = null
+        private set
+
+    var channel: String? = null
+        private set
+
+    var externalOrderId: String? = null
+        private set
+
     var status: String? = null
         private set
 
@@ -23,7 +32,10 @@ class OutboundEntity private constructor() : BaseEntity() {
         return Outbound.reconstitute(
             requireNotNull(outboundId),
             requireNotNull(warehouseId),
-            OutboundStatus.valueOf(requireNotNull(status))
+            OutboundStatus.valueOf(requireNotNull(status)),
+            reservationId,
+            channel,
+            externalOrderId
         )
     }
 
@@ -32,6 +44,9 @@ class OutboundEntity private constructor() : BaseEntity() {
             val entity = OutboundEntity()
             entity.outboundId = domain.outboundId
             entity.warehouseId = domain.warehouseId
+            entity.reservationId = domain.reservationId
+            entity.channel = domain.channel
+            entity.externalOrderId = domain.externalOrderId
             entity.status = domain.status.name
             return entity
         }

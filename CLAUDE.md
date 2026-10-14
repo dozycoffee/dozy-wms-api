@@ -210,7 +210,7 @@ F Zone   : MD 상품  (상온) — F-01(230), F-02(190)                         
 - 불량 상품은 정상 재고로 등록하지 않고 반품 처리장 또는 폐기 처리장으로 이동
 
 **출고**
-- 피킹은 **FIFO** (선입선출) 방식 — `lot.expiration_date` 기준 오름차순 선택
+- 출고는 inventory의 예약 확정 이벤트(`RESERVATION_CONFIRMED`)로만 만들어지고(수동 등록·WMS 자체 FIFO 없음), 피킹은 확정 예약이 할당한 Lot 수량만큼 한다 ([ADR-0017](docs/adr/0017-separate-inventory-service.md) 결정 3). 완료하면 예약 출고 확정(`fulfillment`) 호출을 아웃박스에 기록한다
 
 **재고 적재**
 - 상품은 반드시 지정된 Zone(`product.category` → Zone 1:1 매핑, 실제 배치 시점은 `inbound_item.zone_id`)에만 적재 — `product`에 별도 `default_zone_id` 컬럼은 두지 않는다
