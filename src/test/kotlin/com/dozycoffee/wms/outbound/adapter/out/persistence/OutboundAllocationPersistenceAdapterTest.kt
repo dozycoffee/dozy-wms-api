@@ -128,4 +128,28 @@ class OutboundAllocationPersistenceAdapterTest {
         }.isInstanceOf(DataIntegrityViolationException::class.java)
         assertThat(outboundPersistenceAdapter.findByWarehouseIdAndReservationId(warehouseId, 8L)).isNull()
     }
+
+    @Test
+    fun `할당을 삭제하면 조회되지 않는다`() = runTest {
+        val warehouseId = createWarehouseId()
+        val productId = productPersistenceAdapter.save(product().build()).productId
+        val itemId = createOutboundItemId(warehouseId, productId, 7L)
+        val saved = outboundAllocationPersistenceAdapter.save(OutboundAllocation.create(itemId, 55L, "A", null, 4))
+
+        outboundAllocationPersistenceAdapter.delete(saved)
+
+        assertThat(outboundAllocationPersistenceAdapter.findAllByOutboundItemIds(listOf(itemId))).isEmpty()
+    }
+
+    @Test
+    fun `재할당 횟수가 저장되고 왕복된다`() = runTest {
+        val warehouseId = createWarehouseId()
+        val saved = outboundPersistenceAdapter.save(outbound().warehouseId(warehouseId).reservationId(7L).build())
+        assertThat(saved.reallocationCount).isEqualTo(0)
+
+        saved.markReallocated()
+        outboundPersistenceAdapter.save(saved)
+
+        assertThat(outboundPersistenceAdapter.findById(requireNotNull(saved.outboundId))?.reallocationCount).isEqualTo(1)
+    }
 }

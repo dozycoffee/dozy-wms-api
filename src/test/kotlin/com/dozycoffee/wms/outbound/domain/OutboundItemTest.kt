@@ -113,4 +113,15 @@ class OutboundItemTest {
                 .hasMessage(OutboundItemErrorCode.INVALID_PICKED_QUANTITY.message)
         }
     }
+
+    @Test
+    fun `이미 피킹한 상품도 재할당 뒤 다시 피킹 수량을 기록할 수 있다`() {
+        val item = com.dozycoffee.wms.outbound.fixture.OutboundItemTestBuilder.outboundItem().requestedQuantity(10).pickedQuantity(10).build()
+
+        item.repick(7)
+
+        assertThat(item.pickedQuantity).isEqualTo(7)
+        assertThat(item.shortageQuantity).isEqualTo(3)
+        assertThatThrownBy { item.repick(11) }.isInstanceOf(com.dozycoffee.wms.outbound.domain.exception.InvalidPickedQuantityException::class.java)
+    }
 }

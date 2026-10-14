@@ -6,15 +6,10 @@ import com.dozycoffee.wms.global.security.WarehouseAccessGuard
 import com.dozycoffee.wms.inventory.application.port.`in`.FulfillAllocationUseCase
 import com.dozycoffee.wms.inventory.application.port.`in`.GetAllocationUseCase
 import com.dozycoffee.wms.inventory.application.port.`in`.GetInventoryUseCase
-import com.dozycoffee.wms.inventory.application.port.`in`.GetLotUseCase
-import com.dozycoffee.wms.inventory.application.port.`in`.HoldInventoryUseCase
-import com.dozycoffee.wms.inventory.application.port.`in`.command.HoldInventoryCommand
 import com.dozycoffee.wms.inventory.application.port.`in`.result.AllocationResult
 import com.dozycoffee.wms.inventory.application.port.`in`.result.InventoryResult
-import com.dozycoffee.wms.inventory.application.port.`in`.result.LotResult
 import com.dozycoffee.wms.inventory.domain.enumeration.AllocationReferenceType
 import com.dozycoffee.wms.inventory.domain.enumeration.AllocationStatus
-import com.dozycoffee.wms.inventory.domain.enumeration.LotStatus
 import com.dozycoffee.wms.inventory.domain.enumeration.QualityStatus
 import com.dozycoffee.wms.outbound.application.port.out.OutboundAllocationRepository
 import com.dozycoffee.wms.outbound.application.port.out.OutboundItemRepository
@@ -38,7 +33,6 @@ import com.dozycoffee.wms.warehouse.application.port.`in`.result.LocationResult
 import com.dozycoffee.wms.warehouse.application.port.`in`.result.WorkAreaResult
 import com.dozycoffee.wms.warehouse.domain.enumeration.AreaCode
 import com.dozycoffee.wms.warehouse.domain.enumeration.AvailabilityStatus
-import java.time.LocalDate
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.toList
 import kotlinx.coroutines.runBlocking
@@ -54,6 +48,7 @@ import org.mockito.Spy
 import org.mockito.junit.jupiter.MockitoExtension
 import org.mockito.kotlin.any
 import org.mockito.kotlin.argumentCaptor
+import org.mockito.kotlin.eq
 import org.mockito.kotlin.never
 import org.mockito.kotlin.times
 import org.mockito.kotlin.verify
@@ -78,10 +73,7 @@ class OutboundServiceTest {
     private lateinit var getInventoryUseCase: GetInventoryUseCase
 
     @Mock
-    private lateinit var getLotUseCase: GetLotUseCase
-
-    @Mock
-    private lateinit var holdInventoryUseCase: HoldInventoryUseCase
+    private lateinit var outboundAllocationHolder: OutboundAllocationHolder
 
     @Mock
     private lateinit var getAllocationUseCase: GetAllocationUseCase
@@ -123,10 +115,6 @@ class OutboundServiceTest {
         return InventoryResult(inventoryId, 100L, lotId, locationId, availableQuantity, 0, availableQuantity, QualityStatus.NORMAL)
     }
 
-    private fun lotResult(lotId: Long, expirationDate: LocalDate?): LotResult {
-        return LotResult(lotId, "LOT-$lotId", 100L, null, expirationDate, LotStatus.NORMAL)
-    }
-
     private fun allocationResult(allocationId: Long, inventoryId: Long, quantity: Int): AllocationResult {
         return AllocationResult(allocationId, inventoryId, AllocationReferenceType.OUTBOUND, 1L, quantity, AllocationStatus.HELD)
     }
@@ -153,24 +141,15 @@ class OutboundServiceTest {
 
         @Test
         fun `확정 예약이 할당한 Lot별 수량만큼 점유하고 출고장을 점유한다`() = runTest {
-            stubPicking(listOf(allocation(1L, 11L, "LOT-10", 5), allocation(2L, 12L, "LOT-20", 10)))
-            whenever(getLotUseCase.getAllByProduct(100L)).thenReturn(
-                flowOf(lotResult(10L, LocalDate.of(2026, 1, 1)), lotResult(20L, LocalDate.of(2026, 2, 1)))
-            )
-            whenever(getInventoryUseCase.getAll(null, 100L, QualityStatus.NORMAL, null, listOf(1L))).thenReturn(
-                flowOf(inventoryResult(1L, 10L, 100L, 8), inventoryResult(2L, 20L, 200L, 20))
-            )
-            whenever(holdInventoryUseCase.hold(any())).thenReturn(allocationResult(900L, 1L, 5))
+            val allocations = listOf(allocation(1L, 11L, "LOT-10", 5), allocation(2L, 12L, "LOT-20", 10))
+            stubPicking(allocations)
+            whenever(outboundAllocationHolder.hold(any(), any(), eq(1L))).thenAnswer { (it.getArgument(1) as OutboundAllocation).quantity }
 
             val result = outboundService.startPicking(1L)
 
             assertThat(result.status).isEqualTo(OutboundStatus.PICKING)
-            val holdCaptor = argumentCaptor<HoldInventoryCommand>()
-            verify(holdInventoryUseCase, times(2)).hold(holdCaptor.capture())
-            assertThat(holdCaptor.firstValue).isEqualTo(HoldInventoryCommand(1L, AllocationReferenceType.OUTBOUND, 1L, 5))
-            assertThat(holdCaptor.secondValue).isEqualTo(HoldInventoryCommand(2L, AllocationReferenceType.OUTBOUND, 1L, 10))
+            verify(outboundAllocationHolder, times(2)).hold(any(), any(), eq(1L))
             verify(occupyWorkAreaUseCase).occupy(OccupyWorkAreaCommand(1L, 15))
-
             val allocationCaptor = argumentCaptor<OutboundAllocation>()
             verify(outboundAllocationRepository, times(2)).save(allocationCaptor.capture())
             assertThat(allocationCaptor.allValues.map { it.pickedQuantity }).containsExactly(5, 10)
@@ -180,29 +159,9 @@ class OutboundServiceTest {
         }
 
         @Test
-        fun `같은 Lot이 여러 Location에 나뉘어 있으면 재고 행 순서대로 점유한다`() = runTest {
-            stubPicking(listOf(allocation(1L, 11L, "LOT-10", 5)), 5)
-            whenever(getLotUseCase.getAllByProduct(100L)).thenReturn(flowOf(lotResult(10L, null)))
-            whenever(getInventoryUseCase.getAll(null, 100L, QualityStatus.NORMAL, null, listOf(1L))).thenReturn(
-                flowOf(inventoryResult(7L, 10L, 200L, 10), inventoryResult(3L, 10L, 100L, 3))
-            )
-            whenever(holdInventoryUseCase.hold(any())).thenReturn(allocationResult(900L, 1L, 3))
-
-            outboundService.startPicking(1L)
-
-            val holdCaptor = argumentCaptor<HoldInventoryCommand>()
-            verify(holdInventoryUseCase, times(2)).hold(holdCaptor.capture())
-            assertThat(holdCaptor.firstValue).isEqualTo(HoldInventoryCommand(3L, AllocationReferenceType.OUTBOUND, 1L, 3))
-            assertThat(holdCaptor.secondValue).isEqualTo(HoldInventoryCommand(7L, AllocationReferenceType.OUTBOUND, 1L, 2))
-        }
-
-        @Test
-        fun `가용 재고가 부족하면 확보 가능한 만큼만 피킹한다`() = runTest {
+        fun `가용 재고가 부족해 일부만 점유되면 확보한 만큼만 피킹한다`() = runTest {
             stubPicking(listOf(allocation(1L, 11L, "LOT-10", 15)))
-            whenever(getLotUseCase.getAllByProduct(100L)).thenReturn(flowOf(lotResult(10L, null)))
-            whenever(getInventoryUseCase.getAll(null, 100L, QualityStatus.NORMAL, null, listOf(1L)))
-                .thenReturn(flowOf(inventoryResult(1L, 10L, 100L, 10)))
-            whenever(holdInventoryUseCase.hold(any())).thenReturn(allocationResult(900L, 1L, 10))
+            whenever(outboundAllocationHolder.hold(any(), any(), eq(1L))).thenReturn(10)
 
             outboundService.startPicking(1L)
 
@@ -211,19 +170,6 @@ class OutboundServiceTest {
             assertThat(itemCaptor.firstValue.pickedQuantity).isEqualTo(10)
             assertThat(itemCaptor.firstValue.shortageQuantity).isEqualTo(5)
             verify(occupyWorkAreaUseCase).occupy(OccupyWorkAreaCommand(1L, 10))
-        }
-
-        @Test
-        fun `WMS에 없는 Lot이면 점유하지 않고 0으로 피킹한다`() = runTest {
-            stubPicking(listOf(allocation(1L, 11L, "LOT-UNKNOWN", 5)), 5)
-            whenever(getLotUseCase.getAllByProduct(100L)).thenReturn(flowOf(lotResult(10L, null)))
-
-            outboundService.startPicking(1L)
-
-            verify(holdInventoryUseCase, never()).hold(any())
-            val allocationCaptor = argumentCaptor<OutboundAllocation>()
-            verify(outboundAllocationRepository).save(allocationCaptor.capture())
-            assertThat(allocationCaptor.firstValue.pickedQuantity).isEqualTo(0)
         }
 
         @Test

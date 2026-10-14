@@ -20,6 +20,10 @@ class OutboundAllocationPersistenceAdapter(
         return outboundAllocationR2dbcRepository.save(entity).toDomain()
     }
 
+    override suspend fun delete(allocation: OutboundAllocation) {
+        outboundAllocationR2dbcRepository.deleteById(requireNotNull(allocation.outboundAllocationId))
+    }
+
     override suspend fun findAllByOutboundItemIds(outboundItemIds: Collection<Long>): List<OutboundAllocation> {
         if (outboundItemIds.isEmpty()) return emptyList()
         return outboundAllocationR2dbcRepository.findAllByOutboundItemIdIn(outboundItemIds).map { it.toDomain() }.toList()
