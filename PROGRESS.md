@@ -43,6 +43,11 @@
   `POST /api/v1/reservations/{id}/fulfillment` 호출(`wms-fulfillment-{출고 ID}`)을 아웃박스에 기록한다. 수동 출고 등록 API(`POST /api/outbounds`)와 FIFO 할당은 제거했다.
   피킹 불가 Lot 재할당, 취소·해제 반영은 F-038로 분리했다. 이벤트의 상품·창고가 사본/마스터에 아직 없으면 FK 위반으로 재시도 후 DLT로 간다.
   피킹 대상 Location은 아직 응답에 노출하지 않는다.
+- F-038: 피킹 불가 Lot 재할당을 추가했다. `POST /api/outbounds/{id}/reallocation`(부족 수량은 출고 할당 단위, 피킹 중인 예약 출고만)이 inventory
+  `POST /api/v1/reservations/{id}/reallocation`을 동기로 호출하고(멱등 키 `wms-reallocation-{출고 ID}-{회차}`, 회차는 로컬 반영 뒤에만 올림, `outbound.reallocation_count`, V10),
+  응답 기준으로 출고 할당을 갱신·삭제·추가하고 레거시 점유를 새 할당대로 다시 잡으며 출고장 점유량을 피킹 수량 증감만큼 보정한다. inventory 거부는 409
+  (`OUTBOUND_INVENTORY_REJECTED`), 통신 불가는 503(`OUTBOUND_INVENTORY_UNAVAILABLE`)이고 이때 로컬은 바뀌지 않는다. 할당 조회 `GET /api/outbound-allocations?outboundId=`를
+  추가했고 점유 로직은 `OutboundAllocationHolder`로 분리했다. 취소·해제는 F-039로 분리했다(OMS 진입점은 REST API로 결정).
 
 ### 2026-10-13
 
@@ -118,7 +123,7 @@
 ## 다음 세션에서 할 일
 
 1. inventory 수신부를 공통 envelope으로 바꾸고(inventory 저장소) 처음 연동 때 `POST /api/warehouse-members/republish` 실행
-2. F-038(재할당·취소·해제) → F-037(컷오버·재고 코드 제거·devseed 개편)
+2. F-039(출고 취소·해제) → F-037(컷오버·재고 코드 제거·devseed 개편)
    - F-032 후속: 두 서비스를 reset해 같은 시작점에서 띄우고 입고 1건 → inventory 수량 반영 → 대사 0건 확인
 3. 배포 체크리스트: inventory가 `dozy.inventory.product` 토픽을 로그 압축(`cleanup.policy=compact`)으로 생성, `dozy-admin-console`의 상품 등록·상태 변경을 inventory `/api/v1/products` 호출로 변경, dozy-auth admin에 `wms:` role 8개(`service` 포함) 등록하고 `svc-inventory` system client에 `wms:service`를 부여 (코드 작업 아님)
 4. `dozy-admin-console`: 출고 등록 화면 정리(`POST /api/outbounds` 제거, 출고는 예약 이벤트로만 생성)
