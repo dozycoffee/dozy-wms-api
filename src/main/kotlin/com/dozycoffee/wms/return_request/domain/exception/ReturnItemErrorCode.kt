@@ -40,5 +40,10 @@ enum class ReturnItemErrorCode(
         "RETURN_ITEM_MISSING_LOT_ASSIGNMENT",
         "검수 완료된 반품 상품에는 Lot 정보가 필요합니다."
     ),
+    LOT_NOT_REGISTERED(
+        ErrorType.CONFLICT,
+        "RETURN_ITEM_LOT_NOT_REGISTERED",
+        "등록되지 않은 Lot의 반품은 받을 수 없습니다. 입고된 Lot 번호인지 확인해 주세요."
+    ),
     RETURN_ITEM_NOT_FOUND(ErrorType.NOT_FOUND, "RETURN_ITEM_NOT_FOUND", "존재하지 않는 반품 상품입니다.")
 }

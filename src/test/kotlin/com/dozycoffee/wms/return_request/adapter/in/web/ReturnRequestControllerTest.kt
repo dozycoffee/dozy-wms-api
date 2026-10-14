@@ -136,7 +136,7 @@ class ReturnRequestControllerTest {
             }
 
             webTestClient.patch().uri("/api/return-requests/{returnRequestId}/complete", 1L)
-                .bodyValue(CompleteReturnRequestRequest(listOf(ReturnItemLotAssignmentRequest(1L, "LOT-1", null, null))))
+                .bodyValue(CompleteReturnRequestRequest(listOf(ReturnItemLotAssignmentRequest(1L, "LOT-1"))))
                 .exchange()
                 .expectStatus().isOk
                 .expectBody()
