@@ -18,6 +18,9 @@ import com.dozycoffee.wms.global.security.WarehouseAccessDeniedException
 import com.dozycoffee.wms.global.security.WarehouseAccessGuard
 import com.dozycoffee.wms.inventory.application.port.`in`.ConfirmInventoryDisposalUseCase
 import com.dozycoffee.wms.inventory.application.port.`in`.GetInventoryUseCase
+import com.dozycoffee.wms.inventory.application.port.`in`.GetLotUseCase
+import com.dozycoffee.wms.inventory.application.port.`in`.result.LotResult
+import com.dozycoffee.wms.inventory.domain.enumeration.LotStatus
 import com.dozycoffee.wms.inventory.application.port.`in`.result.InventoryResult
 import com.dozycoffee.wms.inventory.domain.enumeration.QualityStatus
 import com.dozycoffee.wms.support.SwitchableWarehouseAccess
@@ -76,6 +79,12 @@ class DisposalServiceTest {
 
     @Mock
     private lateinit var releaseLocationUseCase: ReleaseLocationUseCase
+
+    @Mock
+    private lateinit var getLotUseCase: GetLotUseCase
+
+    @Mock
+    private lateinit var disposalInventoryCallRecorder: DisposalInventoryCallRecorder
 
     private val warehouseAccess = SwitchableWarehouseAccess()
 
@@ -180,6 +189,7 @@ class DisposalServiceTest {
             whenever(disposalRepository.findById(1L)).thenReturn(existingDisposal)
             whenever(disposalItemRepository.findAllByDisposalId(1L)).thenReturn(flowOf(item))
             whenever(getInventoryUseCase.getById(10L)).thenReturn(inventoryResult(10L, 5, 200L))
+            whenever(getLotUseCase.getById(1L)).thenReturn(LotResult(1L, "LOT-1", 100L, null, null, LotStatus.EXPIRED))
             whenever(releaseLocationUseCase.release(any())).thenReturn(locationResult(200L))
             whenever(confirmInventoryDisposalUseCase.confirmDisposal(10L, 1L)).thenReturn(inventoryResult(10L, 0))
             whenever(getWorkAreaUseCase.getByWarehouseIdAndAreaCode(1L, AreaCode.DISPOSAL)).thenReturn(workAreaResult(5))
@@ -192,6 +202,7 @@ class DisposalServiceTest {
             verify(releaseLocationUseCase).release(ReleaseLocationCommand(200L, 5))
             verify(confirmInventoryDisposalUseCase).confirmDisposal(10L, 1L)
             verify(releaseWorkAreaUseCase).release(ReleaseWorkAreaCommand(1L, 5))
+            verify(disposalInventoryCallRecorder).record(1L, item, inventoryResult(10L, 5, 200L), "LOT-1")
         }
 
         @Test

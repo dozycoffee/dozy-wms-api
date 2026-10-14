@@ -27,6 +27,10 @@
   기록한다. 멱등 키는 `wms-return-{반품 상품 ID}`, 불량 판정은 `qualityStatus=DEFECTIVE`, 실제 수량 0은 기록하지 않는다. 반품은 등록된 Lot만 받으므로
   (ADR-0017 결정 4) 없는 Lot 번호면 409(`RETURN_ITEM_LOT_NOT_REGISTERED`)로 완료를 거부하고 반품으로 Lot을 새로 만들던 로직을 없앴다. Lot 지정
   요청(`lotAssignments`)에서 제조일자·유통기한 필드를 뺐다(콘솔이 보내도 무시된다).
+- F-033: 폐기 확정(`DisposalService.complete`)이 폐기 상품마다 `DisposalInventoryCallRecorder`로 `POST /api/v1/disposals` 호출을 같은 트랜잭션에서 기록한다.
+  멱등 키는 `wms-disposal-{폐기 상품 ID}`, 품질 상태는 확정 시점 재고의 `DEFECTIVE`/`DISPOSAL_SCHEDULED`, Lot 번호는 재고의 Lot에서 가져온다. `LOT_EXPIRED` 수신과
+  부분 폐기 허용은 장부 기준 전환이 필요해 F-037로 넘겼고(부분 폐기는 전량 유지), 두 서비스 스캔 시차로 호출이 `DEAD`가 되면 운영자가 재전송하는 방침을
+  ADR-0023에 적었다.
 
 ### 2026-10-13
 
@@ -102,7 +106,7 @@
 ## 다음 세션에서 할 일
 
 1. inventory 수신부를 공통 envelope으로 바꾸고(inventory 저장소) 처음 연동 때 `POST /api/warehouse-members/republish` 실행
-2. F-033 폐기 → F-036 실사 조정 → F-035 출고(각각 호출 기록 추가, ADR-0023) → F-037(컷오버·재고 코드 제거·devseed 개편)
+2. F-036 실사 조정 → F-035 출고(각각 호출 기록 추가, ADR-0023) → F-037(컷오버·재고 코드 제거·devseed 개편)
    - F-032 후속: 두 서비스를 reset해 같은 시작점에서 띄우고 입고 1건 → inventory 수량 반영 → 대사 0건 확인
 3. 배포 체크리스트: inventory가 `dozy.inventory.product` 토픽을 로그 압축(`cleanup.policy=compact`)으로 생성, `dozy-admin-console`의 상품 등록·상태 변경을 inventory `/api/v1/products` 호출로 변경, dozy-auth admin에 `wms:` role 8개(`service` 포함) 등록하고 `svc-inventory` system client에 `wms:service`를 부여 (코드 작업 아님)
 4. `dozy-admin-console`의 `httpClient`가 에러 메시지를 `detail`(없으면 `code` 기반 문구)로 읽도록 갱신 (F-026 후속, 콘솔 저장소 작업)
