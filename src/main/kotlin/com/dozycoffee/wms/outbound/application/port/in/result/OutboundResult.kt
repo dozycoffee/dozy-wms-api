@@ -6,14 +6,20 @@ import com.dozycoffee.wms.outbound.domain.model.Outbound
 data class OutboundResult(
     val outboundId: Long,
     val warehouseId: Long,
-    val status: OutboundStatus
+    val status: OutboundStatus,
+    val reservationId: Long?,
+    val channel: String?,
+    val externalOrderId: String?
 ) {
     companion object {
         fun from(outbound: Outbound): OutboundResult {
             return OutboundResult(
                 requireNotNull(outbound.outboundId),
                 outbound.warehouseId,
-                outbound.status
+                outbound.status,
+                outbound.reservationId,
+                outbound.channel,
+                outbound.externalOrderId
             )
         }
     }

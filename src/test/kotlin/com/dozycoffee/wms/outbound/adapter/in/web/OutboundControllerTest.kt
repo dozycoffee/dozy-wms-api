@@ -1,11 +1,8 @@
 package com.dozycoffee.wms.outbound.adapter.`in`.web
 
 import com.dozycoffee.auth.test.WithDozyPrincipal
-import com.dozycoffee.wms.outbound.adapter.`in`.web.request.RegisterOutboundItemRequest
-import com.dozycoffee.wms.outbound.adapter.`in`.web.request.RegisterOutboundRequest
 import com.dozycoffee.wms.outbound.application.port.`in`.CompleteOutboundUseCase
 import com.dozycoffee.wms.outbound.application.port.`in`.GetOutboundUseCase
-import com.dozycoffee.wms.outbound.application.port.`in`.RegisterOutboundUseCase
 import com.dozycoffee.wms.outbound.application.port.`in`.StartOutboundInspectingUseCase
 import com.dozycoffee.wms.outbound.application.port.`in`.StartOutboundPickingUseCase
 import com.dozycoffee.wms.outbound.application.port.`in`.result.OutboundResult
@@ -15,7 +12,6 @@ import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.runBlocking
 import org.junit.jupiter.api.Nested
 import org.junit.jupiter.api.Test
-import org.mockito.kotlin.any
 import org.mockito.kotlin.eq
 import org.mockito.kotlin.whenever
 import org.springframework.beans.factory.annotation.Autowired
@@ -31,9 +27,6 @@ class OutboundControllerTest {
     private lateinit var webTestClient: WebTestClient
 
     @MockitoBean
-    private lateinit var registerOutboundUseCase: RegisterOutboundUseCase
-
-    @MockitoBean
     private lateinit var startOutboundPickingUseCase: StartOutboundPickingUseCase
 
     @MockitoBean
@@ -46,32 +39,7 @@ class OutboundControllerTest {
     private lateinit var getOutboundUseCase: GetOutboundUseCase
 
     private fun sampleResult(status: OutboundStatus = OutboundStatus.REQUESTED): OutboundResult {
-        return OutboundResult(1L, 1L, status)
-    }
-
-    @Nested
-    inner class 출고_등록 {
-
-        @Test
-        fun `유효한 요청이면 201과 등록된 출고를 반환한다`() {
-            runBlocking { whenever(registerOutboundUseCase.register(any())).thenReturn(sampleResult()) }
-
-            webTestClient.post().uri("/api/outbounds")
-                .bodyValue(RegisterOutboundRequest(1L, listOf(RegisterOutboundItemRequest(100L, 15))))
-                .exchange()
-                .expectStatus().isCreated
-                .expectBody()
-                .jsonPath("$.outboundId").isEqualTo(1)
-                .jsonPath("$.status").isEqualTo("REQUESTED")
-        }
-
-        @Test
-        fun `필수값이 비어있으면 400을 반환한다`() {
-            webTestClient.post().uri("/api/outbounds")
-                .bodyValue(RegisterOutboundRequest(null, emptyList()))
-                .exchange()
-                .expectStatus().isBadRequest
-        }
+        return OutboundResult(1L, 1L, status, 7L, "OMS", "ORDER-1")
     }
 
     @Nested
@@ -84,6 +52,10 @@ class OutboundControllerTest {
             webTestClient.get().uri("/api/outbounds/{outboundId}", 1L)
                 .exchange()
                 .expectStatus().isOk
+                .expectBody()
+                .jsonPath("$.reservationId").isEqualTo(7)
+                .jsonPath("$.channel").isEqualTo("OMS")
+                .jsonPath("$.externalOrderId").isEqualTo("ORDER-1")
         }
 
         @Test
