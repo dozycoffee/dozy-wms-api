@@ -4,8 +4,8 @@
 
 - 전체 도메인(warehouse, product, inventory, inbound, outbound, return_request, disposal,
   stock_audit)의 Hexagonal 3계층(도메인/서비스/영속성/REST)이 구현돼 있다. Flyway 마이그레이션은 V1(테이블)·V2(외래키) baseline 이후 V3, V4가 추가돼 있다. 개발용 목 데이터 시더(`devseed`)가 있다.
-- 재고(수량·Lot·예약·상품 마스터)는 `dozy-inventory-api`로 분리됐다. 이 저장소의 `inventory` 패키지는 제거 대상이며, 연동·제거 계획은 ADR-0017과
-  F-027~F-037로 추적한다. 그 전까지는 기존 코드가 그대로 동작한다.
+- 재고(수량·Lot·예약·상품 마스터)는 `dozy-inventory-api`로 분리됐고 이 저장소의 레거시 `inventory` 패키지는 삭제됐다(F-040). 재고 관련 코드는 Location 장부
+  (`location_stock`)와 inventory 호출 아웃박스(`inventory_call`)만 남는다. 경위는 ADR-0017, ADR-0024와 F-027~F-040으로 추적한다.
 - 인증은 ADR-0012 기준으로 `Actor`(누구인가)와 `WarehouseAccess`(어느 창고)를 분리해 구현돼 있다. dozy-auth 스타터 연동(토큰 검증,
   F-017), 창고 접근 가드(F-022), role 인가와 `@PreAuthorize`(F-023)가 완료됐고 role의 Auth 등록만 배포 작업으로 남아 있다.
 - 에러 응답은 `dozy-auth` 규약의 RFC 9457 Problem Details(`code`, `traceId`, `errors[]`)로 통일돼 있고 모든 응답에
@@ -14,6 +14,25 @@
   있다. FIFO 정렬·만료 스캔·Allocation HELD 유니크 등 SQL 의존 로직은 이미 이 레이어가 커버한다.
 
 ## 세션 로그
+
+### 2026-10-14 (E2E 검증)
+
+- F-032 후속: 두 서비스를 격리된 빈 DB(`dozy_wms_e2e`, `dozy_inventory_e2e`)와 WMS compose Kafka(9094)로 띄워 입고 1건을 끝까지 검증했다. 상품을 inventory에 등록하니 `dozy.inventory.product`
+  이벤트로 WMS 사본이 채워졌고, 입고 등록 → 처리 시작 → 검수(100개, LOT-E2E-001) → 완료 후 `inventory_call`(`INBOUND_RECEIPT`)이 첫 시도에 `SENT`가 됐다. inventory에는 재고 100/Lot 1/이력 1이
+  생겼고, 대사 배치(cron을 1분으로 바꿔 실행)가 `COMPLETED`, 확인 1건, 불일치 0건이었다. 검증 뒤 e2e DB와 프로세스는 정리했다.
+- 로컬 실행 메모: Gradle `bootRun`은 `.env`를 환경변수로 덮어써서 셸에서 준 `DB_NAME`이 무시된다. DB를 바꾸려면 `--args="--spring.r2dbc.url=... --spring.flyway.url=..."`로 넘긴다.
+- 출고 E2E: 입고로 재고 100개를 만든 뒤 inventory에서 예약(30개)을 만들고 확정하니 `RESERVATION_CONFIRMED` 이벤트로 WMS 출고(`REQUESTED`)와 할당(LOT-E2E-001, 30개)이 생겼다.
+  피킹 → 검수 → 완료 후 `FULFILLMENT` 호출(`wms-fulfillment-1`)이 첫 시도에 `SENT`가 되어 inventory 예약이 `FULFILLED`, 수량이 70이 됐고 WMS 장부도 70이었다.
+  대사 배치는 두 번 모두 불일치 0건이었다.
+- 나머지 흐름 E2E(전부 통과, 같은 격리 환경): `LOT_EXPIRED`(만료 Lot 20개 → 양쪽 `DISPOSAL_SCHEDULED` + 폐기 신청 `REQUESTED`) → 폐기 승인·확정 → `DISPOSAL` 호출 `SENT`로
+  양쪽 수량 0. 반품(정상 5·불량 3)은 등록 안 된 Lot이면 409로 거부되고 호출이 남지 않으며, 정상 Lot이면 `RETURN` 호출 2건이 `SENT`로 inventory 정상/불량 수량에 반영됐다.
+  실사 마감(97/50/3/6 계수)은 동기 조정으로 inventory 수량이 WMS와 같아졌다. 출고 취소는 피킹 전/후 모두 `RELEASE` 호출이 나가 예약이 `RELEASED`가 됐다.
+  inventory가 멈춰 있던 동안 쌓인 호출은 재시도로 전송됐다.
+- **버그 수정**: 피킹 부족 재할당에서 응답에 새 Lot이 있으면 `OutboundReallocationService.applyToItem`이 아직 저장하지 않은 할당(ID 없음)을 `OutboundAllocationHolder.hold`에
+  넘겨 500(`IllegalArgumentException`)이 났다. 이때 inventory는 재할당을 이미 수락하고 WMS 로컬은 롤백돼 출고를 완료하면 `fulfillment` 본문이 어긋나 400(`DEAD`)이 되고,
+  `DEAD`가 그 창고의 호출 큐를 멈춰 `RELEASE`가 밀렸다. 새 할당을 먼저 저장해 ID를 받은 뒤 점유하도록 고쳤고 ID 없는 할당을 거부하는 회귀 테스트를 추가했다.
+  수정 후 LOT-A 6 + LOT-B 4로 나뉘어 `fulfillment`가 일치했다. 이 어긋남은 대사가 불일치(-10)로 잡았고 보정안 승인으로 복구됐다(수량이 바뀐 뒤 첫 승인은 409로 재계산을 요구).
+- 참고: 피킹 부족을 보고하면 inventory가 그 재고 행을 신규 할당에서 제외(`allocation_hold`)한다. 보고한 행이 늘어나면 대체 재고가 없어져 재할당이 409가 될 수 있다.
 
 ### 2026-10-14
 
@@ -140,7 +159,6 @@
 
 1. inventory 수신부를 공통 envelope으로 바꾸고(inventory 저장소) 처음 연동 때 `POST /api/warehouse-members/republish` 실행
 2. (완료) 재고 이관 F-027~F-040. 남은 것은 아래 배포·콘솔 작업과 후순위 항목
-   - F-032 후속: 두 서비스를 reset해 같은 시작점에서 띄우고 입고 1건 → inventory 수량 반영 → 대사 0건 확인
 3. 배포 체크리스트: inventory가 `dozy.inventory.product` 토픽을 로그 압축(`cleanup.policy=compact`)으로 생성, `dozy-admin-console`의 상품 등록·상태 변경을 inventory `/api/v1/products` 호출로 변경, dozy-auth admin에 `wms:` role 8개(`service` 포함) 등록하고 `svc-inventory`·OMS system client에 `wms:service`를 부여 (코드 작업 아님)
 4. `dozy-admin-console`: 출고 등록 화면 정리(`POST /api/outbounds` 제거, 출고는 예약 이벤트로만 생성), 재고 목록·상세·Lot·이력 화면은 inventory API로 전환(`/api/inventories`(zone-summary 제외)·`/api/lots`·`/api/inventory-histories` 제거, 폐기 등록은 `inventoryId` 대신 `locationStockId`)
 5. `dozy-admin-console`의 `httpClient`가 에러 메시지를 `detail`(없으면 `code` 기반 문구)로 읽도록 갱신 (F-026 후속, 콘솔 저장소 작업)
