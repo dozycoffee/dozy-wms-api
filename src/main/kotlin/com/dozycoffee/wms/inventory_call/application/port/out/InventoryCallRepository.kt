@@ -12,6 +12,9 @@ interface InventoryCallRepository {
 
     suspend fun findByIdempotencyKey(idempotencyKey: String): InventoryCall?
 
+    /** 창고에서 아직 끝나지 않은(PENDING, DEAD) 호출 수 */
+    suspend fun countUnfinishedByWarehouseId(warehouseId: Long): Long
+
     fun findAll(status: InventoryCallStatus?, limit: Int): Flow<InventoryCall>
 
     /**

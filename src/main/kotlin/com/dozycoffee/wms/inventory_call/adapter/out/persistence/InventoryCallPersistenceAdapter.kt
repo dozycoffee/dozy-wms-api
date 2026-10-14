@@ -40,6 +40,10 @@ class InventoryCallPersistenceAdapter(
         return entities.map { it.toDomain() }
     }
 
+    override suspend fun countUnfinishedByWarehouseId(warehouseId: Long): Long {
+        return inventoryCallR2dbcRepository.countUnfinishedByWarehouseId(warehouseId)
+    }
+
     override fun findDispatchable(now: LocalDateTime, limit: Int): Flow<InventoryCall> {
         return inventoryCallR2dbcRepository.findDispatchable(now, limit).map { it.toDomain() }
     }

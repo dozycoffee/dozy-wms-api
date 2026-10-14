@@ -1,6 +1,7 @@
 package com.dozycoffee.wms.inventory_call.application.service
 
 import com.dozycoffee.wms.global.persistence.translatingDuplicateKey
+import com.dozycoffee.wms.inventory_call.application.port.`in`.CheckInventoryCallBacklogUseCase
 import com.dozycoffee.wms.inventory_call.application.port.`in`.DiscardInventoryCallUseCase
 import com.dozycoffee.wms.inventory_call.application.port.`in`.GetInventoryCallUseCase
 import com.dozycoffee.wms.inventory_call.application.port.`in`.RecordInventoryCallUseCase
@@ -26,7 +27,8 @@ class InventoryCallService(
 ) : RecordInventoryCallUseCase,
     GetInventoryCallUseCase,
     RequeueInventoryCallUseCase,
-    DiscardInventoryCallUseCase {
+    DiscardInventoryCallUseCase,
+    CheckInventoryCallBacklogUseCase {
 
     @Transactional
     override suspend fun record(command: RecordInventoryCallCommand): InventoryCallResult {
@@ -49,6 +51,11 @@ class InventoryCallService(
             inventoryCallRepository.save(call)
         }
         return InventoryCallResult.from(saved)
+    }
+
+    @Transactional(readOnly = true)
+    override suspend fun hasUnfinished(warehouseId: Long): Boolean {
+        return inventoryCallRepository.countUnfinishedByWarehouseId(warehouseId) > 0
     }
 
     @Transactional(readOnly = true)
