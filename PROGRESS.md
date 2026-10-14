@@ -37,6 +37,12 @@
   (`STOCK_AUDIT_INVENTORY_CALLS_PENDING`), inventory 거부는 409(`STOCK_AUDIT_INVENTORY_REJECTED`), 통신 불가는 503(`STOCK_AUDIT_INVENTORY_UNAVAILABLE`, `ErrorType.UNAVAILABLE` 추가)이다.
   승인 필요 판단은 Location 항목·합산 기준 중 엄격한 쪽이고 warehouse_admin이면 승인자를 항상 전달한다. 임계치는 WMS(`wms.stock-audit.adjustment-approval-threshold`)와
   inventory(카테고리별, 기본 100)가 따로 있으므로 inventory 쪽 값이 더 낮게 설정되면 거부될 수 있다.
+- F-035(A): 출고를 예약 확정 이벤트 기반으로 전환했다. `ReservationEventListener`가 `dozy.inventory.reservation`의 `RESERVATION_CONFIRMED`를 받아
+  (`wms.reservation-event.listener.*`) 출고(예약 ID·채널·외부 주문 ID, 유니크 `(warehouse_id, reservation_id)`)와 상품별 Lot 할당(`outbound_allocation`, V9)을 만들고,
+  같은 예약은 한 번만 만든다. 피킹은 FIFO 대신 확정 예약의 Lot 할당만큼 레거시 `Inventory`를 점유하며, 완료하면 모든 할당의 실출고 수량(피킹하지 못한 할당은 0)으로
+  `POST /api/v1/reservations/{id}/fulfillment` 호출(`wms-fulfillment-{출고 ID}`)을 아웃박스에 기록한다. 수동 출고 등록 API(`POST /api/outbounds`)와 FIFO 할당은 제거했다.
+  피킹 불가 Lot 재할당, 취소·해제 반영은 F-038로 분리했다. 이벤트의 상품·창고가 사본/마스터에 아직 없으면 FK 위반으로 재시도 후 DLT로 간다.
+  피킹 대상 Location은 아직 응답에 노출하지 않는다.
 
 ### 2026-10-13
 
@@ -112,10 +118,11 @@
 ## 다음 세션에서 할 일
 
 1. inventory 수신부를 공통 envelope으로 바꾸고(inventory 저장소) 처음 연동 때 `POST /api/warehouse-members/republish` 실행
-2. F-035 출고(각각 호출 기록 추가, ADR-0023) → F-037(컷오버·재고 코드 제거·devseed 개편)
+2. F-038(재할당·취소·해제) → F-037(컷오버·재고 코드 제거·devseed 개편)
    - F-032 후속: 두 서비스를 reset해 같은 시작점에서 띄우고 입고 1건 → inventory 수량 반영 → 대사 0건 확인
 3. 배포 체크리스트: inventory가 `dozy.inventory.product` 토픽을 로그 압축(`cleanup.policy=compact`)으로 생성, `dozy-admin-console`의 상품 등록·상태 변경을 inventory `/api/v1/products` 호출로 변경, dozy-auth admin에 `wms:` role 8개(`service` 포함) 등록하고 `svc-inventory` system client에 `wms:service`를 부여 (코드 작업 아님)
-4. `dozy-admin-console`의 `httpClient`가 에러 메시지를 `detail`(없으면 `code` 기반 문구)로 읽도록 갱신 (F-026 후속, 콘솔 저장소 작업)
-5. (후순위) 창고 배정 변경 시 요청마다 `warehouse_member`를 조회하는 비용 점검: 실측 후 필요할 때만 캐시 검토
-6. (후순위) 입고 검수 후속: 입고 등록이 같은 상품의 중복 줄을 허용하는지 확인(ADR-0016 가정), 잔여 유통기한 비율 기준·수량 허용 오차·로트 자동 생성 등 범위 밖 항목 재검토
-7. (후순위) F-019: 실측 병목 확인 시 착수
+4. `dozy-admin-console`: 출고 등록 화면 정리(`POST /api/outbounds` 제거, 출고는 예약 이벤트로만 생성)
+5. `dozy-admin-console`의 `httpClient`가 에러 메시지를 `detail`(없으면 `code` 기반 문구)로 읽도록 갱신 (F-026 후속, 콘솔 저장소 작업)
+6. (후순위) 창고 배정 변경 시 요청마다 `warehouse_member`를 조회하는 비용 점검: 실측 후 필요할 때만 캐시 검토
+7. (후순위) 입고 검수 후속: 입고 등록이 같은 상품의 중복 줄을 허용하는지 확인(ADR-0016 가정), 잔여 유통기한 비율 기준·수량 허용 오차·로트 자동 생성 등 범위 밖 항목 재검토
+8. (후순위) F-019: 실측 병목 확인 시 착수
