@@ -12,7 +12,6 @@ import com.dozycoffee.wms.global.security.WarehouseAccessGuard
 import com.dozycoffee.wms.inventory.application.port.`in`.GetLotUseCase
 import com.dozycoffee.wms.inventory.application.port.`in`.MarkInventoryDefectiveUseCase
 import com.dozycoffee.wms.inventory.application.port.`in`.RegisterInventoryUseCase
-import com.dozycoffee.wms.inventory.application.port.`in`.RegisterLotUseCase
 import com.dozycoffee.wms.inventory.application.port.`in`.command.RegisterInventoryCommand
 import com.dozycoffee.wms.inventory.application.port.`in`.result.InventoryResult
 import com.dozycoffee.wms.inventory.application.port.`in`.result.LotResult
@@ -33,6 +32,7 @@ import com.dozycoffee.wms.return_request.domain.enumeration.ReturnInspectionResu
 import com.dozycoffee.wms.return_request.domain.enumeration.ReturnRequestStatus
 import com.dozycoffee.wms.return_request.domain.exception.InsufficientZoneCapacityException
 import com.dozycoffee.wms.return_request.domain.exception.MissingLotAssignmentException
+import com.dozycoffee.wms.return_request.domain.exception.ReturnLotNotRegisteredException
 import com.dozycoffee.wms.return_request.domain.exception.NotAllReturnItemsInspectedException
 import com.dozycoffee.wms.return_request.domain.exception.ReturnRequestNotFoundException
 import com.dozycoffee.wms.return_request.domain.model.ReturnItem
@@ -108,7 +108,7 @@ class ReturnRequestServiceTest {
     private lateinit var getLotUseCase: GetLotUseCase
 
     @Mock
-    private lateinit var registerLotUseCase: RegisterLotUseCase
+    private lateinit var returnInventoryCallRecorder: ReturnInventoryCallRecorder
 
     @Mock
     private lateinit var registerInventoryUseCase: RegisterInventoryUseCase
@@ -197,6 +197,19 @@ class ReturnRequestServiceTest {
     @Nested
     inner class 반품_완료 {
 
+        private suspend fun stubSingleItemCompletion(returnRequest: ReturnRequest, item: ReturnItem) {
+            whenever(returnRequestRepository.findById(1L)).thenReturn(returnRequest)
+            whenever(returnItemRepository.findAllByReturnRequestId(1L)).thenReturn(flowOf(item))
+            whenever(getProductUseCase.getById(100L)).thenReturn(productResult(100L))
+            whenever(getZoneUseCase.getByWarehouseIdAndZoneCode(1L, ZoneCode.A)).thenReturn(zoneResult(10L, ZoneCode.A))
+            whenever(getLotUseCase.getAllByProduct(100L))
+                .thenReturn(flowOf(LotResult(500L, "LOT-1", 100L, null, null, LotStatus.NORMAL)))
+            whenever(getLocationUseCase.getByZoneId(10L)).thenReturn(flowOf(locationResult(1L, 10L, 70, 10)))
+            whenever(getWorkAreaUseCase.getByWarehouseIdAndAreaCode(1L, AreaCode.RETURN)).thenReturn(workAreaResult(5))
+            whenever(releaseWorkAreaUseCase.release(any())).thenReturn(workAreaResult(0))
+            whenever(returnRequestRepository.save(any())).thenAnswer { it.getArgument(0) }
+        }
+
         @Test
         fun `정상 판정 상품은 Lot을 확정하고 Location에 분산 배치해 재고로 복귀시킨다`() = runTest {
             val existingReturnRequest: ReturnRequest =
@@ -214,9 +227,7 @@ class ReturnRequestServiceTest {
             whenever(getProductUseCase.getById(100L)).thenReturn(productResult(100L))
             whenever(getZoneUseCase.getByWarehouseIdAndZoneCode(1L, ZoneCode.A))
                 .thenReturn(zoneResult(10L, ZoneCode.A))
-            whenever(getLotUseCase.getAllByProduct(100L)).thenReturn(emptyFlow())
-            val registeredLot = LotResult(500L, "LOT-1", 100L, null, null, LotStatus.NORMAL)
-            whenever(registerLotUseCase.register(any())).thenReturn(registeredLot)
+            whenever(getLotUseCase.getAllByProduct(100L)).thenReturn(flowOf(LotResult(500L, "LOT-1", 100L, null, null, LotStatus.NORMAL)))
             whenever(getLocationUseCase.getByZoneId(10L))
                 .thenReturn(flowOf(locationResult(1L, 10L, 70, 10)))
             whenever(occupyLocationUseCase.occupy(any())).thenReturn(locationResult(1L, 10L, 70, 15))
@@ -226,7 +237,7 @@ class ReturnRequestServiceTest {
             whenever(releaseWorkAreaUseCase.release(any())).thenReturn(workAreaResult(0))
             whenever(returnRequestRepository.save(any())).thenAnswer { it.getArgument(0) }
 
-            val command = CompleteReturnRequestCommand(1L, listOf(ReturnItemLotAssignmentCommand(1L, "LOT-1", null, null)))
+            val command = CompleteReturnRequestCommand(1L, listOf(ReturnItemLotAssignmentCommand(1L, "LOT-1")))
             val result = returnRequestService.complete(command)
 
             assertThat(result.status).isEqualTo(ReturnRequestStatus.COMPLETED)
@@ -252,9 +263,7 @@ class ReturnRequestServiceTest {
             whenever(getProductUseCase.getById(100L)).thenReturn(productResult(100L))
             whenever(getZoneUseCase.getByWarehouseIdAndZoneCode(1L, ZoneCode.A))
                 .thenReturn(zoneResult(10L, ZoneCode.A))
-            whenever(getLotUseCase.getAllByProduct(100L)).thenReturn(emptyFlow())
-            val registeredLot = LotResult(500L, "LOT-1", 100L, null, null, LotStatus.NORMAL)
-            whenever(registerLotUseCase.register(any())).thenReturn(registeredLot)
+            whenever(getLotUseCase.getAllByProduct(100L)).thenReturn(flowOf(LotResult(500L, "LOT-1", 100L, null, null, LotStatus.NORMAL)))
             whenever(getLocationUseCase.getByZoneId(10L))
                 .thenReturn(flowOf(locationResult(1L, 10L, 70, 10)))
             whenever(occupyLocationUseCase.occupy(any())).thenReturn(locationResult(1L, 10L, 70, 15))
@@ -268,7 +277,7 @@ class ReturnRequestServiceTest {
             whenever(releaseWorkAreaUseCase.release(any())).thenReturn(workAreaResult(0))
             whenever(returnRequestRepository.save(any())).thenAnswer { it.getArgument(0) }
 
-            val command = CompleteReturnRequestCommand(1L, listOf(ReturnItemLotAssignmentCommand(1L, "LOT-1", null, null)))
+            val command = CompleteReturnRequestCommand(1L, listOf(ReturnItemLotAssignmentCommand(1L, "LOT-1")))
             val result = returnRequestService.complete(command)
 
             assertThat(result.status).isEqualTo(ReturnRequestStatus.COMPLETED)
@@ -276,6 +285,63 @@ class ReturnRequestServiceTest {
             verify(registerDisposalUseCase).register(
                 RegisterDisposalCommand(1L, listOf(RegisterDisposalItemCommand(1L, 5, DisposalReason.RETURN_DEFECT)))
             )
+        }
+
+        @Test
+        fun `반품 상품마다 inventory 반품 확정 호출을 기록한다`() = runTest {
+            val existingReturnRequest: ReturnRequest =
+                returnRequest().returnRequestId(1L).warehouseId(1L).status(ReturnRequestStatus.INSPECTING).build()
+            val item: ReturnItem = returnItem()
+                .returnItemId(1L).returnRequestId(1L).productId(100L)
+                .expectedQuantity(5).actualQuantity(5).inspectionResult(ReturnInspectionResult.NORMAL).build()
+            stubSingleItemCompletion(existingReturnRequest, item)
+            whenever(occupyLocationUseCase.occupy(any())).thenReturn(locationResult(1L, 10L, 70, 15))
+            whenever(registerInventoryUseCase.register(any()))
+                .thenReturn(InventoryResult(1L, 100L, 500L, 1L, 5, 0, 5, QualityStatus.NORMAL))
+
+            returnRequestService.complete(
+                CompleteReturnRequestCommand(1L, listOf(ReturnItemLotAssignmentCommand(1L, "LOT-1")))
+            )
+
+            verify(returnInventoryCallRecorder).record(1L, item, "LOT-1")
+        }
+
+        @Test
+        fun `실제 수량이 0이면 호출을 기록하지 않는다`() = runTest {
+            val existingReturnRequest: ReturnRequest =
+                returnRequest().returnRequestId(1L).warehouseId(1L).status(ReturnRequestStatus.INSPECTING).build()
+            val item: ReturnItem = returnItem()
+                .returnItemId(1L).returnRequestId(1L).productId(100L)
+                .expectedQuantity(5).actualQuantity(0).inspectionResult(ReturnInspectionResult.NORMAL).build()
+            stubSingleItemCompletion(existingReturnRequest, item)
+
+            returnRequestService.complete(
+                CompleteReturnRequestCommand(1L, listOf(ReturnItemLotAssignmentCommand(1L, "LOT-1")))
+            )
+
+            verify(returnInventoryCallRecorder, never()).record(any(), any(), any())
+        }
+
+        @Test
+        fun `등록되지 않은 Lot이면 예외를 던지고 재고 복귀도 호출 기록도 하지 않는다`() = runTest {
+            val existingReturnRequest: ReturnRequest =
+                returnRequest().returnRequestId(1L).warehouseId(1L).status(ReturnRequestStatus.INSPECTING).build()
+            val item: ReturnItem = returnItem()
+                .returnItemId(1L).returnRequestId(1L).productId(100L)
+                .expectedQuantity(5).actualQuantity(5).inspectionResult(ReturnInspectionResult.NORMAL).build()
+            whenever(returnRequestRepository.findById(1L)).thenReturn(existingReturnRequest)
+            whenever(returnItemRepository.findAllByReturnRequestId(1L)).thenReturn(flowOf(item))
+            whenever(getLotUseCase.getAllByProduct(100L)).thenReturn(emptyFlow())
+
+            assertThatThrownBy {
+                runBlocking {
+                    returnRequestService.complete(
+                        CompleteReturnRequestCommand(1L, listOf(ReturnItemLotAssignmentCommand(1L, "LOT-UNKNOWN")))
+                    )
+                }
+            }.isInstanceOf(ReturnLotNotRegisteredException::class.java)
+            verify(registerInventoryUseCase, never()).register(any())
+            verify(returnInventoryCallRecorder, never()).record(any(), any(), any())
         }
 
         @Test
@@ -305,16 +371,14 @@ class ReturnRequestServiceTest {
             whenever(getProductUseCase.getById(100L)).thenReturn(productResult(100L))
             whenever(getZoneUseCase.getByWarehouseIdAndZoneCode(1L, ZoneCode.A))
                 .thenReturn(zoneResult(10L, ZoneCode.A))
-            whenever(getLotUseCase.getAllByProduct(100L)).thenReturn(emptyFlow())
-            whenever(registerLotUseCase.register(any()))
-                .thenReturn(LotResult(500L, "LOT-1", 100L, null, null, LotStatus.NORMAL))
+            whenever(getLotUseCase.getAllByProduct(100L)).thenReturn(flowOf(LotResult(500L, "LOT-1", 100L, null, null, LotStatus.NORMAL)))
             whenever(getLocationUseCase.getByZoneId(10L))
                 .thenReturn(flowOf(locationResult(1L, 10L, 70, 10)))
             whenever(occupyLocationUseCase.occupy(any())).thenReturn(locationResult(1L, 10L, 70, 70))
             whenever(registerInventoryUseCase.register(any()))
                 .thenReturn(InventoryResult(1L, 100L, 500L, 1L, 60, 0, 60, QualityStatus.NORMAL))
 
-            val command = CompleteReturnRequestCommand(1L, listOf(ReturnItemLotAssignmentCommand(1L, "LOT-1", null, null)))
+            val command = CompleteReturnRequestCommand(1L, listOf(ReturnItemLotAssignmentCommand(1L, "LOT-1")))
             assertThatThrownBy { runBlocking { returnRequestService.complete(command) } }
                 .isInstanceOf(InsufficientZoneCapacityException::class.java)
         }

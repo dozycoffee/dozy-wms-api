@@ -8,9 +8,7 @@ import com.dozycoffee.wms.global.security.WarehouseAccessGuard
 import com.dozycoffee.wms.inventory.application.port.`in`.GetLotUseCase
 import com.dozycoffee.wms.inventory.application.port.`in`.MarkInventoryDefectiveUseCase
 import com.dozycoffee.wms.inventory.application.port.`in`.RegisterInventoryUseCase
-import com.dozycoffee.wms.inventory.application.port.`in`.RegisterLotUseCase
 import com.dozycoffee.wms.inventory.application.port.`in`.command.RegisterInventoryCommand
-import com.dozycoffee.wms.inventory.application.port.`in`.command.RegisterLotCommand
 import com.dozycoffee.wms.inventory.application.port.`in`.result.InventoryResult
 import com.dozycoffee.wms.inventory.application.port.`in`.result.LotResult
 import com.dozycoffee.wms.inventory.domain.enumeration.InventoryHistoryType
@@ -21,7 +19,6 @@ import com.dozycoffee.wms.return_request.application.port.`in`.RegisterReturnReq
 import com.dozycoffee.wms.return_request.application.port.`in`.StartReturnInspectingUseCase
 import com.dozycoffee.wms.return_request.application.port.`in`.command.CompleteReturnRequestCommand
 import com.dozycoffee.wms.return_request.application.port.`in`.command.RegisterReturnRequestCommand
-import com.dozycoffee.wms.return_request.application.port.`in`.command.ReturnItemLotAssignmentCommand
 import com.dozycoffee.wms.return_request.application.port.`in`.result.ReturnRequestResult
 import com.dozycoffee.wms.return_request.application.port.out.ReturnItemRepository
 import com.dozycoffee.wms.return_request.application.port.out.ReturnRequestRepository
@@ -30,6 +27,7 @@ import com.dozycoffee.wms.return_request.domain.enumeration.ReturnRequestStatus
 import com.dozycoffee.wms.return_request.domain.exception.InsufficientZoneCapacityException
 import com.dozycoffee.wms.return_request.domain.exception.MissingLotAssignmentException
 import com.dozycoffee.wms.return_request.domain.exception.NotAllReturnItemsInspectedException
+import com.dozycoffee.wms.return_request.domain.exception.ReturnLotNotRegisteredException
 import com.dozycoffee.wms.return_request.domain.exception.ReturnRequestNotFoundException
 import com.dozycoffee.wms.return_request.domain.model.ReturnItem
 import com.dozycoffee.wms.return_request.domain.model.ReturnRequest
@@ -62,10 +60,10 @@ class ReturnRequestService(
     private val occupyWorkAreaUseCase: OccupyWorkAreaUseCase,
     private val releaseWorkAreaUseCase: ReleaseWorkAreaUseCase,
     private val getLotUseCase: GetLotUseCase,
-    private val registerLotUseCase: RegisterLotUseCase,
     private val registerInventoryUseCase: RegisterInventoryUseCase,
     private val markInventoryDefectiveUseCase: MarkInventoryDefectiveUseCase,
-    private val registerDisposalUseCase: RegisterDisposalUseCase
+    private val registerDisposalUseCase: RegisterDisposalUseCase,
+    private val returnInventoryCallRecorder: ReturnInventoryCallRecorder
 ) : RegisterReturnRequestUseCase,
     StartReturnInspectingUseCase,
     CompleteReturnRequestUseCase,
@@ -102,9 +100,10 @@ class ReturnRequestService(
     }
 
     /**
-     * 모든 반품 상품의 검수가 끝나야 완료할 수 있다. 정상/불량 판정 상품 모두 Lot을 확정하고 Zone 내
+     * 모든 반품 상품의 검수가 끝나야 완료할 수 있다. 정상/불량 판정 상품 모두 등록된 Lot을 확인하고 Zone 내
      * Location에 분산 배치해 Inventory로 등록한다. 불량 판정 상품은 등록 직후 DEFECTIVE로 전환하고
      * Disposal(REQUESTED, RETURN_DEFECT)로 연계한다 — Inbound의 검수 불량 처리와 동일한 패턴이다.
+     * 상품마다 inventory 반품 확정 호출을 같은 트랜잭션에서 아웃박스에 기록한다.
      * 완료 시 점유했던 반품 처리장을 해제한다.
      */
     @Transactional
@@ -120,8 +119,11 @@ class ReturnRequestService(
         val defectiveDisposalItems = mutableListOf<RegisterDisposalItemCommand>()
         items.forEach { item ->
             val assignment = lotAssignmentByItemId[item.returnItemId] ?: throw MissingLotAssignmentException()
-            val lot = resolveLot(item.productId, assignment)
+            val lot = requireRegisteredLot(item.productId, assignment.lotNumber)
             val registeredInventories = distributeToLocations(returnRequest.warehouseId, item, lot.lotId)
+            if (requireNotNull(item.actualQuantity) > 0) {
+                returnInventoryCallRecorder.record(returnRequest.warehouseId, item, assignment.lotNumber)
+            }
 
             if (item.inspectionResult == ReturnInspectionResult.DEFECTIVE) {
                 registeredInventories.forEach { inventory ->
@@ -156,15 +158,10 @@ class ReturnRequestService(
             .map { ReturnRequestResult.from(it) }
     }
 
-    private suspend fun resolveLot(productId: Long, assignment: ReturnItemLotAssignmentCommand): LotResult {
-        val existingLot = getLotUseCase.getAllByProduct(productId).toList()
-            .find { it.lotNumber == assignment.lotNumber }
-        if (existingLot != null) {
-            return existingLot
-        }
-        return registerLotUseCase.register(
-            RegisterLotCommand(assignment.lotNumber, productId, assignment.manufactureDate, assignment.expirationDate)
-        )
+    /** 반품은 이미 입고된 Lot만 받는다 — 반품으로 Lot을 새로 만들지 않는다 (ADR-0017 결정 4) */
+    private suspend fun requireRegisteredLot(productId: Long, lotNumber: String): LotResult {
+        return getLotUseCase.getAllByProduct(productId).toList().find { it.lotNumber == lotNumber }
+            ?: throw ReturnLotNotRegisteredException()
     }
 
     /**
