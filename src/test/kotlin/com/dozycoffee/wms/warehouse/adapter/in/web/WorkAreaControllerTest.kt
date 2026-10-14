@@ -21,7 +21,7 @@ import org.springframework.test.context.bean.override.mockito.MockitoBean
 import org.springframework.test.web.reactive.server.WebTestClient
 import org.mockito.kotlin.any
 
-@WithDozyPrincipal(roles = ["wms:warehouse_admin"])
+@WithDozyPrincipal(roles = ["wms:admin"])
 @WebFluxTest(WorkAreaController::class)
 class WorkAreaControllerTest {
 

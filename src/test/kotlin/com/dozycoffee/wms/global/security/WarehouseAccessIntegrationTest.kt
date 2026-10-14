@@ -87,7 +87,7 @@ class WarehouseAccessIntegrationTest {
     @Test
     fun `배정된 창고의 입고만 목록에 보인다`() {
         webTestClient.get().uri("/api/inbounds")
-            .header("Authorization", bearer(manager, "wms:inbound_manager"))
+            .header("Authorization", bearer(manager, "wms:warehouse_manager"))
             .exchange()
             .expectStatus().isOk
             .expectBody()
@@ -98,7 +98,7 @@ class WarehouseAccessIntegrationTest {
     @Test
     fun `배정되지 않은 창고의 입고는 단건 조회가 403이다`() {
         webTestClient.get().uri("/api/inbounds/$inboundB")
-            .header("Authorization", bearer(manager, "wms:inbound_manager"))
+            .header("Authorization", bearer(manager, "wms:warehouse_manager"))
             .exchange()
             .expectStatus().isForbidden
             .expectBody().jsonPath("$.code").isEqualTo("COMMON_WAREHOUSE_ACCESS_DENIED")
@@ -107,7 +107,7 @@ class WarehouseAccessIntegrationTest {
     @Test
     fun `배정된 창고의 입고는 단건 조회할 수 있다`() {
         webTestClient.get().uri("/api/inbounds/$inboundA")
-            .header("Authorization", bearer(manager, "wms:inbound_manager"))
+            .header("Authorization", bearer(manager, "wms:warehouse_manager"))
             .exchange()
             .expectStatus().isOk
     }
@@ -115,7 +115,7 @@ class WarehouseAccessIntegrationTest {
     @Test
     fun `배정되지 않은 창고에는 입고를 등록할 수 없다`() {
         webTestClient.post().uri("/api/inbounds")
-            .header("Authorization", bearer(manager, "wms:inbound_manager"))
+            .header("Authorization", bearer(manager, "wms:warehouse_manager"))
             .contentType(MediaType.APPLICATION_JSON)
             .bodyValue(
                 mapOf(
@@ -131,37 +131,37 @@ class WarehouseAccessIntegrationTest {
     @Test
     fun `배정이 없는 담당자는 목록이 비어 있고 단건 조회가 403이다`() {
         webTestClient.get().uri("/api/inbounds")
-            .header("Authorization", bearer(unassigned, "wms:inbound_manager"))
+            .header("Authorization", bearer(unassigned, "wms:warehouse_manager"))
             .exchange()
             .expectStatus().isOk
             .expectBody().jsonPath("$.length()").isEqualTo(0)
 
         webTestClient.get().uri("/api/inbounds/$inboundA")
-            .header("Authorization", bearer(unassigned, "wms:inbound_manager"))
+            .header("Authorization", bearer(unassigned, "wms:warehouse_manager"))
             .exchange()
             .expectStatus().isForbidden
     }
 
     @Test
-    fun `warehouse_admin은 배정과 무관하게 모든 창고를 본다`() {
+    fun `admin은 배정과 무관하게 모든 창고를 본다`() {
         webTestClient.get().uri("/api/inbounds")
-            .header("Authorization", bearer(unassigned, "wms:warehouse_admin"))
+            .header("Authorization", bearer(unassigned, "wms:admin"))
             .exchange()
             .expectStatus().isOk
             .expectBody().jsonPath("$.length()").isEqualTo(2)
     }
 
     @Test
-    fun `warehouse_admin이 배정한 창고가 해당 담당자의 접근 범위에 반영된다`() {
+    fun `admin이 배정한 창고가 해당 담당자의 접근 범위에 반영된다`() {
         webTestClient.post().uri("/api/warehouses/$warehouseB/members")
-            .header("Authorization", bearer(unassigned, "wms:warehouse_admin"))
+            .header("Authorization", bearer(unassigned, "wms:admin"))
             .contentType(MediaType.APPLICATION_JSON)
             .bodyValue(mapOf("principalId" to manager.toString()))
             .exchange()
             .expectStatus().isCreated
 
         webTestClient.get().uri("/api/inbounds")
-            .header("Authorization", bearer(manager, "wms:inbound_manager"))
+            .header("Authorization", bearer(manager, "wms:warehouse_manager"))
             .exchange()
             .expectStatus().isOk
             .expectBody().jsonPath("$.length()").isEqualTo(2)

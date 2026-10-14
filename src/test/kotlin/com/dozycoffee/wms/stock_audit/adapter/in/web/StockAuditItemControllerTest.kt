@@ -16,7 +16,7 @@ import org.springframework.boot.webflux.test.autoconfigure.WebFluxTest
 import org.springframework.test.context.bean.override.mockito.MockitoBean
 import org.springframework.test.web.reactive.server.WebTestClient
 
-@WithDozyPrincipal(roles = ["wms:stock_audit_manager"])
+@WithDozyPrincipal(roles = ["wms:warehouse_manager"])
 @WebFluxTest(StockAuditItemController::class)
 class StockAuditItemControllerTest {
 

@@ -24,7 +24,7 @@ import org.springframework.boot.webflux.test.autoconfigure.WebFluxTest
 import org.springframework.test.context.bean.override.mockito.MockitoBean
 import org.springframework.test.web.reactive.server.WebTestClient
 
-@WithDozyPrincipal(roles = ["wms:return_manager"])
+@WithDozyPrincipal(roles = ["wms:warehouse_manager"])
 @WebFluxTest(ReturnRequestController::class)
 class ReturnRequestControllerTest {
 

@@ -20,7 +20,7 @@ import org.springframework.test.web.reactive.server.WebTestClient
 import org.mockito.kotlin.any
 import org.mockito.kotlin.eq
 
-@WithDozyPrincipal(roles = ["wms:warehouse_admin"])
+@WithDozyPrincipal(roles = ["wms:admin"])
 @WebFluxTest(ZoneController::class)
 class ZoneControllerTest {
 

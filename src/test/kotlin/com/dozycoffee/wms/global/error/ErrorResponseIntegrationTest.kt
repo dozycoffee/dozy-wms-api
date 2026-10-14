@@ -19,7 +19,7 @@ class ErrorResponseIntegrationTest {
     @Autowired
     private lateinit var tokens: DozyTestTokens
 
-    private fun authorized(): String = "Bearer ${tokens.issue(roles = listOf("wms:warehouse_admin"))}"
+    private fun authorized(): String = "Bearer ${tokens.issue(roles = listOf("wms:admin"))}"
 
     @Test
     fun `존재하지 않는 리소스는 도메인 ErrorCode의 Problem Details로 응답한다`() {

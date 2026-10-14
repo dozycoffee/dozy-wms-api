@@ -15,6 +15,14 @@
 
 ## 세션 로그
 
+### 2026-10-14 (role 통합)
+
+- F-042: WMS role을 `warehouse_manager`·`viewer`·`admin`·`service` 넷으로 합쳤다(ADR-0025). 업무별 담당 role 5개는 `warehouse_manager`로, `warehouse_admin`은 `admin`으로 이름만 바꿔 기존 허용 API를 그대로 유지했고(승인 API가 업무 API와 같은 엔드포인트라서),
+  `inventory_viewer`는 창고 마스터(`GET /api/warehouses`, `/{id}`)만 읽는 `viewer`로 바꿨다. `WmsAuthorize.READ`(업무 조회)에서 viewer를 빼고 `MASTER_READ`(창고 마스터 조회)를 새로 뒀다.
+  `viewer`만 가진 사용자는 모든 창고를 보고(창고 이름 표시용), `warehouse_manager`와 함께 가지면 배정 창고로 제한한다. 어드민 콘솔은 `admin` role에 업무 모드나 대시보드를 두지 않는다.
+  🔶 배포 전에 Auth에 `wms:warehouse_manager`·`wms:viewer`·`wms:admin`을 등록하고 기존 `wms:inbound_manager` 등 role을 교체해야 한다. 테스트 1054개 통과.
+  후속 후보: `admin`의 일상 업무 쓰기 권한 축소, 창고·Zone 마스터 관리와 직원 배정 콘솔 화면.
+
 ### 2026-10-14 (창고 목록 API)
 
 - F-041: `GET /api/warehouses`를 추가했다(#148). 응답은 `{"items":[{warehouseId, warehouseName, address, latitude, longitude, warehouseStatus}]}`이고 상태값은 기존 단건과 같은 `AVAILABLE`/`UNAVAILABLE`이다.

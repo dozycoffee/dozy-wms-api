@@ -13,7 +13,7 @@ import org.springframework.test.context.bean.override.mockito.MockitoBean
 import org.springframework.test.web.reactive.server.WebTestClient
 import java.time.LocalDate
 
-@WithDozyPrincipal(roles = ["wms:outbound_manager"])
+@WithDozyPrincipal(roles = ["wms:warehouse_manager"])
 @WebFluxTest(OutboundAllocationController::class)
 class OutboundAllocationControllerTest {
 

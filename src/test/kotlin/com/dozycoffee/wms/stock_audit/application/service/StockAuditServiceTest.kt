@@ -185,7 +185,7 @@ class StockAuditServiceTest {
             val existing: StockAudit = stockAudit().stockAuditId(1L).status(StockAuditStatus.SCHEDULED).build()
             whenever(stockAuditRepository.findById(1L)).thenReturn(existing)
             whenever(stockAuditRepository.save(any())).thenAnswer { it.getArgument(0) }
-            actor = UserActor(ADMIN_ID, setOf("stock_audit_manager"))
+            actor = UserActor(ADMIN_ID, setOf("warehouse_manager"))
 
             val result = stockAuditService.assign(1L)
 
@@ -287,7 +287,7 @@ class StockAuditServiceTest {
             stubSave()
             whenever(getLocationStockUseCase.getById(50L)).thenReturn(stockResult(50L, 20, 100L))
             whenever(getLocationStockUseCase.getById(51L)).thenReturn(stockResult(51L, 20, 101L))
-            actor = UserActor(ADMIN_ID, setOf("warehouse_admin"))
+            actor = UserActor(ADMIN_ID, setOf("admin"))
 
             stockAuditService.close(1L)
 
@@ -471,7 +471,7 @@ class StockAuditServiceTest {
         }
 
         @Test
-        fun `조정량이 임계치를 초과해도 warehouse_admin이 마감하면 승인자로 기록되고 CLOSED로 전환되고 재고가 조정된다`() = runTest {
+        fun `조정량이 임계치를 초과해도 admin이 마감하면 승인자로 기록되고 CLOSED로 전환되고 재고가 조정된다`() = runTest {
             val existing: StockAudit = stockAudit().stockAuditId(1L).status(StockAuditStatus.COMPLETED).build()
             val item: StockAuditItem =
                 stockAuditItem().stockAuditItemId(10L).stockAuditId(1L).locationStockId(50L).snapshotQuantity(30)
@@ -481,7 +481,7 @@ class StockAuditServiceTest {
             whenever(getLocationStockUseCase.getById(50L)).thenReturn(stockResult(50L, 30, 100L))
             whenever(stockAuditRepository.save(any())).thenAnswer { it.getArgument(0) }
 
-            actor = UserActor(ADMIN_ID, setOf("warehouse_admin"))
+            actor = UserActor(ADMIN_ID, setOf("admin"))
 
             val result = stockAuditService.close(1L)
 
@@ -492,7 +492,7 @@ class StockAuditServiceTest {
         }
 
         @Test
-        fun `조정량이 임계치를 초과하는데 warehouse_admin이 아닌 담당자가 마감하면 승인 필요 예외를 던진다`() = runTest {
+        fun `조정량이 임계치를 초과하는데 admin이 아닌 담당자가 마감하면 승인 필요 예외를 던진다`() = runTest {
             val existing: StockAudit = stockAudit().stockAuditId(1L).status(StockAuditStatus.COMPLETED).build()
             val item: StockAuditItem =
                 stockAuditItem().stockAuditItemId(10L).stockAuditId(1L).locationStockId(50L).snapshotQuantity(30)
@@ -500,7 +500,7 @@ class StockAuditServiceTest {
             whenever(stockAuditRepository.findById(1L)).thenReturn(existing)
             whenever(stockAuditItemRepository.findAllByStockAuditId(1L)).thenReturn(flowOf(item))
             whenever(getLocationStockUseCase.getById(50L)).thenReturn(stockResult(50L, 30, 100L))
-            actor = UserActor(ADMIN_ID, setOf("stock_audit_manager"))
+            actor = UserActor(ADMIN_ID, setOf("warehouse_manager"))
 
             assertThatThrownBy { runBlocking { stockAuditService.close(1L) } }
                 .isInstanceOf(StockAuditApprovalRequiredException::class.java)
@@ -509,7 +509,7 @@ class StockAuditServiceTest {
         }
 
         @Test
-        fun `조정량이 임계치 이내면 warehouse_admin이 마감해도 승인자를 기록하지 않는다`() = runTest {
+        fun `조정량이 임계치 이내면 admin이 마감해도 승인자를 기록하지 않는다`() = runTest {
             val existing: StockAudit = stockAudit().stockAuditId(1L).status(StockAuditStatus.COMPLETED).build()
             val item: StockAuditItem =
                 stockAuditItem().stockAuditItemId(10L).stockAuditId(1L).locationStockId(50L).snapshotQuantity(20)
@@ -518,7 +518,7 @@ class StockAuditServiceTest {
             whenever(stockAuditItemRepository.findAllByStockAuditId(1L)).thenReturn(flowOf(item))
             whenever(getLocationStockUseCase.getById(50L)).thenReturn(stockResult(50L, 20, 100L))
             whenever(stockAuditRepository.save(any())).thenAnswer { it.getArgument(0) }
-            actor = UserActor(ADMIN_ID, setOf("warehouse_admin"))
+            actor = UserActor(ADMIN_ID, setOf("admin"))
 
             val result = stockAuditService.close(1L)
 

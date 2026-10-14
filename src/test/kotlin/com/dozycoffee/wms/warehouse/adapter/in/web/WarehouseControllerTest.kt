@@ -18,13 +18,14 @@ import org.junit.jupiter.api.Test
 import org.mockito.kotlin.whenever
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.webflux.test.autoconfigure.WebFluxTest
+import org.springframework.http.MediaType
 import org.springframework.test.context.bean.override.mockito.MockitoBean
 import org.springframework.test.web.reactive.server.WebTestClient
 import java.math.BigDecimal
 import org.mockito.kotlin.any
 import org.mockito.kotlin.eq
 
-@WithDozyPrincipal(roles = ["wms:warehouse_admin"])
+@WithDozyPrincipal(roles = ["wms:admin"])
 @WebFluxTest(WarehouseController::class)
 class WarehouseControllerTest {
 
@@ -145,13 +146,33 @@ class WarehouseControllerTest {
         }
 
         @Test
-        @WithDozyPrincipal(roles = ["wms:inventory_viewer"])
-        fun `조회 role이면 목록을 조회할 수 있다`() {
+        @WithDozyPrincipal(roles = ["wms:viewer"])
+        fun `viewer이면 목록을 조회할 수 있다`() {
             whenever(listWarehousesUseCase.getAll()).thenReturn(emptyFlow())
 
             webTestClient.get().uri("/api/warehouses")
                 .exchange()
                 .expectStatus().isOk
+        }
+
+        @Test
+        @WithDozyPrincipal(roles = ["wms:warehouse_manager"])
+        fun `창고 관리자도 목록을 조회할 수 있다`() {
+            whenever(listWarehousesUseCase.getAll()).thenReturn(emptyFlow())
+
+            webTestClient.get().uri("/api/warehouses")
+                .exchange()
+                .expectStatus().isOk
+        }
+
+        @Test
+        @WithDozyPrincipal(roles = ["wms:viewer"])
+        fun `viewer는 창고를 등록할 수 없다`() {
+            webTestClient.post().uri("/api/warehouses")
+                .contentType(MediaType.APPLICATION_JSON)
+                .bodyValue(mapOf("warehouseName" to "권한 없음", "address" to "제주", "latitude" to 33.4, "longitude" to 126.5))
+                .exchange()
+                .expectStatus().isForbidden
         }
 
         @Test
