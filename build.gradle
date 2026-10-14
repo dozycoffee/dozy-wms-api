@@ -92,6 +92,11 @@ tasks.named('test') {
 	}
 }
 
+// 컨테이너 이미지 빌드가 버전과 무관하게 같은 이름의 jar를 쓴다
+tasks.named('bootJar') {
+	archiveFileName = 'app.jar'
+}
+
 tasks.named('bootRun') {
 	environment(dotenv)
 }
