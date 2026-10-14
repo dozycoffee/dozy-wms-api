@@ -59,6 +59,11 @@
   `dozy.inventory.lot`의 `LOT_EXPIRED`를 받으면(`wms.lot-event.listener.*`) 가용 수량이 많은 Location부터 `DISPOSAL_SCHEDULED`로 옮기고 폐기 신청(`REQUESTED`, `source_event_id`로 중복 방지)을 만든다.
   입고 검수의 Lot 유통기한 충돌 검사는 inventory(`INV_LOT_MISMATCH`)로 넘어갔다. 레거시 컨트롤러(`/api/inventories` 등, zone-summary는 장부 기반으로 유지)와 유통기한 스캔 스케줄러를 제거했고,
   레거시 `inventory` 패키지·미러링은 사용처 없이 남아 F-040에서 삭제한다. 개발 DB는 V12가 폐기·실사 문서 행을 지우므로 `scripts/reset-dev-db.sh`로 초기화하는 편이 안전하다.
+- F-040: 레거시 `inventory` 패키지(Inventory·Lot·Allocation·이력·유통기한 스캔·조회 서비스)와 `LocationStockMirror`, `wms.expiration-monitoring` 설정을 삭제했다.
+  Flyway 마이그레이션 V1~V12를 `V1__create_tables.sql`(테이블·유니크·CHECK), `V2__create_indexes.sql`(조회용 인덱스), `V3__add_foreign_keys.sql`(외래키) 세 파일로 통합했다. 기존 스키마에서 레거시 테이블
+  (`inventory`·`lot`·`allocation`·`inventory_history`)을 뺀 최종 모양을 `SHOW CREATE TABLE`로 뽑아 만들었고, 일회용 MySQL에서 기존 V1~V12 결과와 컬럼·인덱스·제약·CHECK·외래키·참조 규칙이 모두 같은 것을
+  `information_schema` 비교로 확인했다. 배포 전까지는 이 세 파일을 직접 고치고 `scripts/reset-dev-db.sh`로 개발 DB를 초기화한다(CLAUDE.md에 규칙 추가). 테스트 JVM 힙을 2g로 올렸다(#143 CI 실패 수정과 같은 값)(컨텍스트가 늘어
+  기본 512MB에서 OutOfMemoryError). ADR-0008을 ADR-0017·0024로 대체됨 처리했다.
 
 ### 2026-10-13
 
@@ -134,7 +139,7 @@
 ## 다음 세션에서 할 일
 
 1. inventory 수신부를 공통 envelope으로 바꾸고(inventory 저장소) 처음 연동 때 `POST /api/warehouse-members/republish` 실행
-2. F-040(레거시 재고 코드·테이블 삭제, ADR-0024)
+2. (완료) 재고 이관 F-027~F-040. 남은 것은 아래 배포·콘솔 작업과 후순위 항목
    - F-032 후속: 두 서비스를 reset해 같은 시작점에서 띄우고 입고 1건 → inventory 수량 반영 → 대사 0건 확인
 3. 배포 체크리스트: inventory가 `dozy.inventory.product` 토픽을 로그 압축(`cleanup.policy=compact`)으로 생성, `dozy-admin-console`의 상품 등록·상태 변경을 inventory `/api/v1/products` 호출로 변경, dozy-auth admin에 `wms:` role 8개(`service` 포함) 등록하고 `svc-inventory`·OMS system client에 `wms:service`를 부여 (코드 작업 아님)
 4. `dozy-admin-console`: 출고 등록 화면 정리(`POST /api/outbounds` 제거, 출고는 예약 이벤트로만 생성), 재고 목록·상세·Lot·이력 화면은 inventory API로 전환(`/api/inventories`(zone-summary 제외)·`/api/lots`·`/api/inventory-histories` 제거, 폐기 등록은 `inventoryId` 대신 `locationStockId`)

@@ -91,8 +91,6 @@ wms:
       base-backoff: PT5S
       max-backoff: PT10M
       alert-after-attempts: 10
-  expiration-monitoring:
-    cron: "0 0 1 * * *"
   stock-audit:
     adjustment-approval-threshold: 10
   cors:

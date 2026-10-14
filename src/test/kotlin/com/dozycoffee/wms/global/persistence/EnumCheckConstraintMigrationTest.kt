@@ -6,11 +6,6 @@ import com.dozycoffee.wms.inbound.domain.enumeration.InboundStatus
 import com.dozycoffee.wms.inbound.domain.enumeration.DefectReason
 import com.dozycoffee.wms.inbound.domain.enumeration.InspectionResult
 import com.dozycoffee.wms.inbound.domain.enumeration.InspectionStatus
-import com.dozycoffee.wms.inventory.domain.enumeration.AllocationReferenceType
-import com.dozycoffee.wms.inventory.domain.enumeration.AllocationStatus
-import com.dozycoffee.wms.inventory.domain.enumeration.InventoryHistoryType
-import com.dozycoffee.wms.inventory.domain.enumeration.LotStatus
-import com.dozycoffee.wms.inventory.domain.enumeration.QualityStatus
 import com.dozycoffee.wms.inventory_call.domain.enumeration.InventoryCallStatus
 import com.dozycoffee.wms.inventory_call.domain.enumeration.InventoryCallType
 import com.dozycoffee.wms.location_stock.domain.enumeration.StockQualityStatus
@@ -79,10 +74,6 @@ class EnumCheckConstraintMigrationTest {
             ConstraintSpec("ck_location_status", AvailabilityStatus::class.java),
             ConstraintSpec("ck_product_category", ProductCategory::class.java),
             ConstraintSpec("ck_product_status", ProductStatus::class.java),
-            ConstraintSpec("ck_lot_status", LotStatus::class.java),
-            ConstraintSpec("ck_inventory_quality_status", QualityStatus::class.java),
-            ConstraintSpec("ck_allocation_reference_type", AllocationReferenceType::class.java),
-            ConstraintSpec("ck_allocation_status", AllocationStatus::class.java),
             ConstraintSpec("ck_inbound_status", InboundStatus::class.java),
             ConstraintSpec("ck_inbound_item_inspection_status", InspectionStatus::class.java),
             ConstraintSpec("ck_inbound_receipt_inspection_result", InspectionResult::class.java),
@@ -92,7 +83,6 @@ class EnumCheckConstraintMigrationTest {
             ConstraintSpec("ck_return_item_inspection_result", ReturnInspectionResult::class.java),
             ConstraintSpec("ck_disposal_status", DisposalStatus::class.java),
             ConstraintSpec("ck_disposal_item_reason", DisposalReason::class.java),
-            ConstraintSpec("ck_inventory_history_type", InventoryHistoryType::class.java),
             ConstraintSpec("ck_stock_audit_status", StockAuditStatus::class.java),
             ConstraintSpec("ck_location_stock_quality_status", StockQualityStatus::class.java),
             ConstraintSpec("ck_inventory_call_type", InventoryCallType::class.java),

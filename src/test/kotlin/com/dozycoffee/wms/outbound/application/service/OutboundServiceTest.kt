@@ -3,14 +3,6 @@ package com.dozycoffee.wms.outbound.application.service
 import com.dozycoffee.wms.global.security.OnlyWarehouses
 import com.dozycoffee.wms.global.security.WarehouseAccessDeniedException
 import com.dozycoffee.wms.global.security.WarehouseAccessGuard
-import com.dozycoffee.wms.inventory.application.port.`in`.FulfillAllocationUseCase
-import com.dozycoffee.wms.inventory.application.port.`in`.GetAllocationUseCase
-import com.dozycoffee.wms.inventory.application.port.`in`.GetInventoryUseCase
-import com.dozycoffee.wms.inventory.application.port.`in`.result.AllocationResult
-import com.dozycoffee.wms.inventory.application.port.`in`.result.InventoryResult
-import com.dozycoffee.wms.inventory.domain.enumeration.AllocationReferenceType
-import com.dozycoffee.wms.inventory.domain.enumeration.AllocationStatus
-import com.dozycoffee.wms.inventory.domain.enumeration.QualityStatus
 import com.dozycoffee.wms.outbound.application.port.out.OutboundAllocationRepository
 import com.dozycoffee.wms.outbound.application.port.out.OutboundItemRepository
 import com.dozycoffee.wms.outbound.application.port.out.OutboundRepository
@@ -70,16 +62,7 @@ class OutboundServiceTest {
     private lateinit var outboundFulfillmentCallRecorder: OutboundFulfillmentCallRecorder
 
     @Mock
-    private lateinit var getInventoryUseCase: GetInventoryUseCase
-
-    @Mock
     private lateinit var outboundAllocationHolder: OutboundAllocationHolder
-
-    @Mock
-    private lateinit var getAllocationUseCase: GetAllocationUseCase
-
-    @Mock
-    private lateinit var fulfillAllocationUseCase: FulfillAllocationUseCase
 
     @Mock
     private lateinit var getWorkAreaUseCase: GetWorkAreaUseCase
@@ -109,14 +92,6 @@ class OutboundServiceTest {
 
     private fun locationResult(locationId: Long): LocationResult {
         return LocationResult(locationId, 10L, "A-0$locationId", 70, 30, AvailabilityStatus.AVAILABLE)
-    }
-
-    private fun inventoryResult(inventoryId: Long, lotId: Long, locationId: Long, availableQuantity: Int): InventoryResult {
-        return InventoryResult(inventoryId, 100L, lotId, locationId, availableQuantity, 0, availableQuantity, QualityStatus.NORMAL)
-    }
-
-    private fun allocationResult(allocationId: Long, inventoryId: Long, quantity: Int): AllocationResult {
-        return AllocationResult(allocationId, inventoryId, AllocationReferenceType.OUTBOUND, 1L, quantity, AllocationStatus.HELD)
     }
 
     @Nested
