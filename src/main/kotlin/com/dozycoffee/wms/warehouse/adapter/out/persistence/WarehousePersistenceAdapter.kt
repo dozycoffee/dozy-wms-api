@@ -2,6 +2,8 @@ package com.dozycoffee.wms.warehouse.adapter.out.persistence
 
 import com.dozycoffee.wms.warehouse.application.port.out.WarehouseRepository
 import com.dozycoffee.wms.warehouse.domain.model.Warehouse
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.map
 import org.springframework.stereotype.Component
 
 @Component
@@ -20,6 +22,13 @@ class WarehousePersistenceAdapter(
 
     override suspend fun findById(warehouseId: Long): Warehouse? {
         return warehouseR2dbcRepository.findById(warehouseId)?.toDomain()
+    }
+
+    override fun findAll(warehouseIds: List<Long>?): Flow<Warehouse> {
+        val ids: List<Long>? = warehouseIds?.takeIf { it.isNotEmpty() }
+        val entities: Flow<WarehouseEntity> =
+            if (ids == null) warehouseR2dbcRepository.findAllActive() else warehouseR2dbcRepository.findAllActiveInWarehouses(ids)
+        return entities.map { it.toDomain() }
     }
 
     override suspend fun delete(warehouse: Warehouse) {
