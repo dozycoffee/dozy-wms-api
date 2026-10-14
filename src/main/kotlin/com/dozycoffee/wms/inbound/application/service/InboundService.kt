@@ -64,7 +64,8 @@ class InboundService(
     private val inboundLotResolver: InboundLotResolver,
     private val registerInventoryUseCase: RegisterInventoryUseCase,
     private val markInventoryDefectiveUseCase: MarkInventoryDefectiveUseCase,
-    private val registerDisposalUseCase: RegisterDisposalUseCase
+    private val registerDisposalUseCase: RegisterDisposalUseCase,
+    private val inboundInventoryCallRecorder: InboundInventoryCallRecorder
 ) : RegisterInboundUseCase, StartInboundProcessingUseCase, CompleteInboundUseCase, GetInboundUseCase {
 
     /**
@@ -131,6 +132,7 @@ class InboundService(
      * 수령 라인마다 Lot을 확정하고 Zone 내 Location에 분산 배치해 Inventory로 등록한다.
      * 불량 라인은 등록 직후 DEFECTIVE로 전환하고 Disposal(REQUESTED)로 연계한다 —
      * 폐기 처리장 점유 등 물리적 처리는 이후 Disposal 승인/완료 단계에서 이뤄진다.
+     * 수령 라인마다 inventory 입고 확정 호출을 같은 트랜잭션에서 아웃박스에 기록한다.
      */
     @Transactional
     override suspend fun complete(command: CompleteInboundCommand): InboundResult {
@@ -149,6 +151,7 @@ class InboundService(
             receiptsByItemId[item.inboundItemId].orEmpty().forEach { receipt ->
                 val lot = inboundLotResolver.resolve(item.productId, receipt)
                 val registeredInventories = distributeToLocations(item, lot.lotId, receipt.quantity)
+                inboundInventoryCallRecorder.record(inbound.warehouseId, item.productId, receipt)
 
                 if (receipt.inspectionResult == InspectionResult.DEFECTIVE) {
                     registeredInventories.forEach { inventory ->

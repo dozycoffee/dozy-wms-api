@@ -37,6 +37,10 @@ import com.dozycoffee.wms.inventory.application.port.`in`.result.LotResult
 import com.dozycoffee.wms.inventory.domain.enumeration.InventoryHistoryType
 import com.dozycoffee.wms.inventory.domain.enumeration.LotStatus
 import com.dozycoffee.wms.inventory.domain.enumeration.QualityStatus
+import com.dozycoffee.wms.inventory_call.application.port.`in`.RecordInventoryCallUseCase
+import com.dozycoffee.wms.inventory_call.application.port.`in`.command.RecordInventoryCallCommand
+import com.dozycoffee.wms.inventory_call.domain.enumeration.InventoryCallType
+import tools.jackson.databind.json.JsonMapper
 import com.dozycoffee.wms.product.application.port.`in`.GetProductUseCase
 import com.dozycoffee.wms.product.application.port.`in`.result.ProductResult
 import com.dozycoffee.wms.product.domain.enumeration.ProductCategory
@@ -73,6 +77,8 @@ import org.mockito.Mock
 import org.mockito.Spy
 import org.mockito.junit.jupiter.MockitoExtension
 import org.mockito.kotlin.any
+import org.mockito.kotlin.argumentCaptor
+import org.mockito.kotlin.times
 import org.mockito.kotlin.never
 import org.mockito.kotlin.verify
 import org.mockito.kotlin.whenever
@@ -127,6 +133,15 @@ class InboundServiceTest {
     @Mock
     private lateinit var registerDisposalUseCase: RegisterDisposalUseCase
 
+    @Mock
+    private lateinit var recordInventoryCallUseCase: RecordInventoryCallUseCase
+
+    private val jsonMapper: JsonMapper = JsonMapper.builder().build()
+
+    private var receiptSequence: Long = 0L
+
+    private fun nextReceiptId(): Long = ++receiptSequence
+
     private val warehouseAccess = SwitchableWarehouseAccess()
 
     @Spy
@@ -152,7 +167,8 @@ class InboundServiceTest {
             inboundLotResolver,
             registerInventoryUseCase,
             markInventoryDefectiveUseCase,
-            registerDisposalUseCase
+            registerDisposalUseCase,
+            InboundInventoryCallRecorder(recordInventoryCallUseCase, jsonMapper)
         )
     }
 
@@ -279,7 +295,7 @@ class InboundServiceTest {
             whenever(inboundRepository.findById(1L)).thenReturn(processingInbound())
             whenever(inboundItemRepository.findAllByInboundId(1L)).thenReturn(flowOf(inspectedItem()))
             whenever(inboundReceiptRepository.findAllByInboundItemIds(listOf(1L)))
-                .thenReturn(listOf(inboundReceipt().inboundItemId(1L).lotNumber("LOT-1").quantity(30).build()))
+                .thenReturn(listOf(inboundReceipt().inboundReceiptId(nextReceiptId()).inboundItemId(1L).lotNumber("LOT-1").quantity(30).build()))
             whenever(getLotUseCase.getAllByProduct(100L)).thenReturn(emptyFlow())
             whenever(registerLotUseCase.register(any()))
                 .thenReturn(LotResult(500L, "LOT-1", 100L, null, null, LotStatus.NORMAL))
@@ -312,8 +328,8 @@ class InboundServiceTest {
             whenever(inboundItemRepository.findAllByInboundId(1L)).thenReturn(flowOf(inspectedItem(30, 30)))
             whenever(inboundReceiptRepository.findAllByInboundItemIds(listOf(1L))).thenReturn(
                 listOf(
-                    inboundReceipt().inboundItemId(1L).lotNumber("LOT-A").quantity(20).build(),
-                    inboundReceipt().inboundItemId(1L).lotNumber("LOT-B").quantity(10).build()
+                    inboundReceipt().inboundReceiptId(nextReceiptId()).inboundItemId(1L).lotNumber("LOT-A").quantity(20).build(),
+                    inboundReceipt().inboundReceiptId(nextReceiptId()).inboundItemId(1L).lotNumber("LOT-B").quantity(10).build()
                 )
             )
             whenever(getLotUseCase.getAllByProduct(100L)).thenReturn(emptyFlow())
@@ -336,7 +352,7 @@ class InboundServiceTest {
             whenever(inboundRepository.findById(1L)).thenReturn(processingInbound())
             whenever(inboundItemRepository.findAllByInboundId(1L)).thenReturn(flowOf(inspectedItem()))
             whenever(inboundReceiptRepository.findAllByInboundItemIds(listOf(1L)))
-                .thenReturn(listOf(inboundReceipt().inboundItemId(1L).quantity(30).defective(DefectReason.DAMAGED).build()))
+                .thenReturn(listOf(inboundReceipt().inboundReceiptId(nextReceiptId()).inboundItemId(1L).quantity(30).defective(DefectReason.DAMAGED).build()))
             whenever(getLotUseCase.getAllByProduct(100L)).thenReturn(emptyFlow())
             whenever(registerLotUseCase.register(any()))
                 .thenReturn(LotResult(500L, "LOT-001", 100L, null, null, LotStatus.NORMAL))
@@ -363,7 +379,7 @@ class InboundServiceTest {
             whenever(inboundItemRepository.findAllByInboundId(1L)).thenReturn(flowOf(inspectedItem()))
             whenever(inboundReceiptRepository.findAllByInboundItemIds(listOf(1L))).thenReturn(
                 listOf(
-                    inboundReceipt().inboundItemId(1L).quantity(30)
+                    inboundReceipt().inboundReceiptId(nextReceiptId()).inboundItemId(1L).quantity(30)
                         .expirationDate(LocalDate.of(2026, 10, 1)).defective(DefectReason.EXPIRED).build()
                 )
             )
@@ -391,8 +407,8 @@ class InboundServiceTest {
             whenever(inboundItemRepository.findAllByInboundId(1L)).thenReturn(flowOf(inspectedItem()))
             whenever(inboundReceiptRepository.findAllByInboundItemIds(listOf(1L))).thenReturn(
                 listOf(
-                    inboundReceipt().inboundItemId(1L).quantity(25).normal().build(),
-                    inboundReceipt().inboundItemId(1L).quantity(5).defective(DefectReason.QUALITY).build()
+                    inboundReceipt().inboundReceiptId(nextReceiptId()).inboundItemId(1L).quantity(25).normal().build(),
+                    inboundReceipt().inboundReceiptId(nextReceiptId()).inboundItemId(1L).quantity(5).defective(DefectReason.QUALITY).build()
                 )
             )
             whenever(getLotUseCase.getAllByProduct(100L)).thenReturn(emptyFlow())
@@ -421,7 +437,7 @@ class InboundServiceTest {
             whenever(inboundRepository.findById(1L)).thenReturn(processingInbound())
             whenever(inboundItemRepository.findAllByInboundId(1L)).thenReturn(flowOf(inspectedItem()))
             whenever(inboundReceiptRepository.findAllByInboundItemIds(listOf(1L))).thenReturn(
-                listOf(inboundReceipt().inboundItemId(1L).lotNumber("LOT-1").expirationDate(LocalDate.of(2027, 2, 1)).quantity(30).build())
+                listOf(inboundReceipt().inboundReceiptId(nextReceiptId()).inboundItemId(1L).lotNumber("LOT-1").expirationDate(LocalDate.of(2027, 2, 1)).quantity(30).build())
             )
             whenever(getLotUseCase.getAllByProduct(100L)).thenReturn(
                 flowOf(LotResult(500L, "LOT-1", 100L, null, LocalDate.of(2027, 1, 1), LotStatus.NORMAL))
@@ -437,7 +453,7 @@ class InboundServiceTest {
             whenever(inboundRepository.findById(1L)).thenReturn(processingInbound())
             whenever(inboundItemRepository.findAllByInboundId(1L)).thenReturn(flowOf(inspectedItem()))
             whenever(inboundReceiptRepository.findAllByInboundItemIds(listOf(1L))).thenReturn(
-                listOf(inboundReceipt().inboundItemId(1L).lotNumber("LOT-1").expirationDate(LocalDate.of(2027, 1, 1)).quantity(30).build())
+                listOf(inboundReceipt().inboundReceiptId(nextReceiptId()).inboundItemId(1L).lotNumber("LOT-1").expirationDate(LocalDate.of(2027, 1, 1)).quantity(30).build())
             )
             whenever(getLotUseCase.getAllByProduct(100L)).thenReturn(
                 flowOf(LotResult(500L, "LOT-1", 100L, null, LocalDate.of(2027, 1, 1), LotStatus.NORMAL))
@@ -450,6 +466,100 @@ class InboundServiceTest {
 
             verify(registerLotUseCase, never()).register(any())
             verify(registerInventoryUseCase).register(RegisterInventoryCommand(500L, 1L, 30, 1L, InventoryHistoryType.INBOUND))
+        }
+
+        @Test
+        fun `수령 라인마다 inventory 입고 확정 호출을 수령 라인 ID 기반 멱등 키로 기록한다`() = runTest {
+            whenever(inboundRepository.findById(1L)).thenReturn(processingInbound())
+            whenever(inboundItemRepository.findAllByInboundId(1L)).thenReturn(flowOf(inspectedItem(30, 30)))
+            whenever(inboundReceiptRepository.findAllByInboundItemIds(listOf(1L))).thenReturn(
+                listOf(
+                    inboundReceipt().inboundReceiptId(71L).inboundItemId(1L).lotNumber("LOT-A").quantity(20)
+                        .manufactureDate(LocalDate.of(2026, 9, 1)).expirationDate(LocalDate.of(2027, 1, 1)).build(),
+                    inboundReceipt().inboundReceiptId(72L).inboundItemId(1L).lotNumber("LOT-B").quantity(10)
+                        .defective(DefectReason.DAMAGED).build()
+                )
+            )
+            whenever(getLotUseCase.getAllByProduct(100L)).thenReturn(emptyFlow())
+            whenever(registerLotUseCase.register(any())).thenReturn(LotResult(500L, "LOT", 100L, null, null, LotStatus.NORMAL))
+            whenever(registerInventoryUseCase.register(any()))
+                .thenReturn(InventoryResult(1L, 100L, 500L, 1L, 10, 0, 10, QualityStatus.NORMAL))
+            whenever(markInventoryDefectiveUseCase.markDefective(any()))
+                .thenReturn(InventoryResult(1L, 100L, 500L, 1L, 10, 0, 10, QualityStatus.DEFECTIVE))
+            whenever(registerDisposalUseCase.register(any())).thenReturn(DisposalResult(900L, 1L, DisposalStatus.REQUESTED))
+            stubDistribution()
+
+            inboundService.complete(CompleteInboundCommand(1L))
+
+            val captor = argumentCaptor<RecordInventoryCallCommand>()
+            verify(recordInventoryCallUseCase, times(2)).record(captor.capture())
+            val (normalCall, defectiveCall) = captor.allValues
+            assertThat(normalCall.callType).isEqualTo(InventoryCallType.INBOUND_RECEIPT)
+            assertThat(normalCall.warehouseId).isEqualTo(1L)
+            assertThat(normalCall.idempotencyKey).isEqualTo("wms-inbound-receipt-71")
+            assertThat(normalCall.requestPath).isEqualTo("/api/v1/inbound-receipts")
+            val normalBody = jsonMapper.readTree(normalCall.requestBody)
+            assertThat(normalBody.get("productId").asLong()).isEqualTo(100L)
+            assertThat(normalBody.get("quantity").asInt()).isEqualTo(20)
+            assertThat(normalBody.get("qualityStatus").asText()).isEqualTo("NORMAL")
+            assertThat(normalBody.get("lotNumber").asText()).isEqualTo("LOT-A")
+            assertThat(normalBody.get("manufactureDate").asText()).isEqualTo("2026-09-01")
+            assertThat(normalBody.get("expirationDate").asText()).isEqualTo("2027-01-01")
+            assertThat(normalBody.get("inboundItemId").asLong()).isEqualTo(1L)
+            assertThat(defectiveCall.idempotencyKey).isEqualTo("wms-inbound-receipt-72")
+            assertThat(jsonMapper.readTree(defectiveCall.requestBody).get("qualityStatus").asText()).isEqualTo("DEFECTIVE")
+        }
+
+        @Test
+        fun `여러 Location에 나눠 적재해도 수령 라인당 호출은 한 건이다`() = runTest {
+            whenever(inboundRepository.findById(1L)).thenReturn(processingInbound())
+            whenever(inboundItemRepository.findAllByInboundId(1L)).thenReturn(flowOf(inspectedItem()))
+            whenever(inboundReceiptRepository.findAllByInboundItemIds(listOf(1L)))
+                .thenReturn(listOf(inboundReceipt().inboundReceiptId(71L).inboundItemId(1L).quantity(30).build()))
+            whenever(getLotUseCase.getAllByProduct(100L)).thenReturn(emptyFlow())
+            whenever(registerLotUseCase.register(any())).thenReturn(LotResult(500L, "LOT-001", 100L, null, null, LotStatus.NORMAL))
+            whenever(registerInventoryUseCase.register(any()))
+                .thenReturn(InventoryResult(1L, 100L, 500L, 1L, 15, 0, 15, QualityStatus.NORMAL))
+            whenever(getLocationUseCase.getByZoneId(10L))
+                .thenReturn(flowOf(locationResult(1L, 10L, 50, 35), locationResult(2L, 10L, 50, 35)))
+            whenever(occupyLocationUseCase.occupy(any())).thenReturn(locationResult(1L, 10L, 50, 50))
+            stubCompletion()
+
+            inboundService.complete(CompleteInboundCommand(1L))
+
+            verify(registerInventoryUseCase, times(2)).register(any())
+            verify(recordInventoryCallUseCase, times(1)).record(any())
+        }
+
+        @Test
+        fun `미도착 상품은 호출을 기록하지 않는다`() = runTest {
+            whenever(inboundRepository.findById(1L)).thenReturn(processingInbound())
+            whenever(inboundItemRepository.findAllByInboundId(1L)).thenReturn(flowOf(inspectedItem(30, 0)))
+            whenever(inboundReceiptRepository.findAllByInboundItemIds(listOf(1L))).thenReturn(emptyList())
+            stubCompletion()
+
+            inboundService.complete(CompleteInboundCommand(1L))
+
+            verify(recordInventoryCallUseCase, never()).record(any())
+        }
+
+        @Test
+        fun `Lot 유통기한 충돌로 실패하면 호출을 기록하지 않는다`() = runTest {
+            whenever(inboundRepository.findById(1L)).thenReturn(processingInbound())
+            whenever(inboundItemRepository.findAllByInboundId(1L)).thenReturn(flowOf(inspectedItem()))
+            whenever(inboundReceiptRepository.findAllByInboundItemIds(listOf(1L))).thenReturn(
+                listOf(
+                    inboundReceipt().inboundReceiptId(71L).inboundItemId(1L).lotNumber("LOT-1")
+                        .expirationDate(LocalDate.of(2027, 2, 1)).quantity(30).build()
+                )
+            )
+            whenever(getLotUseCase.getAllByProduct(100L)).thenReturn(
+                flowOf(LotResult(500L, "LOT-1", 100L, null, LocalDate.of(2027, 1, 1), LotStatus.NORMAL))
+            )
+
+            assertThatThrownBy { runBlocking { inboundService.complete(CompleteInboundCommand(1L)) } }
+                .isInstanceOf(LotExpirationConflictException::class.java)
+            verify(recordInventoryCallUseCase, never()).record(any())
         }
 
         @Test

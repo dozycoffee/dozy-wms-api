@@ -7,6 +7,7 @@ import java.time.LocalDate
 
 class InboundReceiptTestBuilder {
 
+    private var inboundReceiptId: Long? = null
     private var inboundItemId: Long? = 1L
     private var lotNumber: String? = "LOT-001"
     private var manufactureDate: LocalDate? = null
@@ -18,6 +19,11 @@ class InboundReceiptTestBuilder {
 
     companion object {
         fun inboundReceipt(): InboundReceiptTestBuilder = InboundReceiptTestBuilder()
+    }
+
+    fun inboundReceiptId(inboundReceiptId: Long?): InboundReceiptTestBuilder {
+        this.inboundReceiptId = inboundReceiptId
+        return this
     }
 
     fun inboundItemId(inboundItemId: Long?): InboundReceiptTestBuilder {
@@ -72,7 +78,23 @@ class InboundReceiptTestBuilder {
         return this
     }
 
+    /** 저장된 상태를 흉내 내려면 inboundReceiptId를 지정한다 — 검증은 create와 같게 거친다 */
     fun build(): InboundReceipt {
+        val created: InboundReceipt = create()
+        val persistedId: Long = inboundReceiptId ?: return created
+        return InboundReceipt.reconstitute(
+            persistedId,
+            created.inboundItemId,
+            created.lotNumber,
+            created.manufactureDate,
+            created.expirationDate,
+            created.quantity,
+            created.inspectionResult,
+            created.defectReason
+        )
+    }
+
+    private fun create(): InboundReceipt {
         return InboundReceipt.create(
             inboundItemId = inboundItemId,
             lotNumber = lotNumber,
