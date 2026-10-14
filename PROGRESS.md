@@ -15,6 +15,15 @@
 
 ## 세션 로그
 
+### 2026-10-14
+
+- ADR-0023: 흐름별 전환(ADR-0018 결정 5)은 아직 전환하지 않은 흐름이 기존 `Inventory`를 읽어 중간 상태가 깨지므로, F-032~F-036은 기존 쓰기와
+  미러링을 유지한 채 inventory 호출 기록만 추가하고 읽기·쓰기 컷오버는 F-037에서 한 번에 하기로 바꿨다. 출고(F-035)는 진입점이 이벤트로 뒤집히므로
+  병행 방식을 그 작업에서 정한다.
+- F-032: 입고 완료(`InboundService.complete`)가 수령 라인마다 `InboundInventoryCallRecorder`로 `POST /api/v1/inbound-receipts` 호출을 같은
+  트랜잭션에서 아웃박스에 기록한다. 멱등 키는 `wms-inbound-receipt-{수령 라인 ID}`, 불량 라인은 `qualityStatus=DEFECTIVE`, 여러 Location에 나눠
+  적재해도 호출은 수령 라인당 한 건이다. Lot 충돌 등으로 확정이 실패하면 호출도 남지 않는다. 기존 `Inventory` 등록과 미러링은 그대로다.
+
 ### 2026-10-13
 
 - 재고 관련 코드(재고, Lot, 재고 이력, 점유, 상품 마스터)가 `dozy-inventory-api`로 분리·이관돼 있음을 확인했다. inventory 쪽 문서(`principles`,
@@ -85,21 +94,12 @@
   표시된다. `code`는 `errorCode ?? code`로 이미 호환된다. 콘솔 쪽 갱신이 필요하다(WMS 저장소 밖 작업).
 - 로그 아카이브: 2026-10-01 이전 세션 로그를 `docs/progress/archive.md`로 옮겼다.
 
-### 2026-10-03
-
-- F-025: 비동기 스타일을 Coroutines로 통일했다(ADR-0014). `warehouse` 4개 하위 도메인의 UseCase/Repository/Service/Persistence/Controller를
-  `suspend`/`Flow`/`CoroutineCrudRepository`로 전환하고, inbound·outbound·return_request·disposal·stock_audit·warehouse_member·devseed의
-  `awaitSingle()`/`collectList()` 브릿지를 제거했다. 테스트 `StepVerifier`/`.block()`은 `runTest`로 바꾸고 `reactor-test` 의존성을 뺐다.
-  `DatabaseClient`는 Spring Kotlin 확장(`awaitRowsUpdated`/`awaitOne`/`flow`)으로 정리했다. Reactor는 `SecurityConfig` 컨버터, Reactor Context 접근, `ReactiveAuditorAware` 경계에만 남는다. 전체 898개 테스트 통과.
-- F-024: `common_code` 테이블과 패키지를 제거하고 참조 FK 19개를 컬럼별 CHECK 제약으로 대체했다(ADR-0013, ADR-0004 대체). 미배포라 기존 V1~V25 마이그레이션을 V1(테이블·인덱스·CHECK)/V2(외래키) baseline으로 통합했다. 기존 DB는 `./scripts/reset-dev-db.sh`로 초기화해야 한다(Flyway 체크섬 불일치). FK 삭제 때 남던 불필요한 상태 컬럼 인덱스 19개는 baseline에서 제외했다. 아래 이전 로그의 V번호는 통합 전 기준이다.
-  저장 값에서 `{GROUP}_` 접두사를 제거하고 enum 상수 이름(`name`)을 그대로 저장한다(`CommonCodes` 유틸과 `*_GROUP` 상수 삭제, `enum.name`/`Enum.valueOf`
-  사용). `EnumCheckConstraintMigrationTest`가 CHECK 허용 값과 enum의 일치, 테이블 부재를 검증한다.
-
 
 ## 다음 세션에서 할 일
 
 1. inventory 수신부를 공통 envelope으로 바꾸고(inventory 저장소) 처음 연동 때 `POST /api/warehouse-members/republish` 실행
-2. F-032~F-036(입고·폐기·반품·출고·실사 연동) → F-037(재고 코드 제거·devseed 개편)
+2. F-034 반품 → F-033 폐기 → F-036 실사 조정 → F-035 출고(각각 호출 기록 추가, ADR-0023) → F-037(컷오버·재고 코드 제거·devseed 개편)
+   - F-032 후속: 두 서비스를 reset해 같은 시작점에서 띄우고 입고 1건 → inventory 수량 반영 → 대사 0건 확인
 3. 배포 체크리스트: inventory가 `dozy.inventory.product` 토픽을 로그 압축(`cleanup.policy=compact`)으로 생성, `dozy-admin-console`의 상품 등록·상태 변경을 inventory `/api/v1/products` 호출로 변경, dozy-auth admin에 `wms:` role 8개(`service` 포함) 등록하고 `svc-inventory` system client에 `wms:service`를 부여 (코드 작업 아님)
 4. `dozy-admin-console`의 `httpClient`가 에러 메시지를 `detail`(없으면 `code` 기반 문구)로 읽도록 갱신 (F-026 후속, 콘솔 저장소 작업)
 5. (후순위) 창고 배정 변경 시 요청마다 `warehouse_member`를 조회하는 비용 점검: 실측 후 필요할 때만 캐시 검토
