@@ -16,7 +16,7 @@ class DisposalItemEntity private constructor() : BaseEntity() {
     var disposalId: Long? = null
         private set
 
-    var inventoryId: Long? = null
+    var locationStockId: Long? = null
         private set
 
     var quantity: Int = 0
@@ -29,7 +29,7 @@ class DisposalItemEntity private constructor() : BaseEntity() {
         return DisposalItem.reconstitute(
             requireNotNull(disposalItemId),
             requireNotNull(disposalId),
-            requireNotNull(inventoryId),
+            requireNotNull(locationStockId),
             quantity,
             DisposalReason.valueOf(requireNotNull(reason))
         )
@@ -40,7 +40,7 @@ class DisposalItemEntity private constructor() : BaseEntity() {
             val entity = DisposalItemEntity()
             entity.disposalItemId = domain.disposalItemId
             entity.disposalId = domain.disposalId
-            entity.inventoryId = domain.inventoryId
+            entity.locationStockId = domain.locationStockId
             entity.quantity = domain.quantity
             entity.reason = domain.reason.name
             return entity

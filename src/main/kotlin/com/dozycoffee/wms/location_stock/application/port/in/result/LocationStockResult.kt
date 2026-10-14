@@ -9,8 +9,13 @@ data class LocationStockResult(
     val productId: Long,
     val lotNumber: String,
     val qualityStatus: StockQualityStatus,
-    val quantity: Int
+    val quantity: Int,
+    val heldQuantity: Int = 0
 ) {
+    val availableQuantity: Int
+        get() = quantity - heldQuantity
+
+
     companion object {
         fun from(locationStock: LocationStock): LocationStockResult {
             return LocationStockResult(
@@ -19,7 +24,8 @@ data class LocationStockResult(
                 locationStock.productId,
                 locationStock.lotNumber,
                 locationStock.qualityStatus,
-                locationStock.quantity
+                locationStock.quantity,
+                locationStock.heldQuantity
             )
         }
     }

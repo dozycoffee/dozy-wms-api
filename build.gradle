@@ -83,6 +83,8 @@ def dotenv = loadDotenv("${rootDir}/.env")
 
 tasks.named('test') {
 	useJUnitPlatform()
+	// 스프링 컨텍스트를 여러 개 띄우는 통합 테스트가 늘어 기본 힙(512MB)으로는 OutOfMemoryError가 난다
+	maxHeapSize = '2g'
 	testLogging {
 		exceptionFormat = 'full'
 		showCauses = true

@@ -16,7 +16,7 @@ class StockAuditItemEntity private constructor() : BaseEntity() {
     var stockAuditId: Long? = null
         private set
 
-    var inventoryId: Long? = null
+    var locationStockId: Long? = null
         private set
 
     var snapshotQuantity: Int? = null
@@ -35,7 +35,7 @@ class StockAuditItemEntity private constructor() : BaseEntity() {
         return StockAuditItem.reconstitute(
             requireNotNull(stockAuditItemId),
             requireNotNull(stockAuditId),
-            requireNotNull(inventoryId),
+            requireNotNull(locationStockId),
             requireNotNull(snapshotQuantity),
             requireNotNull(snapshotTakenAt),
             countedQuantity,
@@ -48,7 +48,7 @@ class StockAuditItemEntity private constructor() : BaseEntity() {
             val entity = StockAuditItemEntity()
             entity.stockAuditItemId = domain.stockAuditItemId
             entity.stockAuditId = domain.stockAuditId
-            entity.inventoryId = domain.inventoryId
+            entity.locationStockId = domain.locationStockId
             entity.snapshotQuantity = domain.snapshotQuantity
             entity.snapshotTakenAt = domain.snapshotTakenAt
             entity.countedQuantity = domain.countedQuantity

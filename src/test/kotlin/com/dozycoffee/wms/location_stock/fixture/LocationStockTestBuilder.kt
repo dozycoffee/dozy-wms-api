@@ -11,6 +11,7 @@ class LocationStockTestBuilder {
     private var lotNumber: String? = "LOT-001"
     private var qualityStatus: StockQualityStatus = StockQualityStatus.NORMAL
     private var quantity: Int = 10
+    private var heldQuantity: Int = 0
 
     companion object {
         fun locationStock(): LocationStockTestBuilder = LocationStockTestBuilder()
@@ -46,6 +47,11 @@ class LocationStockTestBuilder {
         return this
     }
 
+    fun heldQuantity(heldQuantity: Int): LocationStockTestBuilder {
+        this.heldQuantity = heldQuantity
+        return this
+    }
+
     fun build(): LocationStock {
         val id: Long? = locationStockId
         if (id != null) {
@@ -55,7 +61,8 @@ class LocationStockTestBuilder {
                 requireNotNull(productId) { "productId는 재구성 시 필수입니다." },
                 requireNotNull(lotNumber) { "lotNumber는 재구성 시 필수입니다." },
                 qualityStatus,
-                quantity
+                quantity,
+                heldQuantity
             )
         }
         return LocationStock.create(locationId, productId, lotNumber, qualityStatus, quantity)

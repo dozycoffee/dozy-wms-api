@@ -9,6 +9,8 @@ import com.dozycoffee.wms.global.error.DomainValidator.requireNonNull
 class Disposal private constructor(
     val disposalId: Long?,
     val warehouseId: Long,
+    /** LOT_EXPIRED 이벤트가 만든 폐기 신청이면 그 이벤트의 ID. 같은 이벤트를 두 번 처리하지 않게 한다 */
+    val sourceEventId: String?,
     status: DisposalStatus
 ) : BaseEntity() {
 
@@ -17,17 +19,18 @@ class Disposal private constructor(
 
     companion object {
 
-        fun create(warehouseId: Long?): Disposal {
+        fun create(warehouseId: Long?, sourceEventId: String? = null): Disposal {
             val validWarehouseId: Long = requireNonNull(warehouseId, DisposalErrorCode.INVALID_WAREHOUSE_ID)
             return Disposal(
                 disposalId = null,
                 warehouseId = validWarehouseId,
+                sourceEventId = sourceEventId,
                 status = DisposalStatus.REQUESTED
             )
         }
 
-        fun reconstitute(disposalId: Long, warehouseId: Long, status: DisposalStatus): Disposal {
-            return Disposal(disposalId, warehouseId, status)
+        fun reconstitute(disposalId: Long, warehouseId: Long, status: DisposalStatus, sourceEventId: String? = null): Disposal {
+            return Disposal(disposalId, warehouseId, sourceEventId, status)
         }
     }
 

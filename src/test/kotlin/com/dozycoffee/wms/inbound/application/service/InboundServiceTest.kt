@@ -18,7 +18,6 @@ import com.dozycoffee.wms.inbound.application.port.out.InboundRepository
 import com.dozycoffee.wms.inbound.domain.enumeration.InboundStatus
 import com.dozycoffee.wms.inbound.domain.enumeration.DefectReason
 import com.dozycoffee.wms.inbound.domain.enumeration.InspectionStatus
-import com.dozycoffee.wms.inbound.domain.exception.LotExpirationConflictException
 import com.dozycoffee.wms.inbound.fixture.InboundReceiptTestBuilder.Companion.inboundReceipt
 import com.dozycoffee.wms.inbound.domain.exception.InboundNotFoundException
 import com.dozycoffee.wms.inbound.domain.exception.InsufficientZoneCapacityException
@@ -27,20 +26,14 @@ import com.dozycoffee.wms.inbound.domain.model.Inbound
 import com.dozycoffee.wms.inbound.domain.model.InboundItem
 import com.dozycoffee.wms.inbound.fixture.InboundItemTestBuilder.Companion.inboundItem
 import com.dozycoffee.wms.inbound.fixture.InboundTestBuilder.Companion.inbound
-import com.dozycoffee.wms.inventory.application.port.`in`.GetLotUseCase
-import com.dozycoffee.wms.inventory.application.port.`in`.MarkInventoryDefectiveUseCase
-import com.dozycoffee.wms.inventory.application.port.`in`.RegisterInventoryUseCase
-import com.dozycoffee.wms.inventory.application.port.`in`.RegisterLotUseCase
-import com.dozycoffee.wms.inventory.application.port.`in`.command.RegisterInventoryCommand
-import com.dozycoffee.wms.inventory.application.port.`in`.result.InventoryResult
-import com.dozycoffee.wms.inventory.application.port.`in`.result.LotResult
-import com.dozycoffee.wms.inventory.domain.enumeration.InventoryHistoryType
-import com.dozycoffee.wms.inventory.domain.enumeration.LotStatus
-import com.dozycoffee.wms.inventory.domain.enumeration.QualityStatus
 import com.dozycoffee.wms.inventory_call.application.port.`in`.RecordInventoryCallUseCase
 import com.dozycoffee.wms.inventory_call.application.port.`in`.command.RecordInventoryCallCommand
 import com.dozycoffee.wms.inventory_call.domain.enumeration.InventoryCallType
 import tools.jackson.databind.json.JsonMapper
+import com.dozycoffee.wms.location_stock.application.port.`in`.IncreaseLocationStockUseCase
+import com.dozycoffee.wms.location_stock.application.port.`in`.command.IncreaseLocationStockCommand
+import com.dozycoffee.wms.location_stock.application.port.`in`.result.LocationStockResult
+import com.dozycoffee.wms.location_stock.domain.enumeration.StockQualityStatus
 import com.dozycoffee.wms.product.application.port.`in`.GetProductUseCase
 import com.dozycoffee.wms.product.application.port.`in`.result.ProductResult
 import com.dozycoffee.wms.product.domain.enumeration.ProductCategory
@@ -49,10 +42,8 @@ import com.dozycoffee.wms.support.SwitchableWarehouseAccess
 import com.dozycoffee.wms.warehouse.application.port.`in`.GetLocationUseCase
 import com.dozycoffee.wms.warehouse.application.port.`in`.GetWorkAreaUseCase
 import com.dozycoffee.wms.warehouse.application.port.`in`.GetZoneUseCase
-import com.dozycoffee.wms.warehouse.application.port.`in`.OccupyLocationUseCase
 import com.dozycoffee.wms.warehouse.application.port.`in`.OccupyWorkAreaUseCase
 import com.dozycoffee.wms.warehouse.application.port.`in`.ReleaseWorkAreaUseCase
-import com.dozycoffee.wms.warehouse.application.port.`in`.command.OccupyLocationCommand
 import com.dozycoffee.wms.warehouse.application.port.`in`.command.OccupyWorkAreaCommand
 import com.dozycoffee.wms.warehouse.application.port.`in`.command.ReleaseWorkAreaCommand
 import com.dozycoffee.wms.warehouse.application.port.`in`.result.LocationResult
@@ -62,7 +53,6 @@ import com.dozycoffee.wms.warehouse.domain.enumeration.AreaCode
 import com.dozycoffee.wms.warehouse.domain.enumeration.AvailabilityStatus
 import com.dozycoffee.wms.warehouse.domain.enumeration.ZoneCode
 import java.time.LocalDate
-import kotlinx.coroutines.flow.emptyFlow
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.toList
 import kotlinx.coroutines.runBlocking
@@ -102,9 +92,6 @@ class InboundServiceTest {
     private lateinit var getLocationUseCase: GetLocationUseCase
 
     @Mock
-    private lateinit var occupyLocationUseCase: OccupyLocationUseCase
-
-    @Mock
     private lateinit var getWorkAreaUseCase: GetWorkAreaUseCase
 
     @Mock
@@ -117,18 +104,7 @@ class InboundServiceTest {
     private lateinit var inboundReceiptRepository: InboundReceiptRepository
 
     @Mock
-    private lateinit var getLotUseCase: GetLotUseCase
-
-    @Mock
-    private lateinit var registerLotUseCase: RegisterLotUseCase
-
-    private lateinit var inboundLotResolver: InboundLotResolver
-
-    @Mock
-    private lateinit var registerInventoryUseCase: RegisterInventoryUseCase
-
-    @Mock
-    private lateinit var markInventoryDefectiveUseCase: MarkInventoryDefectiveUseCase
+    private lateinit var increaseLocationStockUseCase: IncreaseLocationStockUseCase
 
     @Mock
     private lateinit var registerDisposalUseCase: RegisterDisposalUseCase
@@ -151,7 +127,6 @@ class InboundServiceTest {
 
     @BeforeEach
     fun setUp() {
-        inboundLotResolver = InboundLotResolver(getLotUseCase, registerLotUseCase)
         inboundService = InboundService(
             warehouseAccessGuard,
             inboundRepository,
@@ -160,13 +135,10 @@ class InboundServiceTest {
             getProductUseCase,
             getZoneUseCase,
             getLocationUseCase,
-            occupyLocationUseCase,
             getWorkAreaUseCase,
             occupyWorkAreaUseCase,
             releaseWorkAreaUseCase,
-            inboundLotResolver,
-            registerInventoryUseCase,
-            markInventoryDefectiveUseCase,
+            increaseLocationStockUseCase,
             registerDisposalUseCase,
             InboundInventoryCallRecorder(recordInventoryCallUseCase, jsonMapper)
         )
@@ -268,9 +240,8 @@ class InboundServiceTest {
     @Nested
     inner class 입고_완료 {
 
-        private suspend fun stubDistribution() {
-            whenever(getLocationUseCase.getByZoneId(10L)).thenReturn(flowOf(locationResult(1L, 10L, 70, 10)))
-            whenever(occupyLocationUseCase.occupy(any())).thenReturn(locationResult(1L, 10L, 70, 40))
+        private suspend fun stubLocations(vararg locations: com.dozycoffee.wms.warehouse.application.port.`in`.result.LocationResult) {
+            whenever(getLocationUseCase.getByZoneId(10L)).thenReturn(flowOf(*locations))
             stubCompletion()
         }
 
@@ -278,6 +249,21 @@ class InboundServiceTest {
             whenever(getWorkAreaUseCase.getByWarehouseIdAndAreaCode(1L, AreaCode.INBOUND)).thenReturn(workAreaResult(30))
             whenever(releaseWorkAreaUseCase.release(any())).thenReturn(workAreaResult(0))
             whenever(inboundRepository.save(any())).thenAnswer { it.getArgument(0) }
+        }
+
+        /** 증가 요청마다 장부 행 ID를 수량으로 삼아 돌려준다 — 어떤 요청이 어떤 행을 만들었는지 구분하기 쉽다 */
+        private suspend fun stubIncrease() {
+            whenever(increaseLocationStockUseCase.increase(any())).thenAnswer {
+                val command = it.getArgument<IncreaseLocationStockCommand>(0)
+                LocationStockResult(
+                    command.locationId * 100 + command.quantity,
+                    command.locationId,
+                    command.productId,
+                    command.lotNumber,
+                    command.qualityStatus,
+                    command.quantity
+                )
+            }
         }
 
         private fun inspectedItem(expectedQuantity: Int = 30, actualQuantity: Int = 30): InboundItem =
@@ -290,26 +276,107 @@ class InboundServiceTest {
         private fun processingInbound(): Inbound =
             inbound().inboundId(1L).warehouseId(1L).status(InboundStatus.PROCESSING).build()
 
-        @Test
-        fun `정상 수령 라인은 Lot을 확정하고 Location에 분산 배치해 재고로 등록한다`() = runTest {
+        private fun stubInbound(item: InboundItem, vararg receipts: com.dozycoffee.wms.inbound.domain.model.InboundReceipt) = runBlocking {
             whenever(inboundRepository.findById(1L)).thenReturn(processingInbound())
-            whenever(inboundItemRepository.findAllByInboundId(1L)).thenReturn(flowOf(inspectedItem()))
-            whenever(inboundReceiptRepository.findAllByInboundItemIds(listOf(1L)))
-                .thenReturn(listOf(inboundReceipt().inboundReceiptId(nextReceiptId()).inboundItemId(1L).lotNumber("LOT-1").quantity(30).build()))
-            whenever(getLotUseCase.getAllByProduct(100L)).thenReturn(emptyFlow())
-            whenever(registerLotUseCase.register(any()))
-                .thenReturn(LotResult(500L, "LOT-1", 100L, null, null, LotStatus.NORMAL))
-            whenever(registerInventoryUseCase.register(any()))
-                .thenReturn(InventoryResult(1L, 100L, 500L, 1L, 30, 0, 30, QualityStatus.NORMAL))
-            stubDistribution()
+            whenever(inboundItemRepository.findAllByInboundId(1L)).thenReturn(flowOf(item))
+            whenever(inboundReceiptRepository.findAllByInboundItemIds(listOf(1L))).thenReturn(receipts.toList())
+        }
+
+        @Test
+        fun `정상 수령 라인은 Location에 분산 배치해 정상 품질 장부에 반영한다`() = runTest {
+            stubInbound(inspectedItem(), inboundReceipt().inboundReceiptId(nextReceiptId()).inboundItemId(1L).lotNumber("LOT-1").quantity(30).build())
+            stubLocations(locationResult(1L, 10L, 70, 10))
+            stubIncrease()
 
             val result = inboundService.complete(CompleteInboundCommand(1L))
 
             assertThat(result.status).isEqualTo(InboundStatus.COMPLETED)
-            verify(occupyLocationUseCase).occupy(OccupyLocationCommand(1L, 30))
-            verify(registerInventoryUseCase).register(RegisterInventoryCommand(500L, 1L, 30, 1L, InventoryHistoryType.INBOUND))
+            verify(increaseLocationStockUseCase)
+                .increase(IncreaseLocationStockCommand(1L, 100L, "LOT-1", StockQualityStatus.NORMAL, 30))
             verify(releaseWorkAreaUseCase).release(ReleaseWorkAreaCommand(1L, 30))
             verify(registerDisposalUseCase, never()).register(any())
+        }
+
+        @Test
+        fun `한 Location에 다 들어가지 않으면 잔여 capacity가 큰 Location부터 나눠 반영한다`() = runTest {
+            stubInbound(inspectedItem(), inboundReceipt().inboundReceiptId(nextReceiptId()).inboundItemId(1L).lotNumber("LOT-1").quantity(30).build())
+            stubLocations(locationResult(1L, 10L, 70, 60), locationResult(2L, 10L, 70, 50))
+            stubIncrease()
+
+            inboundService.complete(CompleteInboundCommand(1L))
+
+            val captor = argumentCaptor<IncreaseLocationStockCommand>()
+            verify(increaseLocationStockUseCase, times(2)).increase(captor.capture())
+            assertThat(captor.allValues.map { it.locationId to it.quantity }).containsExactly(2L to 20, 1L to 10)
+        }
+
+        @Test
+        fun `같은 상품의 로트가 여러 개이면 라인마다 장부에 반영한다`() = runTest {
+            stubInbound(
+                inspectedItem(30, 30),
+                inboundReceipt().inboundReceiptId(nextReceiptId()).inboundItemId(1L).lotNumber("LOT-A").quantity(20).build(),
+                inboundReceipt().inboundReceiptId(nextReceiptId()).inboundItemId(1L).lotNumber("LOT-B").quantity(10).build()
+            )
+            stubLocations(locationResult(1L, 10L, 70, 10))
+            stubIncrease()
+
+            inboundService.complete(CompleteInboundCommand(1L))
+
+            verify(increaseLocationStockUseCase).increase(IncreaseLocationStockCommand(1L, 100L, "LOT-A", StockQualityStatus.NORMAL, 20))
+            verify(increaseLocationStockUseCase).increase(IncreaseLocationStockCommand(1L, 100L, "LOT-B", StockQualityStatus.NORMAL, 10))
+        }
+
+        @Test
+        fun `불량 수령 라인은 불량 품질로 장부에 반영하고 불량 사유에 맞춰 폐기 등록과 연계한다`() = runTest {
+            stubInbound(inspectedItem(), inboundReceipt().inboundReceiptId(nextReceiptId()).inboundItemId(1L).quantity(30).defective(DefectReason.DAMAGED).build())
+            stubLocations(locationResult(1L, 10L, 70, 10))
+            stubIncrease()
+            whenever(registerDisposalUseCase.register(any())).thenReturn(DisposalResult(900L, 1L, DisposalStatus.REQUESTED))
+
+            val result = inboundService.complete(CompleteInboundCommand(1L))
+
+            assertThat(result.status).isEqualTo(InboundStatus.COMPLETED)
+            verify(increaseLocationStockUseCase)
+                .increase(IncreaseLocationStockCommand(1L, 100L, "LOT-001", StockQualityStatus.DEFECTIVE, 30))
+            verify(registerDisposalUseCase).register(
+                RegisterDisposalCommand(1L, listOf(RegisterDisposalItemCommand(130L, 30, DisposalReason.INSPECTION_DEFECT)))
+            )
+        }
+
+        @Test
+        fun `유통기한 경과 사유의 불량 라인은 폐기 사유 EXPIRED로 연계한다`() = runTest {
+            stubInbound(
+                inspectedItem(),
+                inboundReceipt().inboundReceiptId(nextReceiptId()).inboundItemId(1L).quantity(30)
+                    .expirationDate(LocalDate.of(2026, 10, 1)).defective(DefectReason.EXPIRED).build()
+            )
+            stubLocations(locationResult(1L, 10L, 70, 10))
+            stubIncrease()
+            whenever(registerDisposalUseCase.register(any())).thenReturn(DisposalResult(900L, 1L, DisposalStatus.REQUESTED))
+
+            inboundService.complete(CompleteInboundCommand(1L))
+
+            verify(registerDisposalUseCase).register(
+                RegisterDisposalCommand(1L, listOf(RegisterDisposalItemCommand(130L, 30, DisposalReason.EXPIRED)))
+            )
+        }
+
+        @Test
+        fun `정상 라인과 불량 라인이 섞여 있으면 불량 수량만 폐기 연계한다`() = runTest {
+            stubInbound(
+                inspectedItem(),
+                inboundReceipt().inboundReceiptId(nextReceiptId()).inboundItemId(1L).lotNumber("LOT-N").quantity(25).normal().build(),
+                inboundReceipt().inboundReceiptId(nextReceiptId()).inboundItemId(1L).lotNumber("LOT-D").quantity(5).defective(DefectReason.QUALITY).build()
+            )
+            stubLocations(locationResult(1L, 10L, 70, 10))
+            stubIncrease()
+            whenever(registerDisposalUseCase.register(any())).thenReturn(DisposalResult(900L, 1L, DisposalStatus.REQUESTED))
+
+            inboundService.complete(CompleteInboundCommand(1L))
+
+            verify(registerDisposalUseCase).register(
+                RegisterDisposalCommand(1L, listOf(RegisterDisposalItemCommand(105L, 5, DisposalReason.INSPECTION_DEFECT)))
+            )
         }
 
         @Test
@@ -323,171 +390,38 @@ class InboundServiceTest {
         }
 
         @Test
-        fun `같은 상품의 로트가 여러 개이면 라인마다 Lot을 확정해 각각 재고로 등록한다`() = runTest {
-            whenever(inboundRepository.findById(1L)).thenReturn(processingInbound())
-            whenever(inboundItemRepository.findAllByInboundId(1L)).thenReturn(flowOf(inspectedItem(30, 30)))
-            whenever(inboundReceiptRepository.findAllByInboundItemIds(listOf(1L))).thenReturn(
-                listOf(
-                    inboundReceipt().inboundReceiptId(nextReceiptId()).inboundItemId(1L).lotNumber("LOT-A").quantity(20).build(),
-                    inboundReceipt().inboundReceiptId(nextReceiptId()).inboundItemId(1L).lotNumber("LOT-B").quantity(10).build()
-                )
-            )
-            whenever(getLotUseCase.getAllByProduct(100L)).thenReturn(emptyFlow())
-            whenever(registerLotUseCase.register(any())).thenAnswer {
-                val command = it.getArgument<com.dozycoffee.wms.inventory.application.port.`in`.command.RegisterLotCommand>(0)
-                LotResult(if (command.lotNumber == "LOT-A") 501L else 502L, command.lotNumber, 100L, null, null, LotStatus.NORMAL)
-            }
-            whenever(registerInventoryUseCase.register(any()))
-                .thenReturn(InventoryResult(1L, 100L, 501L, 1L, 20, 0, 20, QualityStatus.NORMAL))
-            stubDistribution()
-
-            inboundService.complete(CompleteInboundCommand(1L))
-
-            verify(registerInventoryUseCase).register(RegisterInventoryCommand(501L, 1L, 20, 1L, InventoryHistoryType.INBOUND))
-            verify(registerInventoryUseCase).register(RegisterInventoryCommand(502L, 1L, 10, 1L, InventoryHistoryType.INBOUND))
-        }
-
-        @Test
-        fun `불량 수령 라인은 DEFECTIVE로 전환하고 불량 사유에 맞춰 폐기 등록과 연계한다`() = runTest {
-            whenever(inboundRepository.findById(1L)).thenReturn(processingInbound())
-            whenever(inboundItemRepository.findAllByInboundId(1L)).thenReturn(flowOf(inspectedItem()))
-            whenever(inboundReceiptRepository.findAllByInboundItemIds(listOf(1L)))
-                .thenReturn(listOf(inboundReceipt().inboundReceiptId(nextReceiptId()).inboundItemId(1L).quantity(30).defective(DefectReason.DAMAGED).build()))
-            whenever(getLotUseCase.getAllByProduct(100L)).thenReturn(emptyFlow())
-            whenever(registerLotUseCase.register(any()))
-                .thenReturn(LotResult(500L, "LOT-001", 100L, null, null, LotStatus.NORMAL))
-            val registeredInventory = InventoryResult(1L, 100L, 500L, 1L, 30, 0, 30, QualityStatus.NORMAL)
-            whenever(registerInventoryUseCase.register(any())).thenReturn(registeredInventory)
-            whenever(markInventoryDefectiveUseCase.markDefective(1L))
-                .thenReturn(registeredInventory.copy(qualityStatus = QualityStatus.DEFECTIVE))
-            whenever(registerDisposalUseCase.register(any()))
-                .thenReturn(DisposalResult(900L, 1L, DisposalStatus.REQUESTED))
-            stubDistribution()
-
-            val result = inboundService.complete(CompleteInboundCommand(1L))
-
-            assertThat(result.status).isEqualTo(InboundStatus.COMPLETED)
-            verify(markInventoryDefectiveUseCase).markDefective(1L)
-            verify(registerDisposalUseCase).register(
-                RegisterDisposalCommand(1L, listOf(RegisterDisposalItemCommand(1L, 30, DisposalReason.INSPECTION_DEFECT)))
-            )
-        }
-
-        @Test
-        fun `유통기한 경과 사유의 불량 라인은 폐기 사유 EXPIRED로 연계한다`() = runTest {
-            whenever(inboundRepository.findById(1L)).thenReturn(processingInbound())
-            whenever(inboundItemRepository.findAllByInboundId(1L)).thenReturn(flowOf(inspectedItem()))
-            whenever(inboundReceiptRepository.findAllByInboundItemIds(listOf(1L))).thenReturn(
-                listOf(
-                    inboundReceipt().inboundReceiptId(nextReceiptId()).inboundItemId(1L).quantity(30)
-                        .expirationDate(LocalDate.of(2026, 10, 1)).defective(DefectReason.EXPIRED).build()
-                )
-            )
-            whenever(getLotUseCase.getAllByProduct(100L)).thenReturn(emptyFlow())
-            whenever(registerLotUseCase.register(any()))
-                .thenReturn(LotResult(500L, "LOT-001", 100L, null, LocalDate.of(2026, 10, 1), LotStatus.NORMAL))
-            val registeredInventory = InventoryResult(1L, 100L, 500L, 1L, 30, 0, 30, QualityStatus.NORMAL)
-            whenever(registerInventoryUseCase.register(any())).thenReturn(registeredInventory)
-            whenever(markInventoryDefectiveUseCase.markDefective(1L))
-                .thenReturn(registeredInventory.copy(qualityStatus = QualityStatus.DEFECTIVE))
-            whenever(registerDisposalUseCase.register(any()))
-                .thenReturn(DisposalResult(900L, 1L, DisposalStatus.REQUESTED))
-            stubDistribution()
-
-            inboundService.complete(CompleteInboundCommand(1L))
-
-            verify(registerDisposalUseCase).register(
-                RegisterDisposalCommand(1L, listOf(RegisterDisposalItemCommand(1L, 30, DisposalReason.EXPIRED)))
-            )
-        }
-
-        @Test
-        fun `정상 라인과 불량 라인이 섞여 있으면 불량 수량만 폐기 연계한다`() = runTest {
-            whenever(inboundRepository.findById(1L)).thenReturn(processingInbound())
-            whenever(inboundItemRepository.findAllByInboundId(1L)).thenReturn(flowOf(inspectedItem()))
-            whenever(inboundReceiptRepository.findAllByInboundItemIds(listOf(1L))).thenReturn(
-                listOf(
-                    inboundReceipt().inboundReceiptId(nextReceiptId()).inboundItemId(1L).quantity(25).normal().build(),
-                    inboundReceipt().inboundReceiptId(nextReceiptId()).inboundItemId(1L).quantity(5).defective(DefectReason.QUALITY).build()
-                )
-            )
-            whenever(getLotUseCase.getAllByProduct(100L)).thenReturn(emptyFlow())
-            whenever(registerLotUseCase.register(any()))
-                .thenReturn(LotResult(500L, "LOT-001", 100L, null, null, LotStatus.NORMAL))
-            whenever(registerInventoryUseCase.register(any())).thenAnswer {
-                val command = it.getArgument<RegisterInventoryCommand>(0)
-                InventoryResult(command.quantity.toLong(), 100L, 500L, 1L, command.quantity, 0, command.quantity, QualityStatus.NORMAL)
-            }
-            whenever(markInventoryDefectiveUseCase.markDefective(5L))
-                .thenReturn(InventoryResult(5L, 100L, 500L, 1L, 5, 0, 5, QualityStatus.DEFECTIVE))
-            whenever(registerDisposalUseCase.register(any()))
-                .thenReturn(DisposalResult(900L, 1L, DisposalStatus.REQUESTED))
-            stubDistribution()
-
-            inboundService.complete(CompleteInboundCommand(1L))
-
-            verify(markInventoryDefectiveUseCase, never()).markDefective(25L)
-            verify(registerDisposalUseCase).register(
-                RegisterDisposalCommand(1L, listOf(RegisterDisposalItemCommand(5L, 5, DisposalReason.INSPECTION_DEFECT)))
-            )
-        }
-
-        @Test
-        fun `기존 Lot과 유통기한이 다른 라인이면 예외를 던지고 재고를 등록하지 않는다`() = runTest {
-            whenever(inboundRepository.findById(1L)).thenReturn(processingInbound())
-            whenever(inboundItemRepository.findAllByInboundId(1L)).thenReturn(flowOf(inspectedItem()))
-            whenever(inboundReceiptRepository.findAllByInboundItemIds(listOf(1L))).thenReturn(
-                listOf(inboundReceipt().inboundReceiptId(nextReceiptId()).inboundItemId(1L).lotNumber("LOT-1").expirationDate(LocalDate.of(2027, 2, 1)).quantity(30).build())
-            )
-            whenever(getLotUseCase.getAllByProduct(100L)).thenReturn(
-                flowOf(LotResult(500L, "LOT-1", 100L, null, LocalDate.of(2027, 1, 1), LotStatus.NORMAL))
-            )
+        fun `Zone 잔여 capacity가 부족하면 예외를 던진다`() = runTest {
+            stubInbound(inspectedItem(), inboundReceipt().inboundReceiptId(nextReceiptId()).inboundItemId(1L).quantity(30).build())
+            whenever(getLocationUseCase.getByZoneId(10L)).thenReturn(flowOf(locationResult(1L, 10L, 70, 60)))
+            stubIncrease()
 
             assertThatThrownBy { runBlocking { inboundService.complete(CompleteInboundCommand(1L)) } }
-                .isInstanceOf(LotExpirationConflictException::class.java)
-            verify(registerInventoryUseCase, never()).register(any())
+                .isInstanceOf(InsufficientZoneCapacityException::class.java)
         }
 
         @Test
-        fun `기존 Lot과 번호와 유통기한이 같으면 새 Lot을 만들지 않고 재사용한다`() = runTest {
-            whenever(inboundRepository.findById(1L)).thenReturn(processingInbound())
-            whenever(inboundItemRepository.findAllByInboundId(1L)).thenReturn(flowOf(inspectedItem()))
-            whenever(inboundReceiptRepository.findAllByInboundItemIds(listOf(1L))).thenReturn(
-                listOf(inboundReceipt().inboundReceiptId(nextReceiptId()).inboundItemId(1L).lotNumber("LOT-1").expirationDate(LocalDate.of(2027, 1, 1)).quantity(30).build())
-            )
-            whenever(getLotUseCase.getAllByProduct(100L)).thenReturn(
-                flowOf(LotResult(500L, "LOT-1", 100L, null, LocalDate.of(2027, 1, 1), LotStatus.NORMAL))
-            )
-            whenever(registerInventoryUseCase.register(any()))
-                .thenReturn(InventoryResult(1L, 100L, 500L, 1L, 30, 0, 30, QualityStatus.NORMAL))
-            stubDistribution()
+        fun `미도착 상품은 장부에 반영하지 않고 예정 수량만큼 입고 처리장을 해제한다`() = runTest {
+            stubInbound(inspectedItem(30, 0))
+            stubCompletion()
 
             inboundService.complete(CompleteInboundCommand(1L))
 
-            verify(registerLotUseCase, never()).register(any())
-            verify(registerInventoryUseCase).register(RegisterInventoryCommand(500L, 1L, 30, 1L, InventoryHistoryType.INBOUND))
+            verify(increaseLocationStockUseCase, never()).increase(any())
+            verify(releaseWorkAreaUseCase).release(ReleaseWorkAreaCommand(1L, 30))
         }
 
         @Test
         fun `수령 라인마다 inventory 입고 확정 호출을 수령 라인 ID 기반 멱등 키로 기록한다`() = runTest {
-            whenever(inboundRepository.findById(1L)).thenReturn(processingInbound())
-            whenever(inboundItemRepository.findAllByInboundId(1L)).thenReturn(flowOf(inspectedItem(30, 30)))
-            whenever(inboundReceiptRepository.findAllByInboundItemIds(listOf(1L))).thenReturn(
-                listOf(
-                    inboundReceipt().inboundReceiptId(71L).inboundItemId(1L).lotNumber("LOT-A").quantity(20)
-                        .manufactureDate(LocalDate.of(2026, 9, 1)).expirationDate(LocalDate.of(2027, 1, 1)).build(),
-                    inboundReceipt().inboundReceiptId(72L).inboundItemId(1L).lotNumber("LOT-B").quantity(10)
-                        .defective(DefectReason.DAMAGED).build()
-                )
+            stubInbound(
+                inspectedItem(30, 30),
+                inboundReceipt().inboundReceiptId(71L).inboundItemId(1L).lotNumber("LOT-A").quantity(20)
+                    .manufactureDate(LocalDate.of(2026, 9, 1)).expirationDate(LocalDate.of(2027, 1, 1)).build(),
+                inboundReceipt().inboundReceiptId(72L).inboundItemId(1L).lotNumber("LOT-B").quantity(10)
+                    .defective(DefectReason.DAMAGED).build()
             )
-            whenever(getLotUseCase.getAllByProduct(100L)).thenReturn(emptyFlow())
-            whenever(registerLotUseCase.register(any())).thenReturn(LotResult(500L, "LOT", 100L, null, null, LotStatus.NORMAL))
-            whenever(registerInventoryUseCase.register(any()))
-                .thenReturn(InventoryResult(1L, 100L, 500L, 1L, 10, 0, 10, QualityStatus.NORMAL))
-            whenever(markInventoryDefectiveUseCase.markDefective(any()))
-                .thenReturn(InventoryResult(1L, 100L, 500L, 1L, 10, 0, 10, QualityStatus.DEFECTIVE))
+            stubLocations(locationResult(1L, 10L, 70, 10))
+            stubIncrease()
             whenever(registerDisposalUseCase.register(any())).thenReturn(DisposalResult(900L, 1L, DisposalStatus.REQUESTED))
-            stubDistribution()
 
             inboundService.complete(CompleteInboundCommand(1L))
 
@@ -512,67 +446,24 @@ class InboundServiceTest {
 
         @Test
         fun `여러 Location에 나눠 적재해도 수령 라인당 호출은 한 건이다`() = runTest {
-            whenever(inboundRepository.findById(1L)).thenReturn(processingInbound())
-            whenever(inboundItemRepository.findAllByInboundId(1L)).thenReturn(flowOf(inspectedItem()))
-            whenever(inboundReceiptRepository.findAllByInboundItemIds(listOf(1L)))
-                .thenReturn(listOf(inboundReceipt().inboundReceiptId(71L).inboundItemId(1L).quantity(30).build()))
-            whenever(getLotUseCase.getAllByProduct(100L)).thenReturn(emptyFlow())
-            whenever(registerLotUseCase.register(any())).thenReturn(LotResult(500L, "LOT-001", 100L, null, null, LotStatus.NORMAL))
-            whenever(registerInventoryUseCase.register(any()))
-                .thenReturn(InventoryResult(1L, 100L, 500L, 1L, 15, 0, 15, QualityStatus.NORMAL))
-            whenever(getLocationUseCase.getByZoneId(10L))
-                .thenReturn(flowOf(locationResult(1L, 10L, 50, 35), locationResult(2L, 10L, 50, 35)))
-            whenever(occupyLocationUseCase.occupy(any())).thenReturn(locationResult(1L, 10L, 50, 50))
-            stubCompletion()
+            stubInbound(inspectedItem(), inboundReceipt().inboundReceiptId(71L).inboundItemId(1L).quantity(30).build())
+            stubLocations(locationResult(1L, 10L, 50, 35), locationResult(2L, 10L, 50, 35))
+            stubIncrease()
 
             inboundService.complete(CompleteInboundCommand(1L))
 
-            verify(registerInventoryUseCase, times(2)).register(any())
+            verify(increaseLocationStockUseCase, times(2)).increase(any())
             verify(recordInventoryCallUseCase, times(1)).record(any())
         }
 
         @Test
         fun `미도착 상품은 호출을 기록하지 않는다`() = runTest {
-            whenever(inboundRepository.findById(1L)).thenReturn(processingInbound())
-            whenever(inboundItemRepository.findAllByInboundId(1L)).thenReturn(flowOf(inspectedItem(30, 0)))
-            whenever(inboundReceiptRepository.findAllByInboundItemIds(listOf(1L))).thenReturn(emptyList())
+            stubInbound(inspectedItem(30, 0))
             stubCompletion()
 
             inboundService.complete(CompleteInboundCommand(1L))
 
             verify(recordInventoryCallUseCase, never()).record(any())
-        }
-
-        @Test
-        fun `Lot 유통기한 충돌로 실패하면 호출을 기록하지 않는다`() = runTest {
-            whenever(inboundRepository.findById(1L)).thenReturn(processingInbound())
-            whenever(inboundItemRepository.findAllByInboundId(1L)).thenReturn(flowOf(inspectedItem()))
-            whenever(inboundReceiptRepository.findAllByInboundItemIds(listOf(1L))).thenReturn(
-                listOf(
-                    inboundReceipt().inboundReceiptId(71L).inboundItemId(1L).lotNumber("LOT-1")
-                        .expirationDate(LocalDate.of(2027, 2, 1)).quantity(30).build()
-                )
-            )
-            whenever(getLotUseCase.getAllByProduct(100L)).thenReturn(
-                flowOf(LotResult(500L, "LOT-1", 100L, null, LocalDate.of(2027, 1, 1), LotStatus.NORMAL))
-            )
-
-            assertThatThrownBy { runBlocking { inboundService.complete(CompleteInboundCommand(1L)) } }
-                .isInstanceOf(LotExpirationConflictException::class.java)
-            verify(recordInventoryCallUseCase, never()).record(any())
-        }
-
-        @Test
-        fun `미도착 상품은 재고를 등록하지 않고 예정 수량만큼 입고 처리장을 해제한다`() = runTest {
-            whenever(inboundRepository.findById(1L)).thenReturn(processingInbound())
-            whenever(inboundItemRepository.findAllByInboundId(1L)).thenReturn(flowOf(inspectedItem(30, 0)))
-            whenever(inboundReceiptRepository.findAllByInboundItemIds(listOf(1L))).thenReturn(emptyList())
-            stubCompletion()
-
-            inboundService.complete(CompleteInboundCommand(1L))
-
-            verify(registerInventoryUseCase, never()).register(any())
-            verify(releaseWorkAreaUseCase).release(ReleaseWorkAreaCommand(1L, 30))
         }
     }
 

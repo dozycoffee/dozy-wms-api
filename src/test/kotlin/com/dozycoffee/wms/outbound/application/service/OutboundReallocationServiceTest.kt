@@ -3,11 +3,6 @@ package com.dozycoffee.wms.outbound.application.service
 import com.dozycoffee.wms.global.security.OnlyWarehouses
 import com.dozycoffee.wms.global.security.WarehouseAccessDeniedException
 import com.dozycoffee.wms.global.security.WarehouseAccessGuard
-import com.dozycoffee.wms.inventory.application.port.`in`.GetAllocationUseCase
-import com.dozycoffee.wms.inventory.application.port.`in`.ReleaseAllocationUseCase
-import com.dozycoffee.wms.inventory.application.port.`in`.result.AllocationResult
-import com.dozycoffee.wms.inventory.domain.enumeration.AllocationReferenceType
-import com.dozycoffee.wms.inventory.domain.enumeration.AllocationStatus
 import com.dozycoffee.wms.outbound.application.port.`in`.command.ReportPickingShortageCommand
 import com.dozycoffee.wms.outbound.application.port.out.OutboundAllocationRepository
 import com.dozycoffee.wms.outbound.application.port.out.OutboundItemRepository
@@ -69,12 +64,6 @@ class OutboundReallocationServiceTest {
     private lateinit var outboundAllocationHolder: OutboundAllocationHolder
 
     @Mock
-    private lateinit var getAllocationUseCase: GetAllocationUseCase
-
-    @Mock
-    private lateinit var releaseAllocationUseCase: ReleaseAllocationUseCase
-
-    @Mock
     private lateinit var getWorkAreaUseCase: GetWorkAreaUseCase
 
     @Mock
@@ -96,8 +85,6 @@ class OutboundReallocationServiceTest {
             outboundAllocationRepository,
             outboundInventoryReallocator,
             outboundAllocationHolder,
-            getAllocationUseCase,
-            releaseAllocationUseCase,
             getWorkAreaUseCase,
             occupyWorkAreaUseCase,
             releaseWorkAreaUseCase
@@ -133,8 +120,6 @@ class OutboundReallocationServiceTest {
         1L, 1L, AreaCode.OUTBOUND, AreaCode.OUTBOUND.areaName, AreaCode.OUTBOUND.capacity.value, 6, AvailabilityStatus.AVAILABLE
     )
 
-    private fun heldAllocation(id: Long) = AllocationResult(id, 1L, AllocationReferenceType.OUTBOUND, 1L, 3, AllocationStatus.HELD)
-
     private suspend fun stubExisting(
         allocations: List<OutboundAllocation>,
         outbound: Outbound = pickingOutbound(),
@@ -165,8 +150,6 @@ class OutboundReallocationServiceTest {
                 )
             )
         )
-        whenever(getAllocationUseCase.getAllHeldByReference(AllocationReferenceType.OUTBOUND, 1L))
-            .thenReturn(flowOf(heldAllocation(900L), heldAllocation(901L)))
         whenever(outboundAllocationHolder.hold(any(), any(), eq(1L))).thenAnswer { (it.getArgument(1) as OutboundAllocation).quantity }
         whenever(outboundAllocationRepository.save(any())).thenAnswer { persisted(it.getArgument(0)) }
         whenever(outboundItemRepository.save(any())).thenAnswer { it.getArgument(0) }
@@ -177,8 +160,8 @@ class OutboundReallocationServiceTest {
         assertThat(results.map { it.inventoryId }).containsExactly(55L, 56L, 57L)
         assertThat(results.map { it.quantity }).containsExactly(2, 2, 2)
         assertThat(results.map { it.pickedQuantity }).containsExactly(2, 2, 2)
-        verify(releaseAllocationUseCase).release(900L)
-        verify(releaseAllocationUseCase).release(901L)
+        verify(outboundAllocationHolder).release(a)
+        verify(outboundAllocationHolder).release(b)
         val reportedBody = argumentCaptor<List<OutboundInventoryReallocator.Shortage>>()
         verify(outboundInventoryReallocator).reallocate(eq(7L), eq("wms-reallocation-1-1"), reportedBody.capture())
         assertThat(reportedBody.firstValue).containsExactly(OutboundInventoryReallocator.Shortage(55L, 2))
@@ -202,7 +185,6 @@ class OutboundReallocationServiceTest {
                 )
             )
         )
-        whenever(getAllocationUseCase.getAllHeldByReference(AllocationReferenceType.OUTBOUND, 1L)).thenReturn(flowOf())
         whenever(outboundAllocationHolder.hold(any(), any(), eq(1L))).thenReturn(1)
         whenever(outboundAllocationRepository.save(any())).thenAnswer { persisted(it.getArgument(0)) }
         whenever(outboundItemRepository.save(any())).thenAnswer { it.getArgument(0) }
@@ -235,7 +217,6 @@ class OutboundReallocationServiceTest {
                 )
             )
         )
-        whenever(getAllocationUseCase.getAllHeldByReference(AllocationReferenceType.OUTBOUND, 1L)).thenReturn(flowOf())
         whenever(outboundAllocationHolder.hold(any(), any(), eq(1L))).thenAnswer { (it.getArgument(1) as OutboundAllocation).quantity }
         whenever(outboundAllocationRepository.save(any())).thenAnswer { persisted(it.getArgument(0)) }
         whenever(outboundItemRepository.save(any())).thenAnswer { it.getArgument(0) }
@@ -255,7 +236,7 @@ class OutboundReallocationServiceTest {
 
         assertThatThrownBy { runBlocking { service.report(command(1L to 2)) } }
             .isInstanceOf(OutboundInventoryRejectedException::class.java)
-        verify(releaseAllocationUseCase, never()).release(any())
+        verify(outboundAllocationHolder, never()).release(any())
         verify(outboundAllocationRepository, never()).save(any())
         verify(outboundAllocationRepository, never()).delete(any())
         verify(outboundRepository, never()).save(any())

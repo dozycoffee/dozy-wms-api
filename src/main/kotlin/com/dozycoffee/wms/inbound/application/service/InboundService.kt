@@ -25,19 +25,15 @@ import com.dozycoffee.wms.inbound.domain.exception.NotAllItemsInspectedException
 import com.dozycoffee.wms.inbound.domain.model.Inbound
 import com.dozycoffee.wms.inbound.domain.model.InboundItem
 import com.dozycoffee.wms.inbound.domain.model.InboundReceipt
-import com.dozycoffee.wms.inventory.application.port.`in`.MarkInventoryDefectiveUseCase
-import com.dozycoffee.wms.inventory.application.port.`in`.RegisterInventoryUseCase
-import com.dozycoffee.wms.inventory.application.port.`in`.command.RegisterInventoryCommand
-import com.dozycoffee.wms.inventory.application.port.`in`.result.InventoryResult
-import com.dozycoffee.wms.inventory.domain.enumeration.InventoryHistoryType
+import com.dozycoffee.wms.location_stock.application.port.`in`.IncreaseLocationStockUseCase
+import com.dozycoffee.wms.location_stock.application.port.`in`.command.IncreaseLocationStockCommand
+import com.dozycoffee.wms.location_stock.domain.enumeration.StockQualityStatus
 import com.dozycoffee.wms.product.application.port.`in`.GetProductUseCase
 import com.dozycoffee.wms.warehouse.application.port.`in`.GetLocationUseCase
 import com.dozycoffee.wms.warehouse.application.port.`in`.GetWorkAreaUseCase
 import com.dozycoffee.wms.warehouse.application.port.`in`.GetZoneUseCase
-import com.dozycoffee.wms.warehouse.application.port.`in`.OccupyLocationUseCase
 import com.dozycoffee.wms.warehouse.application.port.`in`.OccupyWorkAreaUseCase
 import com.dozycoffee.wms.warehouse.application.port.`in`.ReleaseWorkAreaUseCase
-import com.dozycoffee.wms.warehouse.application.port.`in`.command.OccupyLocationCommand
 import com.dozycoffee.wms.warehouse.application.port.`in`.command.OccupyWorkAreaCommand
 import com.dozycoffee.wms.warehouse.application.port.`in`.command.ReleaseWorkAreaCommand
 import com.dozycoffee.wms.warehouse.domain.enumeration.AreaCode
@@ -57,13 +53,10 @@ class InboundService(
     private val getProductUseCase: GetProductUseCase,
     private val getZoneUseCase: GetZoneUseCase,
     private val getLocationUseCase: GetLocationUseCase,
-    private val occupyLocationUseCase: OccupyLocationUseCase,
     private val getWorkAreaUseCase: GetWorkAreaUseCase,
     private val occupyWorkAreaUseCase: OccupyWorkAreaUseCase,
     private val releaseWorkAreaUseCase: ReleaseWorkAreaUseCase,
-    private val inboundLotResolver: InboundLotResolver,
-    private val registerInventoryUseCase: RegisterInventoryUseCase,
-    private val markInventoryDefectiveUseCase: MarkInventoryDefectiveUseCase,
+    private val increaseLocationStockUseCase: IncreaseLocationStockUseCase,
     private val registerDisposalUseCase: RegisterDisposalUseCase,
     private val inboundInventoryCallRecorder: InboundInventoryCallRecorder
 ) : RegisterInboundUseCase, StartInboundProcessingUseCase, CompleteInboundUseCase, GetInboundUseCase {
@@ -129,10 +122,9 @@ class InboundService(
     }
 
     /**
-     * 수령 라인마다 Lot을 확정하고 Zone 내 Location에 분산 배치해 Inventory로 등록한다.
-     * 불량 라인은 등록 직후 DEFECTIVE로 전환하고 Disposal(REQUESTED)로 연계한다 —
-     * 폐기 처리장 점유 등 물리적 처리는 이후 Disposal 승인/완료 단계에서 이뤄진다.
-     * 수령 라인마다 inventory 입고 확정 호출을 같은 트랜잭션에서 아웃박스에 기록한다.
+     * 수령 라인마다 Zone 내 Location에 분산 배치해 Location 장부에 반영한다(Location 사용량은 장부가 갱신한다, ADR-0024).
+     * 불량 라인은 불량(DEFECTIVE) 품질로 장부에 반영하고 Disposal(REQUESTED)로 연계한다 — 폐기 처리장 점유 등 물리적 처리는
+     * 이후 Disposal 승인/완료 단계에서 이뤄진다. 수령 라인마다 inventory 입고 확정 호출을 같은 트랜잭션에서 아웃박스에 기록한다.
      */
     @Transactional
     override suspend fun complete(command: CompleteInboundCommand): InboundResult {
@@ -149,17 +141,16 @@ class InboundService(
         val defectiveDisposalItems = mutableListOf<RegisterDisposalItemCommand>()
         items.forEach { item ->
             receiptsByItemId[item.inboundItemId].orEmpty().forEach { receipt ->
-                val lot = inboundLotResolver.resolve(item.productId, receipt)
-                val registeredInventories = distributeToLocations(item, lot.lotId, receipt.quantity)
+                val defective = receipt.inspectionResult == InspectionResult.DEFECTIVE
+                val placements = distributeToLocations(item, receipt, if (defective) StockQualityStatus.DEFECTIVE else StockQualityStatus.NORMAL)
                 inboundInventoryCallRecorder.record(inbound.warehouseId, item.productId, receipt)
 
-                if (receipt.inspectionResult == InspectionResult.DEFECTIVE) {
-                    registeredInventories.forEach { inventory ->
-                        markInventoryDefectiveUseCase.markDefective(inventory.inventoryId)
+                if (defective) {
+                    placements.forEach { placement ->
                         defectiveDisposalItems.add(
                             RegisterDisposalItemCommand(
-                                inventory.inventoryId,
-                                inventory.quantity,
+                                placement.locationStockId,
+                                placement.quantity,
                                 toDisposalReason(requireNotNull(receipt.defectReason))
                             )
                         )
@@ -192,32 +183,36 @@ class InboundService(
     }
 
     /** Zone 내 잔여 capacity가 큰 Location부터 채우는 First-Fit 방식으로 여러 Location에 분산 배치한다 */
-    private suspend fun distributeToLocations(item: InboundItem, lotId: Long, quantity: Int): List<InventoryResult> {
-        var remainingQuantity = quantity
+    private suspend fun distributeToLocations(
+        item: InboundItem,
+        receipt: InboundReceipt,
+        qualityStatus: StockQualityStatus
+    ): List<Placement> {
+        var remainingQuantity = receipt.quantity
         val locations = getLocationUseCase.getByZoneId(item.zoneId).toList()
             .sortedByDescending { it.maxCapacity - it.usedCapacity }
 
-        val registeredInventories = mutableListOf<InventoryResult>()
+        val placements = mutableListOf<Placement>()
         for (location in locations) {
             if (remainingQuantity <= 0) break
             val availableCapacity = location.maxCapacity - location.usedCapacity
             if (availableCapacity <= 0) continue
 
             val allocatedQuantity = minOf(availableCapacity, remainingQuantity)
-            occupyLocationUseCase.occupy(OccupyLocationCommand(location.locationId, allocatedQuantity))
-            registeredInventories.add(
-                registerInventoryUseCase.register(
-                    RegisterInventoryCommand(lotId, location.locationId, allocatedQuantity, requireNotNull(item.inboundItemId), InventoryHistoryType.INBOUND)
-                )
+            val stock = increaseLocationStockUseCase.increase(
+                IncreaseLocationStockCommand(location.locationId, item.productId, receipt.lotNumber, qualityStatus, allocatedQuantity)
             )
+            placements.add(Placement(stock.locationStockId, allocatedQuantity))
             remainingQuantity -= allocatedQuantity
         }
 
         if (remainingQuantity > 0) {
             throw InsufficientZoneCapacityException()
         }
-        return registeredInventories
+        return placements
     }
+
+    private data class Placement(val locationStockId: Long, val quantity: Int)
 
     private fun toDisposalReason(defectReason: DefectReason): DisposalReason {
         return if (defectReason == DefectReason.EXPIRED) DisposalReason.EXPIRED else DisposalReason.INSPECTION_DEFECT

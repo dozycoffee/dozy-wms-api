@@ -5,13 +5,13 @@ import com.dozycoffee.wms.disposal.domain.enumeration.DisposalReason
 import jakarta.validation.constraints.NotNull
 
 data class RegisterDisposalItemRequest(
-    @field:NotNull val inventoryId: Long?,
+    @field:NotNull val locationStockId: Long?,
     @field:NotNull val quantity: Int?,
     @field:NotNull val reason: DisposalReason?
 ) {
     fun toCommand(): RegisterDisposalItemCommand {
         return RegisterDisposalItemCommand(
-            requireNotNull(inventoryId),
+            requireNotNull(locationStockId),
             requireNotNull(quantity),
             requireNotNull(reason)
         )

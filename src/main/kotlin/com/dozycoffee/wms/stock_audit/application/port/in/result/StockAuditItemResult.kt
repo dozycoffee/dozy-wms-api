@@ -5,7 +5,7 @@ import com.dozycoffee.wms.stock_audit.domain.model.StockAuditItem
 data class StockAuditItemResult(
     val stockAuditItemId: Long,
     val stockAuditId: Long,
-    val inventoryId: Long,
+    val locationStockId: Long,
     val snapshotQuantity: Int,
     val countedQuantity: Int?,
     val discrepancy: Int?,
@@ -16,7 +16,7 @@ data class StockAuditItemResult(
             return StockAuditItemResult(
                 requireNotNull(stockAuditItem.stockAuditItemId),
                 stockAuditItem.stockAuditId,
-                stockAuditItem.inventoryId,
+                stockAuditItem.locationStockId,
                 stockAuditItem.snapshotQuantity,
                 stockAuditItem.countedQuantity,
                 stockAuditItem.discrepancy,

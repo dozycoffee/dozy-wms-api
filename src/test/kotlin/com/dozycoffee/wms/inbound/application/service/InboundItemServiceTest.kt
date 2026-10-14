@@ -18,22 +18,16 @@ import com.dozycoffee.wms.inbound.domain.exception.ExpiredReceiptCannotBeNormalE
 import com.dozycoffee.wms.inbound.domain.exception.InboundItemNotFoundException
 import com.dozycoffee.wms.inbound.domain.exception.InboundNotFoundException
 import com.dozycoffee.wms.inbound.domain.exception.InboundOverReceivedException
-import com.dozycoffee.wms.inbound.domain.exception.LotExpirationConflictException
 import com.dozycoffee.wms.inbound.domain.model.InboundItem
 import com.dozycoffee.wms.inbound.domain.model.InboundReceipt
 import com.dozycoffee.wms.inbound.fixture.InboundItemTestBuilder.Companion.inboundItem
 import com.dozycoffee.wms.inbound.fixture.InboundReceiptTestBuilder.Companion.inboundReceipt
 import com.dozycoffee.wms.inbound.fixture.InboundTestBuilder.Companion.inbound
-import com.dozycoffee.wms.inventory.application.port.`in`.GetLotUseCase
-import com.dozycoffee.wms.inventory.application.port.`in`.RegisterLotUseCase
-import com.dozycoffee.wms.inventory.application.port.`in`.result.LotResult
-import com.dozycoffee.wms.inventory.domain.enumeration.LotStatus
 import com.dozycoffee.wms.product.application.port.`in`.GetProductUseCase
 import com.dozycoffee.wms.product.application.port.`in`.result.ProductResult
 import com.dozycoffee.wms.product.domain.enumeration.ProductCategory
 import com.dozycoffee.wms.product.domain.enumeration.ProductStatus
 import com.dozycoffee.wms.support.warehouseAccessGuardOf
-import kotlinx.coroutines.flow.emptyFlow
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.toList
 import kotlinx.coroutines.runBlocking
@@ -68,12 +62,6 @@ class InboundItemServiceTest {
     @Mock
     private lateinit var getProductUseCase: GetProductUseCase
 
-    @Mock
-    private lateinit var getLotUseCase: GetLotUseCase
-
-    @Mock
-    private lateinit var registerLotUseCase: RegisterLotUseCase
-
     private lateinit var inboundItemService: InboundItemService
 
     private val today: LocalDate = LocalDate.now()
@@ -93,7 +81,6 @@ class InboundItemServiceTest {
             inboundReceiptRepository,
             inboundRepository,
             getProductUseCase,
-            InboundLotResolver(getLotUseCase, registerLotUseCase),
             warehouseAccessGuardOf(access)
         )
 
@@ -133,7 +120,6 @@ class InboundItemServiceTest {
         @Test
         fun `수령 라인을 저장하고 검수 완료 상태와 실제 수량을 기록한다`() = runTest {
             stubItemAndProduct(pendingItem(), 365)
-            whenever(getLotUseCase.getAllByProduct(100L)).thenReturn(emptyFlow())
             whenever(inboundItemRepository.save(any())).thenAnswer { it.getArgument(0) }
             stubSaveAllWithIds()
 
@@ -157,7 +143,6 @@ class InboundItemServiceTest {
         @Test
         fun `유통기한을 관리하지 않는 상품은 유통기한 없이 검수할 수 있다`() = runTest {
             stubItemAndProduct(pendingItem(), null)
-            whenever(getLotUseCase.getAllByProduct(100L)).thenReturn(emptyFlow())
             whenever(inboundItemRepository.save(any())).thenAnswer { it.getArgument(0) }
             stubSaveAllWithIds()
 
@@ -217,7 +202,6 @@ class InboundItemServiceTest {
         @Test
         fun `유통기한이 지난 라인을 불량으로 판정하면 기록된다`() = runTest {
             stubItemAndProduct(pendingItem(), 365)
-            whenever(getLotUseCase.getAllByProduct(100L)).thenReturn(emptyFlow())
             whenever(inboundItemRepository.save(any())).thenAnswer { it.getArgument(0) }
             stubSaveAllWithIds()
 
@@ -240,46 +224,12 @@ class InboundItemServiceTest {
         @Test
         fun `수령 수량 합이 예정 수량을 초과하면 예외를 던진다`() = runTest {
             stubItemAndProduct(pendingItem(10), 365)
-            whenever(getLotUseCase.getAllByProduct(100L)).thenReturn(emptyFlow())
 
             assertThatThrownBy {
                 runBlocking { inboundItemService.inspect(InspectInboundItemCommand(1L, listOf(receiptCommand(quantity = 11)))) }
             }.isInstanceOf(InboundOverReceivedException::class.java)
             verify(inboundReceiptRepository, never()).saveAll(any())
             verify(inboundItemRepository, never()).save(any())
-        }
-
-        @Test
-        fun `기존 Lot과 번호는 같고 유통기한이 다르면 예외를 던진다`() = runTest {
-            stubItemAndProduct(pendingItem(), 365)
-            whenever(getLotUseCase.getAllByProduct(100L)).thenReturn(
-                flowOf(LotResult(500L, "LOT-1", 100L, null, today.plusDays(200), LotStatus.NORMAL))
-            )
-
-            assertThatThrownBy {
-                runBlocking {
-                    inboundItemService.inspect(
-                        InspectInboundItemCommand(1L, listOf(receiptCommand(lotNumber = "LOT-1", expirationDate = today.plusDays(100))))
-                    )
-                }
-            }.isInstanceOf(LotExpirationConflictException::class.java)
-            verify(inboundItemRepository, never()).save(any())
-        }
-
-        @Test
-        fun `기존 Lot과 번호와 유통기한이 같으면 검수할 수 있다`() = runTest {
-            stubItemAndProduct(pendingItem(), 365)
-            whenever(getLotUseCase.getAllByProduct(100L)).thenReturn(
-                flowOf(LotResult(500L, "LOT-1", 100L, null, today.plusDays(100), LotStatus.NORMAL))
-            )
-            whenever(inboundItemRepository.save(any())).thenAnswer { it.getArgument(0) }
-            stubSaveAllWithIds()
-
-            val result = inboundItemService.inspect(
-                InspectInboundItemCommand(1L, listOf(receiptCommand(lotNumber = "LOT-1", expirationDate = today.plusDays(100))))
-            )
-
-            assertThat(result.inspectionStatus).isEqualTo(InspectionStatus.INSPECTED)
         }
 
         @Test

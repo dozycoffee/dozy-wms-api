@@ -1,10 +1,6 @@
 package com.dozycoffee.wms.outbound.application.service
 
 import com.dozycoffee.wms.global.security.WarehouseAccessGuard
-import com.dozycoffee.wms.inventory.application.port.`in`.FulfillAllocationUseCase
-import com.dozycoffee.wms.inventory.application.port.`in`.GetAllocationUseCase
-import com.dozycoffee.wms.inventory.application.port.`in`.GetInventoryUseCase
-import com.dozycoffee.wms.inventory.domain.enumeration.AllocationReferenceType
 import com.dozycoffee.wms.outbound.application.port.`in`.CompleteOutboundUseCase
 import com.dozycoffee.wms.outbound.application.port.`in`.GetOutboundUseCase
 import com.dozycoffee.wms.outbound.application.port.`in`.StartOutboundInspectingUseCase
@@ -20,10 +16,8 @@ import com.dozycoffee.wms.outbound.domain.model.OutboundAllocation
 import com.dozycoffee.wms.outbound.domain.model.OutboundItem
 import com.dozycoffee.wms.warehouse.application.port.`in`.GetWorkAreaUseCase
 import com.dozycoffee.wms.warehouse.application.port.`in`.OccupyWorkAreaUseCase
-import com.dozycoffee.wms.warehouse.application.port.`in`.ReleaseLocationUseCase
 import com.dozycoffee.wms.warehouse.application.port.`in`.ReleaseWorkAreaUseCase
 import com.dozycoffee.wms.warehouse.application.port.`in`.command.OccupyWorkAreaCommand
-import com.dozycoffee.wms.warehouse.application.port.`in`.command.ReleaseLocationCommand
 import com.dozycoffee.wms.warehouse.application.port.`in`.command.ReleaseWorkAreaCommand
 import com.dozycoffee.wms.warehouse.domain.enumeration.AreaCode
 import kotlinx.coroutines.flow.Flow
@@ -38,14 +32,10 @@ class OutboundService(
     private val outboundRepository: OutboundRepository,
     private val outboundItemRepository: OutboundItemRepository,
     private val outboundAllocationRepository: OutboundAllocationRepository,
-    private val getInventoryUseCase: GetInventoryUseCase,
     private val outboundAllocationHolder: OutboundAllocationHolder,
-    private val getAllocationUseCase: GetAllocationUseCase,
-    private val fulfillAllocationUseCase: FulfillAllocationUseCase,
     private val getWorkAreaUseCase: GetWorkAreaUseCase,
     private val occupyWorkAreaUseCase: OccupyWorkAreaUseCase,
     private val releaseWorkAreaUseCase: ReleaseWorkAreaUseCase,
-    private val releaseLocationUseCase: ReleaseLocationUseCase,
     private val outboundFulfillmentCallRecorder: OutboundFulfillmentCallRecorder
 ) : StartOutboundPickingUseCase,
     StartOutboundInspectingUseCase,
@@ -93,28 +83,17 @@ class OutboundService(
     }
 
     /**
-     * 검수를 마친 상품의 점유를 이행(fulfill) 확정하고, 물리적으로 반출된 만큼 Location/출고장 점유를 해제한다.
+     * 검수를 마친 상품의 피킹 계획대로 위치 재고를 꺼내고(Location 사용량도 함께 줄어든다) 출고장 점유를 해제한다.
      * 예약 기반 출고는 inventory 출고 확정 호출을 같은 트랜잭션에서 아웃박스에 기록한다.
      */
     @Transactional
     override suspend fun complete(outboundId: Long): OutboundResult {
         val outbound = findAccessibleOutboundOrThrow(outboundId)
         val items = outboundItemRepository.findAllByOutboundId(outboundId).toList()
-
-        var totalPickedQuantity = 0
-        for (item in items) {
-            val allocations = getAllocationUseCase
-                .getAllHeldByReference(AllocationReferenceType.OUTBOUND, requireNotNull(item.outboundItemId))
-                .toList()
-            for (allocation in allocations) {
-                val inventory = getInventoryUseCase.getById(allocation.inventoryId)
-                fulfillAllocationUseCase.fulfill(allocation.allocationId)
-                releaseLocationUseCase.release(ReleaseLocationCommand(inventory.locationId, allocation.quantity))
-            }
-            totalPickedQuantity += item.pickedQuantity ?: 0
-        }
-
         val allocations = outboundAllocationRepository.findAllByOutboundItemIds(items.mapNotNull { it.outboundItemId })
+
+        allocations.forEach { outboundAllocationHolder.consume(it) }
+        val totalPickedQuantity = items.sumOf { it.pickedQuantity ?: 0 }
         outboundFulfillmentCallRecorder.record(outbound, allocations)
 
         val workArea = getWorkAreaUseCase.getByWarehouseIdAndAreaCode(outbound.warehouseId, AreaCode.OUTBOUND)

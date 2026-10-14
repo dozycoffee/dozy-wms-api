@@ -1,9 +1,6 @@
 package com.dozycoffee.wms.outbound.application.service
 
 import com.dozycoffee.wms.global.security.WarehouseAccessGuard
-import com.dozycoffee.wms.inventory.application.port.`in`.GetAllocationUseCase
-import com.dozycoffee.wms.inventory.application.port.`in`.ReleaseAllocationUseCase
-import com.dozycoffee.wms.inventory.domain.enumeration.AllocationReferenceType
 import com.dozycoffee.wms.outbound.application.port.`in`.ReportPickingShortageUseCase
 import com.dozycoffee.wms.outbound.application.port.`in`.command.ReportPickingShortageCommand
 import com.dozycoffee.wms.outbound.application.port.`in`.result.OutboundAllocationResult
@@ -26,7 +23,7 @@ import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
 
 /**
- * 피킹 불가 Lot을 inventory에 보고해 재할당받고, 응답대로 출고 할당과 WMS 재고 점유를 다시 잡는다.
+ * 피킹 불가 Lot을 inventory에 보고해 재할당받고, 응답대로 출고 할당과 WMS 위치 재고 점유를 다시 잡는다.
  * 로컬 변경은 inventory가 받아들인 뒤에만 하며(거부·불가면 예외로 아무것도 바뀌지 않는다), inventory 멱등 키의 회차는 로컬 반영 뒤에만 올린다.
  * 같은 회차로 다시 요청하면 inventory가 처음과 같은 응답을 주므로 로컬 반영이 롤백돼도 재시도할 수 있다.
  */
@@ -38,8 +35,6 @@ class OutboundReallocationService(
     private val outboundAllocationRepository: OutboundAllocationRepository,
     private val outboundInventoryReallocator: OutboundInventoryReallocator,
     private val outboundAllocationHolder: OutboundAllocationHolder,
-    private val getAllocationUseCase: GetAllocationUseCase,
-    private val releaseAllocationUseCase: ReleaseAllocationUseCase,
     private val getWorkAreaUseCase: GetWorkAreaUseCase,
     private val occupyWorkAreaUseCase: OccupyWorkAreaUseCase,
     private val releaseWorkAreaUseCase: ReleaseWorkAreaUseCase
@@ -92,7 +87,7 @@ class OutboundReallocationService(
         }
     }
 
-    /** 한 출고 상품의 할당을 재할당 응답에 맞추고 레거시 점유를 새 할당 기준으로 다시 잡는다. 피킹 수량의 증감을 돌려준다 */
+    /** 한 출고 상품의 할당을 재할당 응답에 맞추고 피킹 계획과 위치 재고 점유를 새 할당 기준으로 다시 잡는다. 피킹 수량의 증감을 돌려준다 */
     private suspend fun applyToItem(
         outbound: Outbound,
         item: OutboundItem,
@@ -101,8 +96,7 @@ class OutboundReallocationService(
         results: MutableList<OutboundAllocationResult>
     ): Int {
         val outboundItemId: Long = requireNotNull(item.outboundItemId)
-        getAllocationUseCase.getAllHeldByReference(AllocationReferenceType.OUTBOUND, outboundItemId).toList()
-            .forEach { releaseAllocationUseCase.release(it.allocationId) }
+        existing.forEach { outboundAllocationHolder.release(it) }
 
         val newByInventoryId = reallocated.allocations.associateBy { it.inventoryId }
         val current = mutableListOf<OutboundAllocation>()

@@ -200,21 +200,17 @@ class OutboundServiceTest {
     inner class 출고_완료 {
 
         @Test
-        fun `점유를 이행 확정하고 Location과 출고장 점유를 해제한다`() = runTest {
+        fun `피킹 계획대로 위치 재고를 꺼내고 출고장 점유를 해제하며 inventory 호출을 기록한다`() = runTest {
             val existingOutbound: Outbound = outbound().outboundId(1L).warehouseId(1L).status(OutboundStatus.INSPECTING).build()
             val item: OutboundItem = outboundItem()
                 .outboundItemId(1L).outboundId(1L).productId(100L).requestedQuantity(15).pickedQuantity(15).build()
+            val allocations = listOf(
+                OutboundAllocation.reconstitute(1L, 1L, 11L, "LOT-10", null, 5, 5),
+                OutboundAllocation.reconstitute(2L, 1L, 12L, "LOT-20", null, 10, 10)
+            )
             whenever(outboundRepository.findById(1L)).thenReturn(existingOutbound)
             whenever(outboundItemRepository.findAllByOutboundId(1L)).thenReturn(flowOf(item))
-            val allocations = listOf(OutboundAllocation.reconstitute(1L, 1L, 11L, "LOT-10", null, 15, 15))
             whenever(outboundAllocationRepository.findAllByOutboundItemIds(listOf(1L))).thenReturn(allocations)
-            whenever(getAllocationUseCase.getAllHeldByReference(AllocationReferenceType.OUTBOUND, 1L)).thenReturn(
-                flowOf(allocationResult(901L, 1L, 5), allocationResult(902L, 2L, 10))
-            )
-            whenever(getInventoryUseCase.getById(1L)).thenReturn(inventoryResult(1L, 10L, 100L, 0))
-            whenever(getInventoryUseCase.getById(2L)).thenReturn(inventoryResult(2L, 20L, 200L, 0))
-            whenever(fulfillAllocationUseCase.fulfill(any())).thenReturn(allocationResult(901L, 1L, 5))
-            whenever(releaseLocationUseCase.release(any())).thenReturn(locationResult(100L))
             whenever(getWorkAreaUseCase.getByWarehouseIdAndAreaCode(1L, AreaCode.OUTBOUND)).thenReturn(workAreaResult(15))
             whenever(releaseWorkAreaUseCase.release(any())).thenReturn(workAreaResult(0))
             whenever(outboundRepository.save(any())).thenAnswer { it.getArgument(0) }
@@ -222,10 +218,7 @@ class OutboundServiceTest {
             val result = outboundService.complete(1L)
 
             assertThat(result.status).isEqualTo(OutboundStatus.COMPLETED)
-            verify(fulfillAllocationUseCase).fulfill(901L)
-            verify(fulfillAllocationUseCase).fulfill(902L)
-            verify(releaseLocationUseCase).release(ReleaseLocationCommand(100L, 5))
-            verify(releaseLocationUseCase).release(ReleaseLocationCommand(200L, 10))
+            allocations.forEach { verify(outboundAllocationHolder).consume(it) }
             verify(releaseWorkAreaUseCase).release(ReleaseWorkAreaCommand(1L, 15))
             verify(outboundFulfillmentCallRecorder).record(existingOutbound, allocations)
         }

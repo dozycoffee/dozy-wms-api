@@ -53,6 +53,12 @@
   (warehouse_admin)이 원위치 확인 뒤 레거시 점유와 출고장 점유(피킹 수량)를 풀고 취소를 확정한다. 취소가 확정될 때(즉시 취소·승인) inventory 예약 해제
   `POST /api/v1/reservations/{id}/release` 호출(`wms-release-{출고 ID}`)을 같은 트랜잭션에서 아웃박스에 기록한다. `outbound.status` CHECK에 두 상태를 추가했다(V11).
   `CANCEL_REQUESTED`에서는 검수·완료·재할당이 상태 전이로 막힌다. OMS가 호출할 system client에 `wms:service` role 부여가 배포 때 필요하다.
+- F-037: 입고·반품·폐기·실사·출고를 Location 장부(`location_stock`) 기준으로 전환했다(컷오버 1단계, ADR-0024, V12). 장부가 Location 사용량을 소유해 `increase`/`decrease`/`consume`이
+  `usedCapacity`를 함께 갱신하고, `held_quantity`(가용 = `quantity − held_quantity`)와 피킹 계획(`outbound_allocation_pick`)으로 출고 피킹을 점유한다(취소·재할당 때 해제, 완료 때 소비).
+  `disposal_item`·`stock_audit_item`은 `location_stock_id`를 가리키고 부분 폐기를 허용한다(같은 행의 완료 전 폐기 신청 합이 행 수량 이하). 반품 Lot 확인은 장부에 상품·Lot 번호 행이 있는지로 한다.
+  `dozy.inventory.lot`의 `LOT_EXPIRED`를 받으면(`wms.lot-event.listener.*`) 가용 수량이 많은 Location부터 `DISPOSAL_SCHEDULED`로 옮기고 폐기 신청(`REQUESTED`, `source_event_id`로 중복 방지)을 만든다.
+  입고 검수의 Lot 유통기한 충돌 검사는 inventory(`INV_LOT_MISMATCH`)로 넘어갔다. 레거시 컨트롤러(`/api/inventories` 등, zone-summary는 장부 기반으로 유지)와 유통기한 스캔 스케줄러를 제거했고,
+  레거시 `inventory` 패키지·미러링은 사용처 없이 남아 F-040에서 삭제한다. 개발 DB는 V12가 폐기·실사 문서 행을 지우므로 `scripts/reset-dev-db.sh`로 초기화하는 편이 안전하다.
 
 ### 2026-10-13
 
@@ -128,10 +134,10 @@
 ## 다음 세션에서 할 일
 
 1. inventory 수신부를 공통 envelope으로 바꾸고(inventory 저장소) 처음 연동 때 `POST /api/warehouse-members/republish` 실행
-2. F-037(모든 흐름을 장부 기준으로 전환, ADR-0024) → F-040(레거시 재고 코드 삭제)
+2. F-040(레거시 재고 코드·테이블 삭제, ADR-0024)
    - F-032 후속: 두 서비스를 reset해 같은 시작점에서 띄우고 입고 1건 → inventory 수량 반영 → 대사 0건 확인
 3. 배포 체크리스트: inventory가 `dozy.inventory.product` 토픽을 로그 압축(`cleanup.policy=compact`)으로 생성, `dozy-admin-console`의 상품 등록·상태 변경을 inventory `/api/v1/products` 호출로 변경, dozy-auth admin에 `wms:` role 8개(`service` 포함) 등록하고 `svc-inventory`·OMS system client에 `wms:service`를 부여 (코드 작업 아님)
-4. `dozy-admin-console`: 출고 등록 화면 정리(`POST /api/outbounds` 제거, 출고는 예약 이벤트로만 생성)
+4. `dozy-admin-console`: 출고 등록 화면 정리(`POST /api/outbounds` 제거, 출고는 예약 이벤트로만 생성), 재고 목록·상세·Lot·이력 화면은 inventory API로 전환(`/api/inventories`(zone-summary 제외)·`/api/lots`·`/api/inventory-histories` 제거, 폐기 등록은 `inventoryId` 대신 `locationStockId`)
 5. `dozy-admin-console`의 `httpClient`가 에러 메시지를 `detail`(없으면 `code` 기반 문구)로 읽도록 갱신 (F-026 후속, 콘솔 저장소 작업)
 6. (후순위) 창고 배정 변경 시 요청마다 `warehouse_member`를 조회하는 비용 점검: 실측 후 필요할 때만 캐시 검토
 7. (후순위) 입고 검수 후속: 입고 등록이 같은 상품의 중복 줄을 허용하는지 확인(ADR-0016 가정), 잔여 유통기한 비율 기준·수량 허용 오차·로트 자동 생성 등 범위 밖 항목 재검토

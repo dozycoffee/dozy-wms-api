@@ -10,22 +10,23 @@ import com.dozycoffee.wms.disposal.application.port.out.DisposalItemRepository
 import com.dozycoffee.wms.disposal.application.port.out.DisposalRepository
 import com.dozycoffee.wms.disposal.domain.enumeration.DisposalStatus
 import com.dozycoffee.wms.disposal.domain.exception.DisposalNotFoundException
-import com.dozycoffee.wms.disposal.domain.exception.DisposalQuantityMismatchException
+import com.dozycoffee.wms.disposal.domain.exception.DisposalQuantityExceededException
+import com.dozycoffee.wms.disposal.domain.exception.DisposalStockWarehouseMismatchException
 import com.dozycoffee.wms.disposal.domain.exception.InventoryNotDisposableException
 import com.dozycoffee.wms.disposal.domain.model.Disposal
 import com.dozycoffee.wms.disposal.domain.model.DisposalItem
 import com.dozycoffee.wms.global.security.WarehouseAccessGuard
-import com.dozycoffee.wms.inventory.application.port.`in`.ConfirmInventoryDisposalUseCase
-import com.dozycoffee.wms.inventory.application.port.`in`.GetInventoryUseCase
-import com.dozycoffee.wms.inventory.application.port.`in`.GetLotUseCase
-import com.dozycoffee.wms.inventory.application.port.`in`.result.InventoryResult
-import com.dozycoffee.wms.inventory.domain.enumeration.QualityStatus
+import com.dozycoffee.wms.location_stock.application.port.`in`.DecreaseLocationStockUseCase
+import com.dozycoffee.wms.location_stock.application.port.`in`.GetLocationStockUseCase
+import com.dozycoffee.wms.location_stock.application.port.`in`.command.DecreaseLocationStockCommand
+import com.dozycoffee.wms.location_stock.application.port.`in`.result.LocationStockResult
+import com.dozycoffee.wms.location_stock.domain.enumeration.StockQualityStatus
+import com.dozycoffee.wms.warehouse.application.port.`in`.GetLocationUseCase
 import com.dozycoffee.wms.warehouse.application.port.`in`.GetWorkAreaUseCase
+import com.dozycoffee.wms.warehouse.application.port.`in`.GetZoneUseCase
 import com.dozycoffee.wms.warehouse.application.port.`in`.OccupyWorkAreaUseCase
-import com.dozycoffee.wms.warehouse.application.port.`in`.ReleaseLocationUseCase
 import com.dozycoffee.wms.warehouse.application.port.`in`.ReleaseWorkAreaUseCase
 import com.dozycoffee.wms.warehouse.application.port.`in`.command.OccupyWorkAreaCommand
-import com.dozycoffee.wms.warehouse.application.port.`in`.command.ReleaseLocationCommand
 import com.dozycoffee.wms.warehouse.application.port.`in`.command.ReleaseWorkAreaCommand
 import com.dozycoffee.wms.warehouse.domain.enumeration.AreaCode
 import kotlinx.coroutines.flow.Flow
@@ -39,31 +40,40 @@ class DisposalService(
     private val warehouseAccessGuard: WarehouseAccessGuard,
     private val disposalRepository: DisposalRepository,
     private val disposalItemRepository: DisposalItemRepository,
-    private val getInventoryUseCase: GetInventoryUseCase,
-    private val confirmInventoryDisposalUseCase: ConfirmInventoryDisposalUseCase,
+    private val getLocationStockUseCase: GetLocationStockUseCase,
+    private val decreaseLocationStockUseCase: DecreaseLocationStockUseCase,
+    private val getLocationUseCase: GetLocationUseCase,
+    private val getZoneUseCase: GetZoneUseCase,
     private val getWorkAreaUseCase: GetWorkAreaUseCase,
     private val occupyWorkAreaUseCase: OccupyWorkAreaUseCase,
     private val releaseWorkAreaUseCase: ReleaseWorkAreaUseCase,
-    private val releaseLocationUseCase: ReleaseLocationUseCase,
-    private val getLotUseCase: GetLotUseCase,
     private val disposalInventoryCallRecorder: DisposalInventoryCallRecorder
 ) : RegisterDisposalUseCase,
     ApproveDisposalUseCase,
     CompleteDisposalUseCase,
     GetDisposalUseCase {
 
-    /** 대상 재고가 DEFECTIVE/DISPOSAL_SCHEDULED이고 수량이 일치하는 경우에만 폐기 등록을 허용한다 */
+    /**
+     * 대상이 요청한 창고의 정상 품질이 아닌(DEFECTIVE/DISPOSAL_SCHEDULED) 위치 재고이고, 다른 미완료 폐기 신청의 수량을 뺀 수량 안일 때만
+     * 등록한다(부분 폐기 허용, ADR-0024).
+     */
     @Transactional
     override suspend fun register(command: RegisterDisposalCommand): DisposalResult {
         warehouseAccessGuard.require(command.warehouseId)
         val disposal = Disposal.create(command.warehouseId)
         val savedDisposal = disposalRepository.save(disposal)
 
+        val requestedByStock = mutableMapOf<Long, Int>()
         command.items.forEach { item ->
-            val inventory = getInventoryUseCase.getById(item.inventoryId)
-            validateDisposable(inventory, item.quantity)
+            val stock = getLocationStockUseCase.getById(item.locationStockId)
+            validateDisposable(stock, command.warehouseId)
+            val requested = requestedByStock.merge(item.locationStockId, item.quantity, Int::plus) ?: item.quantity
+            val pending = disposalItemRepository.sumPendingQuantityByLocationStockId(item.locationStockId)
+            if (pending + requested > stock.quantity) {
+                throw DisposalQuantityExceededException()
+            }
             disposalItemRepository.save(
-                DisposalItem.create(savedDisposal.disposalId, item.inventoryId, item.quantity, item.reason)
+                DisposalItem.create(savedDisposal.disposalId, item.locationStockId, item.quantity, item.reason)
             )
         }
 
@@ -84,7 +94,7 @@ class DisposalService(
     }
 
     /**
-     * 폐기 확정 — 대상 재고를 완전히 제외(soft delete)하고 Location/폐기 처리장 점유를 해제한다.
+     * 폐기 확정 — 폐기 수량만큼 위치 재고(와 Location 사용량)를 줄이고 폐기 처리장 점유를 해제한다.
      * 폐기 상품마다 inventory 폐기 확정 호출을 같은 트랜잭션에서 아웃박스에 기록한다.
      */
     @Transactional
@@ -94,15 +104,11 @@ class DisposalService(
 
         var totalQuantity = 0
         for (item in items) {
-            val inventory = getInventoryUseCase.getById(item.inventoryId)
-            releaseLocationUseCase.release(ReleaseLocationCommand(inventory.locationId, item.quantity))
-            confirmInventoryDisposalUseCase.confirmDisposal(item.inventoryId, requireNotNull(item.disposalItemId))
-            disposalInventoryCallRecorder.record(
-                disposal.warehouseId,
-                item,
-                inventory,
-                getLotUseCase.getById(inventory.lotId).lotNumber
+            val stock = getLocationStockUseCase.getById(item.locationStockId)
+            decreaseLocationStockUseCase.decrease(
+                DecreaseLocationStockCommand(stock.locationId, stock.productId, stock.lotNumber, stock.qualityStatus, item.quantity)
             )
+            disposalInventoryCallRecorder.record(disposal.warehouseId, item, stock)
             totalQuantity += item.quantity
         }
 
@@ -124,12 +130,13 @@ class DisposalService(
             .map { DisposalResult.from(it) }
     }
 
-    private fun validateDisposable(inventory: InventoryResult, quantity: Int) {
-        if (inventory.qualityStatus == QualityStatus.NORMAL) {
+    private suspend fun validateDisposable(stock: LocationStockResult, warehouseId: Long) {
+        if (stock.qualityStatus == StockQualityStatus.NORMAL) {
             throw InventoryNotDisposableException()
         }
-        if (quantity != inventory.quantity) {
-            throw DisposalQuantityMismatchException()
+        val zoneId = getLocationUseCase.getById(stock.locationId).zoneId
+        if (getZoneUseCase.getById(zoneId).warehouseId != warehouseId) {
+            throw DisposalStockWarehouseMismatchException()
         }
     }
 

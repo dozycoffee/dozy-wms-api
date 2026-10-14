@@ -6,7 +6,7 @@ import com.dozycoffee.wms.disposal.domain.model.DisposalItem
 data class DisposalItemResult(
     val disposalItemId: Long,
     val disposalId: Long,
-    val inventoryId: Long,
+    val locationStockId: Long,
     val quantity: Int,
     val reason: DisposalReason
 ) {
@@ -15,7 +15,7 @@ data class DisposalItemResult(
             return DisposalItemResult(
                 requireNotNull(disposalItem.disposalItemId),
                 disposalItem.disposalId,
-                disposalItem.inventoryId,
+                disposalItem.locationStockId,
                 disposalItem.quantity,
                 disposalItem.reason
             )

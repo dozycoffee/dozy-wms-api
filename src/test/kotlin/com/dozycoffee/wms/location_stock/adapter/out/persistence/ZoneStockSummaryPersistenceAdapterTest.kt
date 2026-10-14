@@ -1,10 +1,9 @@
-package com.dozycoffee.wms.inventory.adapter.out.persistence
+package com.dozycoffee.wms.location_stock.adapter.out.persistence
 
 import com.dozycoffee.wms.global.config.R2dbcConfig
 import com.dozycoffee.wms.support.SystemActorProvider
-import com.dozycoffee.wms.inventory.domain.enumeration.QualityStatus
-import com.dozycoffee.wms.inventory.fixture.InventoryTestBuilder.Companion.inventory
-import com.dozycoffee.wms.inventory.fixture.LotTestBuilder.Companion.lot
+import com.dozycoffee.wms.location_stock.domain.enumeration.StockQualityStatus
+import com.dozycoffee.wms.location_stock.domain.model.LocationStock
 import com.dozycoffee.wms.product.adapter.out.persistence.ProductPersistenceAdapter
 import com.dozycoffee.wms.product.adapter.out.persistence.ProductR2dbcRepository
 import com.dozycoffee.wms.product.fixture.ProductTestBuilder.Companion.product
@@ -32,23 +31,19 @@ import org.springframework.context.annotation.Import
     R2dbcConfig::class,
     SystemActorProvider::class,
     ProductPersistenceAdapter::class,
-    LotPersistenceAdapter::class,
-    InventoryPersistenceAdapter::class,
+    LocationStockPersistenceAdapter::class,
     WarehousePersistenceAdapter::class,
     ZonePersistenceAdapter::class,
     LocationPersistenceAdapter::class,
-    ZoneInventorySummaryPersistenceAdapter::class
+    ZoneStockSummaryPersistenceAdapter::class
 )
-class ZoneInventorySummaryPersistenceAdapterTest {
+class ZoneStockSummaryPersistenceAdapterTest {
 
     @Autowired
     private lateinit var productPersistenceAdapter: ProductPersistenceAdapter
 
     @Autowired
-    private lateinit var lotPersistenceAdapter: LotPersistenceAdapter
-
-    @Autowired
-    private lateinit var inventoryPersistenceAdapter: InventoryPersistenceAdapter
+    private lateinit var locationStockPersistenceAdapter: LocationStockPersistenceAdapter
 
     @Autowired
     private lateinit var warehousePersistenceAdapter: WarehousePersistenceAdapter
@@ -60,16 +55,13 @@ class ZoneInventorySummaryPersistenceAdapterTest {
     private lateinit var locationPersistenceAdapter: LocationPersistenceAdapter
 
     @Autowired
-    private lateinit var zoneInventorySummaryPersistenceAdapter: ZoneInventorySummaryPersistenceAdapter
+    private lateinit var zoneStockSummaryPersistenceAdapter: ZoneStockSummaryPersistenceAdapter
 
     @Autowired
     private lateinit var productR2dbcRepository: ProductR2dbcRepository
 
     @Autowired
-    private lateinit var lotR2dbcRepository: LotR2dbcRepository
-
-    @Autowired
-    private lateinit var inventoryR2dbcRepository: InventoryR2dbcRepository
+    private lateinit var locationStockR2dbcRepository: LocationStockR2dbcRepository
 
     @Autowired
     private lateinit var warehouseR2dbcRepository: WarehouseR2dbcRepository
@@ -83,8 +75,7 @@ class ZoneInventorySummaryPersistenceAdapterTest {
     @AfterEach
     fun cleanUp() {
         runTest {
-            inventoryR2dbcRepository.deleteAll()
-            lotR2dbcRepository.deleteAll()
+            locationStockR2dbcRepository.deleteAll()
             productR2dbcRepository.deleteAll()
             locationR2dbcRepository.deleteAll()
             zoneR2dbcRepository.deleteAll()
@@ -122,17 +113,10 @@ class ZoneInventorySummaryPersistenceAdapterTest {
         createLocation(zoneB.zoneId, "B-01", 60, 0)
 
         val productId = requireNotNull(productPersistenceAdapter.save(product().build()).productId)
-        val lotId = requireNotNull(lotPersistenceAdapter.save(lot().productId(productId).build()).lotId)
-        inventoryPersistenceAdapter.save(
-            inventory().productId(productId).lotId(lotId).locationId(zoneALocation1).quantity(20).build()
-        )
-        val defective = inventoryPersistenceAdapter.save(
-            inventory().productId(productId).lotId(lotId).locationId(zoneALocation2).quantity(10).build()
-        )
-        defective.markDefective()
-        inventoryPersistenceAdapter.save(defective)
+        locationStockPersistenceAdapter.save(LocationStock.create(zoneALocation1, productId, "LOT-1", StockQualityStatus.NORMAL, 20))
+        locationStockPersistenceAdapter.save(LocationStock.create(zoneALocation2, productId, "LOT-1", StockQualityStatus.DEFECTIVE, 10))
 
-        val result = zoneInventorySummaryPersistenceAdapter.findAll(null).toList()
+        val result = zoneStockSummaryPersistenceAdapter.findAll(null).toList()
 
         val zoneASummary = result.first { it.zoneId == zoneA.zoneId }
         assertThat(zoneASummary.zoneCode).isEqualTo(ZoneCode.A)
@@ -140,8 +124,8 @@ class ZoneInventorySummaryPersistenceAdapterTest {
         assertThat(zoneASummary.maxCapacity).isEqualTo(130)
         assertThat(zoneASummary.usedCapacity).isEqualTo(30)
         assertThat(zoneASummary.quantityByQualityStatus)
-            .containsEntry(QualityStatus.NORMAL, 20)
-            .containsEntry(QualityStatus.DEFECTIVE, 10)
+            .containsEntry(StockQualityStatus.NORMAL, 20)
+            .containsEntry(StockQualityStatus.DEFECTIVE, 10)
 
         val zoneBSummary = result.first { it.zoneId == zoneB.zoneId }
         assertThat(zoneBSummary.warehouseId).isEqualTo(zoneB.warehouseId)
@@ -154,7 +138,7 @@ class ZoneInventorySummaryPersistenceAdapterTest {
     fun `Location이 없는 Zone은 Capacity 0으로 집계된다`() = runTest {
         val zone = createZone(ZoneCode.C)
 
-        val result = zoneInventorySummaryPersistenceAdapter.findAll(null).toList()
+        val result = zoneStockSummaryPersistenceAdapter.findAll(null).toList()
 
         val summary = result.first { it.zoneId == zone.zoneId }
         assertThat(summary.warehouseId).isEqualTo(zone.warehouseId)
@@ -170,7 +154,7 @@ class ZoneInventorySummaryPersistenceAdapterTest {
         createLocation(zoneA.zoneId, "A-01", 70, 20)
         createLocation(zoneB.zoneId, "B-01", 60, 10)
 
-        val result = zoneInventorySummaryPersistenceAdapter.findAll(listOf(zoneA.warehouseId)).toList()
+        val result = zoneStockSummaryPersistenceAdapter.findAll(listOf(zoneA.warehouseId)).toList()
 
         assertThat(result).hasSize(1)
         assertThat(result[0].zoneId).isEqualTo(zoneA.zoneId)
@@ -182,7 +166,7 @@ class ZoneInventorySummaryPersistenceAdapterTest {
         val zoneA = createZone(ZoneCode.A)
         val zoneB = createZone(ZoneCode.B)
 
-        val result = zoneInventorySummaryPersistenceAdapter.findAll(emptyList()).toList()
+        val result = zoneStockSummaryPersistenceAdapter.findAll(emptyList()).toList()
 
         assertThat(result.map { it.zoneId }).contains(zoneA.zoneId, zoneB.zoneId)
     }

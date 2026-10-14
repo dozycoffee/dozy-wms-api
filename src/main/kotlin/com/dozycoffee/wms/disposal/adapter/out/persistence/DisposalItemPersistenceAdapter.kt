@@ -27,4 +27,8 @@ class DisposalItemPersistenceAdapter(
     override fun findAllByDisposalId(disposalId: Long): Flow<DisposalItem> {
         return disposalItemR2dbcRepository.findAllByDisposalId(disposalId).map { it.toDomain() }
     }
+
+    override suspend fun sumPendingQuantityByLocationStockId(locationStockId: Long): Int {
+        return disposalItemR2dbcRepository.sumPendingQuantityByLocationStockId(locationStockId).toInt()
+    }
 }

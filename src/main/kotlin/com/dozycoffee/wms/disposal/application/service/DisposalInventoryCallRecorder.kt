@@ -1,7 +1,7 @@
 package com.dozycoffee.wms.disposal.application.service
 
 import com.dozycoffee.wms.disposal.domain.model.DisposalItem
-import com.dozycoffee.wms.inventory.application.port.`in`.result.InventoryResult
+import com.dozycoffee.wms.location_stock.application.port.`in`.result.LocationStockResult
 import com.dozycoffee.wms.inventory_call.application.port.`in`.RecordInventoryCallUseCase
 import com.dozycoffee.wms.inventory_call.application.port.`in`.command.RecordInventoryCallCommand
 import com.dozycoffee.wms.inventory_call.domain.enumeration.InventoryCallType
@@ -15,13 +15,13 @@ class DisposalInventoryCallRecorder(
     private val jsonMapper: JsonMapper
 ) {
 
-    suspend fun record(warehouseId: Long, item: DisposalItem, inventory: InventoryResult, lotNumber: String) {
+    suspend fun record(warehouseId: Long, item: DisposalItem, stock: LocationStockResult) {
         val disposalItemId: Long = requireNotNull(item.disposalItemId)
         val body = DisposalRequestBody(
             warehouseId = warehouseId,
-            productId = inventory.productId,
-            lotNumber = lotNumber,
-            qualityStatus = inventory.qualityStatus.name,
+            productId = stock.productId,
+            lotNumber = stock.lotNumber,
+            qualityStatus = stock.qualityStatus.name,
             quantity = item.quantity,
             disposalItemId = disposalItemId
         )
