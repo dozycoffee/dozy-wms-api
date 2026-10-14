@@ -4,9 +4,11 @@ import com.dozycoffee.wms.global.security.WmsAuthorize
 import com.dozycoffee.wms.outbound.adapter.`in`.web.request.ReportPickingShortageRequest
 import com.dozycoffee.wms.outbound.adapter.`in`.web.response.OutboundAllocationResponse
 import com.dozycoffee.wms.outbound.adapter.`in`.web.response.OutboundResponse
+import com.dozycoffee.wms.outbound.application.port.`in`.ApproveOutboundCancelUseCase
 import com.dozycoffee.wms.outbound.application.port.`in`.CompleteOutboundUseCase
 import com.dozycoffee.wms.outbound.application.port.`in`.GetOutboundUseCase
 import com.dozycoffee.wms.outbound.application.port.`in`.ReportPickingShortageUseCase
+import com.dozycoffee.wms.outbound.application.port.`in`.RequestOutboundCancelUseCase
 import com.dozycoffee.wms.outbound.application.port.`in`.StartOutboundInspectingUseCase
 import com.dozycoffee.wms.outbound.application.port.`in`.StartOutboundPickingUseCase
 import com.dozycoffee.wms.outbound.domain.enumeration.OutboundStatus
@@ -30,6 +32,8 @@ class OutboundController(
     private val startOutboundInspectingUseCase: StartOutboundInspectingUseCase,
     private val completeOutboundUseCase: CompleteOutboundUseCase,
     private val reportPickingShortageUseCase: ReportPickingShortageUseCase,
+    private val requestOutboundCancelUseCase: RequestOutboundCancelUseCase,
+    private val approveOutboundCancelUseCase: ApproveOutboundCancelUseCase,
     private val getOutboundUseCase: GetOutboundUseCase
 ) {
 
@@ -65,6 +69,20 @@ class OutboundController(
         @Valid @RequestBody request: ReportPickingShortageRequest
     ): List<OutboundAllocationResponse> {
         return reportPickingShortageUseCase.report(request.toCommand(outboundId)).map { OutboundAllocationResponse.from(it) }
+    }
+
+    /** OMS 또는 창고 담당자의 취소 요청. 피킹 전이면 바로 취소하고, 이후에는 관리자 승인을 기다린다 */
+    @PostMapping("/{outboundId}/cancel-requests")
+    @PreAuthorize(WmsAuthorize.OUTBOUND_OR_SERVICE)
+    suspend fun requestCancel(@PathVariable outboundId: Long): OutboundResponse {
+        return OutboundResponse.from(requestOutboundCancelUseCase.requestCancel(outboundId))
+    }
+
+    /** 관리자가 상품이 원위치된 것을 확인하고 취소를 확정한다 */
+    @PostMapping("/{outboundId}/cancel-approval")
+    @PreAuthorize(WmsAuthorize.ADMIN)
+    suspend fun approveCancel(@PathVariable outboundId: Long): OutboundResponse {
+        return OutboundResponse.from(approveOutboundCancelUseCase.approveCancel(outboundId))
     }
 
     @PatchMapping("/{outboundId}/complete")

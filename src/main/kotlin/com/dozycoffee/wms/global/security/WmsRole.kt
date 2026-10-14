@@ -27,5 +27,6 @@ object WmsAuthorize {
     const val DISPOSAL: String = "hasAnyRole('disposal_manager','warehouse_admin')"
     const val STOCK_AUDIT: String = "hasAnyRole('stock_audit_manager','warehouse_admin')"
     const val ADMIN: String = "hasRole('warehouse_admin')"
+    const val OUTBOUND_OR_SERVICE: String = "hasAnyRole('outbound_manager','warehouse_admin','service')"
     const val SERVICE: String = "hasAnyRole('service','warehouse_admin')"
 }

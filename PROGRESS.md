@@ -48,6 +48,11 @@
   응답 기준으로 출고 할당을 갱신·삭제·추가하고 레거시 점유를 새 할당대로 다시 잡으며 출고장 점유량을 피킹 수량 증감만큼 보정한다. inventory 거부는 409
   (`OUTBOUND_INVENTORY_REJECTED`), 통신 불가는 503(`OUTBOUND_INVENTORY_UNAVAILABLE`)이고 이때 로컬은 바뀌지 않는다. 할당 조회 `GET /api/outbound-allocations?outboundId=`를
   추가했고 점유 로직은 `OutboundAllocationHolder`로 분리했다. 취소·해제는 F-039로 분리했다(OMS 진입점은 REST API로 결정).
+- F-039: 출고 취소를 추가했다(시나리오 결정 3). `POST /api/outbounds/{id}/cancel-requests`(outbound_manager·warehouse_admin·wms:service)는 피킹 전이면 바로 `CANCELED`로, 피킹 이후
+  출고 완료 전이면 `CANCEL_REQUESTED`로 두고, 재요청은 현재 상태를 돌려준다. 출고 완료 후는 409(`OUTBOUND_NOT_CANCELABLE`, 반품 흐름). `POST /api/outbounds/{id}/cancel-approval`
+  (warehouse_admin)이 원위치 확인 뒤 레거시 점유와 출고장 점유(피킹 수량)를 풀고 취소를 확정한다. 취소가 확정될 때(즉시 취소·승인) inventory 예약 해제
+  `POST /api/v1/reservations/{id}/release` 호출(`wms-release-{출고 ID}`)을 같은 트랜잭션에서 아웃박스에 기록한다. `outbound.status` CHECK에 두 상태를 추가했다(V11).
+  `CANCEL_REQUESTED`에서는 검수·완료·재할당이 상태 전이로 막힌다. OMS가 호출할 system client에 `wms:service` role 부여가 배포 때 필요하다.
 
 ### 2026-10-13
 
@@ -123,9 +128,9 @@
 ## 다음 세션에서 할 일
 
 1. inventory 수신부를 공통 envelope으로 바꾸고(inventory 저장소) 처음 연동 때 `POST /api/warehouse-members/republish` 실행
-2. F-039(출고 취소·해제) → F-037(컷오버·재고 코드 제거·devseed 개편)
+2. F-037(컷오버·재고 코드 제거·devseed 개편)
    - F-032 후속: 두 서비스를 reset해 같은 시작점에서 띄우고 입고 1건 → inventory 수량 반영 → 대사 0건 확인
-3. 배포 체크리스트: inventory가 `dozy.inventory.product` 토픽을 로그 압축(`cleanup.policy=compact`)으로 생성, `dozy-admin-console`의 상품 등록·상태 변경을 inventory `/api/v1/products` 호출로 변경, dozy-auth admin에 `wms:` role 8개(`service` 포함) 등록하고 `svc-inventory` system client에 `wms:service`를 부여 (코드 작업 아님)
+3. 배포 체크리스트: inventory가 `dozy.inventory.product` 토픽을 로그 압축(`cleanup.policy=compact`)으로 생성, `dozy-admin-console`의 상품 등록·상태 변경을 inventory `/api/v1/products` 호출로 변경, dozy-auth admin에 `wms:` role 8개(`service` 포함) 등록하고 `svc-inventory`·OMS system client에 `wms:service`를 부여 (코드 작업 아님)
 4. `dozy-admin-console`: 출고 등록 화면 정리(`POST /api/outbounds` 제거, 출고는 예약 이벤트로만 생성)
 5. `dozy-admin-console`의 `httpClient`가 에러 메시지를 `detail`(없으면 `code` 기반 문구)로 읽도록 갱신 (F-026 후속, 콘솔 저장소 작업)
 6. (후순위) 창고 배정 변경 시 요청마다 `warehouse_member`를 조회하는 비용 점검: 실측 후 필요할 때만 캐시 검토

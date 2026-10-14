@@ -16,6 +16,11 @@ enum class OutboundErrorCode(
         "OUTBOUND_INVALID_STATUS_TRANSITION",
         "출고 상태를 역행하거나 건너뛸 수 없습니다."
     ),
+    NOT_CANCELABLE(
+        ErrorType.CONFLICT,
+        "OUTBOUND_NOT_CANCELABLE",
+        "출고가 완료된 뒤에는 취소할 수 없습니다. 반품 흐름으로 처리해 주세요."
+    ),
     NOT_REALLOCATABLE(
         ErrorType.CONFLICT,
         "OUTBOUND_NOT_REALLOCATABLE",
