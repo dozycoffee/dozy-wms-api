@@ -44,7 +44,7 @@ Accepted. 결정 1의 Kafka 헤더 부분은 [ADR-0022](0022-event-metadata-in-p
 ### 4. 처음 연동과 복구
 - `POST /api/warehouse-members/republish`(`warehouse_admin`)가 소속이 있는 모든 직원의 행을 새로 만든다. 처음 연동할 때 사본을 채우고, 사본이 어긋났다고
   의심될 때 복구하는 용도다. 앱 기동 시 자동 전체 발행은 하지 않는다.
-- 토픽은 `cleanup.policy=compact`로 만들어 직원마다 최신 상태만 보관한다(키가 `principalId`). inventory의 새 컨슈머 그룹이 처음부터 읽어도 사본이 채워진다.
+- 토픽은 `cleanup.policy=compact`여야 직원마다 최신 상태만 보관한다(키가 `principalId`). inventory의 새 컨슈머 그룹이 처음부터 읽어도 사본이 채워진다. 토픽은 인프라가 미리 만든다([ADR-0026](0026-topics-declared-by-infrastructure.md)).
   앱이 `NewTopic`으로 생성하며(`wms.warehouse-access-event.topic.*`), 운영에서 인프라가 미리 만들면 그 설정이 우선한다.
 
 ### 5. 로컬 개발과 테스트

@@ -61,5 +61,6 @@ Proposed | Accepted | Deprecated | Superseded by ADR-YYYY
 | [0023](0023-add-inventory-calls-before-cutover.md) | 흐름별로 inventory 호출을 먼저 추가하고 컷오버는 마지막에 한 번에 함 (ADR-0018 결정 5 대체) | Accepted |
 | [0024](0024-inventory-cutover-plan.md) | 재고 컷오버 계획 — 흐름을 장부 기준으로 전환(1단계)하고 레거시를 삭제(2단계) | Accepted |
 | [0025](0025-role-consolidation.md) | WMS role을 창고 관리자·admin·viewer·service로 합친다 | Accepted |
+| [0026](0026-topics-declared-by-infrastructure.md) | Kafka 토픽은 인프라가 선언하고 서비스는 만들지 않는다 | Accepted |
 
 새 ADR은 `NNNN-kebab-case-제목.md` 형식으로 추가하고, 이 표에도 반드시 등록한다.
