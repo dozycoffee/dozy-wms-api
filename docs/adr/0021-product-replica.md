@@ -39,7 +39,7 @@ inventory 서비스가 상품 마스터를 소유한다(inventory ADR-0004, WMS 
 - 설정: `wms.product-event.listener.enabled`(기본 true, 테스트에서 끔), `wms.product-event.listener.topic`(기본 `dozy.inventory.product`).
 
 ### 5. 처음 채우기와 누락 복구
-- WMS는 토픽을 처음부터 읽어 사본을 채운다. 이벤트가 영구히 남도록 **inventory가 `dozy.inventory.product` 토픽을 로그 압축(`cleanup.policy=compact`)으로 만든다**(inventory 저장소 작업).
+- WMS는 토픽을 처음부터 읽어 사본을 채운다. 이벤트가 영구히 남도록 **`dozy.inventory.product` 토픽은 로그 압축(`cleanup.policy=compact`)이어야 한다.** 토픽은 서비스가 아니라 인프라가 이 설정으로 미리 만든다([ADR-0026](0026-topics-declared-by-infrastructure.md)).
   압축이 없으면 보관 기간이 지난 상품 이벤트가 사라져 새 환경의 WMS에 그 상품이 생기지 않는다.
 - inventory를 조회해 사본을 맞추는 동기화 API는 이번 범위에 두지 않는다. 이벤트를 놓치는 일이 실제로 생기면 후속 작업으로 만든다.
 
@@ -47,7 +47,7 @@ inventory 서비스가 상품 마스터를 소유한다(inventory ADR-0004, WMS 
 - inventory에 상품을 등록한 직후 사본이 도착하기 전에 WMS에서 그 상품을 쓰면 `PRODUCT_NOT_FOUND`(404)가 나며 별도 대기 로직을 두지 않는다. 사본은 보통 수 초 안에 생기므로 재시도하면 된다.
 
 ## 범위 밖
-- inventory의 토픽 압축 설정, `dozy-admin-console`의 상품 쓰기 호출 변경.
+- 토픽 생성과 압축 설정(인프라 저장소의 몫, ADR-0026), `dozy-admin-console`의 상품 쓰기 호출 변경.
 - 사본 불일치를 찾아내는 동기화·대사 API, DLT 메시지 재처리 도구.
 
 ## 결과 (Consequences)
