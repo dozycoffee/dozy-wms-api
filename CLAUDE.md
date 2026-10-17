@@ -213,7 +213,7 @@ F Zone   : MD 상품  (상온) — F-01(230), F-02(190)                         
 - Location `usedCapacity`는 적재 즉시 갱신, `maxCapacity` 초과 불가
 
 **재고 조회**
-- 재고 목록·상세·Lot·이력 조회는 inventory 서비스 API가 맡는다. WMS는 Zone 단위 현황(`GET /api/inventories/zone-summary`, 품질 상태별 수량·사용률)만 Location 장부로 제공하고, inventory 대사용으로 창고 합계(`GET /api/v1/stock-quantities`)를 제공한다
+- 재고 목록·상세·Lot·이력 조회는 inventory 서비스 API가 맡는다. WMS는 Location 장부로 만들 수 있는 현황만 제공한다 — Zone 단위 현황(`GET /api/inventories/zone-summary`, 품질 상태별 수량·사용률), Location별 장부 행(`GET /api/location-stocks`, ADR-0027). inventory 대사용으로 창고 합계(`GET /api/v1/stock-quantities`)도 제공한다
 
 **유통기한 모니터링** (inventory 서비스의 배치 스캔)
 - 경과 재고: 유통기한 스캔은 inventory 서비스가 하고, WMS는 `LOT_EXPIRED` 이벤트로 정상 재고를 가용 수량이 많은 Location부터 `DISPOSAL_SCHEDULED`로 옮기고 폐기 신청(`REQUESTED`)을 만든다 (ADR-0024)
