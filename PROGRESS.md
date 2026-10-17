@@ -15,6 +15,13 @@
 
 ## 세션 로그
 
+### 2026-10-17 (Location별 재고 조회 API)
+
+- F-043, 이슈 #157, `feat/location-stock-query-api` 브랜치. 재고 컷오버로 `/api/inventories`가 삭제돼 "어느 Location에 어떤 상품·Lot이 몇 개 있는가"를 읽을 API가 없어서 `GET /api/location-stocks`를 추가했다(ADR-0027, ADR-0018 결정 6 확장). 어드민 콘솔의 창고 관리 화면(Location별 재고, 폐기 등록 대상 선택)이 쓴다.
+- 응답은 `{"items":[...]}`이고 한 행은 `locationStockId`, `warehouseId`, `zoneId`, `zoneCode`, `locationId`, `locationCode`, `productId`, `lotNumber`, `qualityStatus`, `quantity`, `heldQuantity`, `availableQuantity`, `updatedAt`이다. 조건은 `warehouseIds`·`zoneId`·`locationId`·`productId`·`qualityStatus`·`includeEmpty`(기본 false, 수량 0 행 제외)이고 모두 선택이다. 정렬은 창고, Zone 코드, Location 코드, 상품 ID, Lot 번호 순이다.
+- 접근 범위는 `WarehouseAccess.narrow`로 좁힌 창고를 SQL 조건에 항상 걸어서 Zone·Location 조건으로 범위를 넘을 수 없다. `zone-summary`처럼 장부 도메인 모델을 거치지 않는 조회 전용 프로젝션(`LocationStockQueryPersistenceAdapter`)이다. 상품명은 주지 않고 콘솔이 `GET /api/products`로 채운다. 페이징은 두지 않았다(창고 구성이 고정이고 다른 목록 API도 없다).
+- 검증: `./gradlew build` 통과(서비스·영속성 어댑터·컨트롤러 테스트 추가).
+
 ### 2026-10-14 (role 통합)
 
 - F-042: WMS role을 `warehouse_manager`·`viewer`·`admin`·`service` 넷으로 합쳤다(ADR-0025). 업무별 담당 role 5개는 `warehouse_manager`로, `warehouse_admin`은 `admin`으로 이름만 바꿔 기존 허용 API를 그대로 유지했고(승인 API가 업무 API와 같은 엔드포인트라서),

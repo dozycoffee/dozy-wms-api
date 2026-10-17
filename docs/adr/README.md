@@ -62,5 +62,6 @@ Proposed | Accepted | Deprecated | Superseded by ADR-YYYY
 | [0024](0024-inventory-cutover-plan.md) | 재고 컷오버 계획 — 흐름을 장부 기준으로 전환(1단계)하고 레거시를 삭제(2단계) | Accepted |
 | [0025](0025-role-consolidation.md) | WMS role을 창고 관리자·admin·viewer·service로 합친다 | Accepted |
 | [0026](0026-topics-declared-by-infrastructure.md) | Kafka 토픽은 인프라가 선언하고 서비스는 만들지 않는다 | Accepted |
+| [0027](0027-location-stock-query-api.md) | Location별 재고 조회 API를 장부에서 읽기 전용으로 제공한다 (ADR-0018 결정 6 확장) | Accepted |
 
 새 ADR은 `NNNN-kebab-case-제목.md` 형식으로 추가하고, 이 표에도 반드시 등록한다.
